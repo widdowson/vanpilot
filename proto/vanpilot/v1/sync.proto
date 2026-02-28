@@ -1,0 +1,113 @@
+syntax = "proto3";
+
+package vanpilot.v1;
+
+option java_package = "com.vanpilot.proto.v1";
+option java_multiple_files = true;
+
+// The primary sync service. The Android app calls this to pull events
+// from the Mac Studio supervisor.
+service SyncService {
+  // Pull events since a given timestamp. The Android app drives sync.
+  rpc GetEvents(GetEventsRequest) returns (GetEventsResponse);
+
+  // Send transcribed voice input from the user to an agent.
+  rpc SendUserInput(SendUserInputRequest) returns (SendUserInputResponse);
+
+  // Request a bitmap that is not in the local cache.
+  rpc GetBitmap(GetBitmapRequest) returns (GetBitmapResponse);
+}
+
+message GetEventsRequest {
+  // Inclusive lower bound. Return events at or after this timestamp.
+  int64 since_timestamp_ms = 1;
+
+  // Maximum number of events to return. If the response contains exactly
+  // this many events, the client should query again with the timestamp
+  // of the last received event. Adaptive batching: the client adjusts
+  // this value based on connection health.
+  int32 max_count = 2;
+}
+
+message GetEventsResponse {
+  repeated Event events = 1;
+}
+
+message Event {
+  // Timestamp when this event was created (milliseconds since epoch).
+  int64 timestamp_ms = 1;
+
+  oneof payload {
+    TextMessage text_message = 2;
+    DisplayCommand display_command = 3;
+    BitmapPayload bitmap_payload = 4;
+    WatchdogTimeout watchdog_timeout = 5;
+    InputDeliveryFailure input_delivery_failure = 6;
+  }
+}
+
+// Text output from a Claude Code TUI session.
+message TextMessage {
+  // Which agent produced this output (e.g., "lead", "researcher", "renderer").
+  string agent_id = 1;
+
+  // The text content. May contain markdown.
+  string content = 2;
+}
+
+// Instructs the Android app to display a cached bitmap.
+message DisplayCommand {
+  // The hex cache key of the bitmap to display.
+  string cache_key = 1;
+}
+
+// A new bitmap being transmitted with its cache key.
+message BitmapPayload {
+  // The assigned cache key for this bitmap.
+  string cache_key = 1;
+
+  // The image data (PNG encoded).
+  bytes image_data = 2;
+
+  // Optional: dimensions for rendering context.
+  int32 width_px = 3;
+  int32 height_px = 4;
+}
+
+// The supervisory process suspects an agent has become unresponsive.
+message WatchdogTimeout {
+  // Which agent is suspected unresponsive.
+  string agent_id = 1;
+
+  // How long the agent has been silent (milliseconds).
+  int64 silent_duration_ms = 2;
+}
+
+// A user prompt was injected but no agent response was detected.
+message InputDeliveryFailure {
+  // The text that was attempted to be delivered.
+  string attempted_input = 1;
+
+  // Which agent was the target.
+  string target_agent_id = 2;
+}
+
+message SendUserInputRequest {
+  // The transcribed text from the user's voice.
+  string text = 1;
+
+  // Which agent to send this to. Default: "lead".
+  string target_agent_id = 2;
+}
+
+message SendUserInputResponse {
+  bool accepted = 1;
+}
+
+message GetBitmapRequest {
+  string cache_key = 1;
+}
+
+message GetBitmapResponse {
+  BitmapPayload bitmap = 1;
+}

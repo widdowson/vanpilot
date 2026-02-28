@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package vanpilot.v1;
+
+option java_package = "com.vanpilot.proto.v1";
+option java_multiple_files = true;
+
+// The display MCP service. Claude Code agents call this to control
+// the Android Auto head unit display.
+service DisplayService {
+  // Submit a new bitmap for caching. Returns the assigned cache key
+  // and a courtesy screenshot showing how it renders.
+  rpc SubmitBitmap(SubmitBitmapRequest) returns (SubmitBitmapResponse);
+
+  // Instruct the Android app to display a cached bitmap.
+  rpc DisplayBitmap(DisplayBitmapRequest) returns (DisplayBitmapResponse);
+
+  // Request a screenshot of the current Android Auto display.
+  rpc GetScreenshot(GetScreenshotRequest) returns (GetScreenshotResponse);
+}
+
+message SubmitBitmapRequest {
+  // The rendered bitmap image data (PNG encoded).
+  bytes image_data = 1;
+}
+
+message SubmitBitmapResponse {
+  // The assigned cache key for this bitmap.
+  string cache_key = 1;
+
+  // A screenshot showing how the bitmap looks on the display
+  // at the correct dimensions. For agent verification.
+  bytes courtesy_screenshot = 2;
+}
+
+message DisplayBitmapRequest {
+  // The cache key of the bitmap to display.
+  string cache_key = 1;
+
+  // If true, the call blocks until the Android app confirms display.
+  // Default: false (non-blocking, fire-and-forget).
+  bool blocking = 2;
+}
+
+message DisplayBitmapResponse {
+  bool success = 1;
+
+  // Only populated if blocking=true. The cache key the app confirmed.
+  string confirmed_cache_key = 2;
+}
+
+message GetScreenshotRequest {}
+
+message GetScreenshotResponse {
+  // PNG-encoded screenshot of the current Android Auto display.
+  bytes screenshot = 1;
+}

@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package vanpilot.v1;
+
+option java_package = "com.vanpilot.proto.v1";
+option java_multiple_files = true;
+
+// Service hosted by the Android app. The Mac Studio supervisor
+// calls this to query the app's state.
+service AndroidAppService {
+  // Ask the Android app what cache key is currently displayed.
+  rpc GetCurrentDisplay(GetCurrentDisplayRequest) returns (GetCurrentDisplayResponse);
+
+  // Request a screenshot of the current Android Auto rendering.
+  rpc RequestScreenshot(RequestScreenshotRequest) returns (RequestScreenshotResponse);
+
+  // Check which cache keys the app currently holds.
+  rpc QueryCache(QueryCacheRequest) returns (QueryCacheResponse);
+}
+
+message GetCurrentDisplayRequest {}
+
+message GetCurrentDisplayResponse {
+  // The cache key currently being displayed, or empty if none.
+  string current_cache_key = 1;
+}
+
+message RequestScreenshotRequest {}
+
+message RequestScreenshotResponse {
+  // PNG-encoded screenshot.
+  bytes screenshot = 1;
+}
+
+message QueryCacheRequest {
+  // Cache keys to check. If empty, return all known keys.
+  repeated string keys = 1;
+}
+
+message QueryCacheResponse {
+  // Keys that the app currently holds in its cache.
+  repeated string present_keys = 1;
+
+  // Keys that were requested but are not in the cache.
+  repeated string missing_keys = 2;
+}
