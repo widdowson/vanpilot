@@ -57,7 +57,7 @@ This document defines the acceptance criteria for VanPilot development. All feat
 
 ## AC-8: Voice I/O
 
-- [ ] **AC-8.1**: Speech-to-text runs entirely on-device (no cloud API calls).
+- [ ] **AC-8.1**: Speech-to-text runs entirely on-device (no cloud API calls). Phase 1 uses Android's built-in `SpeechRecognizer` with offline language pack. Phase 2 targets a local model (e.g., Whisper.cpp) for improved accuracy.
 - [ ] **AC-8.2**: Text-to-speech runs entirely on-device (no cloud API calls).
 - [ ] **AC-8.3**: Voice input is disabled during read-only (offline) mode.
 - [ ] **AC-8.4**: Incoming text messages are spoken aloud via TTS as they arrive.
@@ -72,11 +72,13 @@ This document defines the acceptance criteria for VanPilot development. All feat
 
 ## AC-10: Android Auto Integration
 
-- [ ] **AC-10.1**: The VanPilot app is a first-class Android Auto app.
+- [ ] **AC-10.1**: The VanPilot app is a navigation-category `androidx.car.app` app using the Car App Library. It declares `androidx.car.app.NAVIGATION_TEMPLATES` and `androidx.car.app.ACCESS_SURFACE` permissions.
 - [ ] **AC-10.2**: The app renders correctly on a 13-inch head unit display alongside Maps and Spotify.
-- [ ] **AC-10.3**: Tab navigation works via touch on the head unit.
-- [ ] **AC-10.4**: Visual card history is browsable via touch.
-- [ ] **AC-10.5**: The app can be fully tested using Android Studio's emulator + Android Auto DHU without physical hardware.
+- [ ] **AC-10.3**: The top-level template is a `TabTemplate`. Tab navigation works via touch on the head unit.
+- [ ] **AC-10.4**: The Visual Card tab uses a `NavigationTemplate` with a `SurfaceCallback` to blit cached PNG bitmaps onto the `Surface`. Visual card history is browsable via action strip buttons.
+- [ ] **AC-10.5**: Conversation tabs (lead agent, sub-agents) use `ListTemplate` to display text message feeds.
+- [ ] **AC-10.6**: The app supports dark mode via `carContext.isDarkMode()` and forwards the theme to the supervisor for agent rendering context.
+- [ ] **AC-10.7**: The app can be fully tested using Android Studio's emulator + Android Auto DHU without physical hardware.
 
 ## AC-11: Security
 

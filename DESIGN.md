@@ -19,7 +19,7 @@ The Mac Studio (24-core, located at the user's home/business) runs all compute-i
   - Monitors agent health (watchdog) and emits `WatchdogTimeout` events if a session goes silent.
   - Serves the gRPC API that the Android app connects to.
 
-- **MCP Server for Display Control**: An MCP server that the lead agent (and potentially a rendering sub-agent) can invoke to control what is displayed on the Android Auto head unit. This MCP lives inside the Docker container alongside the Claude Code instances so that the agents can reference it natively.
+- **MCP Server for Display Control**: An MCP server that the lead agent (and potentially a rendering sub-agent) can invoke to control what is displayed on the Android Auto head unit. This MCP lives inside the Docker container alongside the Claude Code instances. Agents discover it via a `.mcp.json` configuration file in the repository root (mounted into the container), which registers the MCP server so all Claude Code instances pick it up automatically on startup.
 
 ### 2.2 Pixel 10 Pro — Trusted Client
 
@@ -28,7 +28,7 @@ The Pixel 10 Pro runs the VanPilot Android app and is the only device with crede
 The Android app is responsible for:
 
 - **Rendering**: Displaying agent output on the Android Auto head unit. The primary display is a tab-based interface where one tab shows the latest visual bitmap card and other tabs show text conversation feeds from the team lead and individual sub-agents.
-- **Voice I/O**: On-device speech-to-text (STT) captures the user's voice commands. On-device text-to-speech (TTS) reads back agent responses. No cloud APIs are used for STT/TTS to avoid costs and latency.
+- **Voice I/O**: On-device speech-to-text (STT) captures the user's voice commands. On-device text-to-speech (TTS) reads back agent responses. No cloud APIs are used for STT/TTS to avoid costs and latency. Phase 1 uses Android's built-in `SpeechRecognizer` (with offline language pack). Phase 2 investigates higher-quality local models (e.g., Whisper.cpp via [whisper.android](https://github.com/niclaswue/whisper.android)) for improved accuracy without cloud dependency.
 - **gRPC Communication**: Bidirectional gRPC with the Mac Studio supervisor. The Android app pulls timestamped events (text messages, display commands, watchdog alerts) and the Mac Studio can push requests (screenshot requests, cache queries) to the Android app.
 - **Bitmap Cache**: Maintains a local cache of rendered bitmaps keyed by hex tokens. When the lead agent requests display of a cached image, no retransmission is needed. If a key is missing, the app requests the bitmap from the supervisor.
 - **Offline Resilience**: Detects network disconnections and enters read-only mode (voice input disabled, last displayed bitmap retained, disconnect indicator in the tab bar). On reconnection, syncs from the last known timestamp.
@@ -52,7 +52,7 @@ The aftermarket head unit runs an opaque Android OS distribution that has not be
 
 ### 3.1 Transport
 
-All communication between the Android app and the Mac Studio supervisor occurs over gRPC, tunneled through Tailscale. Protocol buffers define the message schemas.
+All communication between the Android app and the Mac Studio supervisor occurs over gRPC, tunneled through Tailscale. Protocol buffers define the message schemas. Each side discovers the other via stable Tailscale hostnames (e.g., `mac-studio.tailnet:50051` for the supervisor, `pixel.tailnet:50052` for the Android app's reverse gRPC server). Hostnames and ports are configurable.
 
 ### 3.2 Sync Model — Android App Drives
 
@@ -140,7 +140,7 @@ As a research objective, investigate whether the supervisory process can registe
 
 ### 5.1 Rendering Model
 
-The lead agent (or a dedicated rendering sub-agent) generates bitmaps programmatically and submits them via the display MCP. The agent owns the entire visual — layout, palette, content. This avoids markdown-to-screen translation issues.
+The lead agent (or a dedicated rendering sub-agent) generates PNG bitmaps at the target display resolution and submits them via the display MCP's `submit_bitmap` tool. The agent chooses how to produce the image — Python with Pillow, matplotlib, HTML-to-image, SVG rasterization, or any other method available in its sandbox. The agent owns the entire visual — layout, palette, content. This avoids markdown-to-screen translation issues and gives agents full creative control over rendering approach.
 
 ### 5.2 Cache Protocol
 
@@ -157,7 +157,7 @@ The lead agent (or a dedicated rendering sub-agent) generates bitmaps programmat
 
 ### 5.4 Nighttime/Contextual Rendering
 
-The user can provide feedback to the lead agent about rendering preferences (e.g., "use a dark palette at night"). The agent may also detect context from CAN bus data (headlights on/off) if that integration is available. Rendering agents should be responsive to such feedback and adjust their bitmap output accordingly.
+The Android app detects the current theme via `carContext.isDarkMode()` and can forward this as context to the supervisor. The user can also provide direct feedback to the lead agent about rendering preferences (e.g., "use a dark palette at night"). The agent may additionally detect context from CAN bus data (headlights on/off) if that integration is available. Rendering agents should be responsive to such signals and adjust their bitmap output accordingly.
 
 ## 6. Android App UI
 
@@ -165,19 +165,43 @@ The user can provide feedback to the lead agent about rendering preferences (e.g
 
 The head unit display is a 13-inch screen shared with Google Maps (~2/3) and Spotify. VanPilot occupies approximately 1/3 of the display.
 
-**Tab Bar**: A row of tabs along one edge of the VanPilot area:
-- **Visual Card**: The latest bitmap from the rendering agent.
-- **Lead Agent**: Text conversation feed with the team lead.
-- **Sub-Agent Tabs**: One tab per active sub-agent, showing their conversation output.
-- **Connection Indicator**: An icon in the tab bar area showing connection status (green = connected, red = disconnected). No extra screen real estate consumed.
+#### Car App Library Constraints
 
-**Visual Card History**: The user can swipe or tap through previous visual cards (cached bitmaps) without switching tabs.
+Android Auto apps cannot draw arbitrary UI. They must use the `androidx.car.app` library's predefined templates. VanPilot declares itself as a **navigation-category app** to gain access to the `NavigationTemplate`, which provides a raw `Surface` for custom rendering via `SurfaceCallback`. This is the only Car App Library template that exposes a drawable surface.
 
-**Touch Input**: Tab switches and visual card navigation via touch on the head unit. Touch events are forwarded to the Pixel via Android Auto.
+Google's policy restricts the navigation `Surface` to map content, but VanPilot is **sideloaded** onto the Pixel (not distributed via Google Play), so Play Store review policies do not apply.
+
+#### Template Structure
+
+The top-level template is a **`TabTemplate`**, which provides a row of tabs and embeds a child template in each:
+
+- **Visual Card tab** → `NavigationTemplate` with a `SurfaceCallback`. The app receives `onSurfaceAvailable(SurfaceContainer)` with the surface's width, height, and DPI, then blits cached PNG bitmaps directly onto the `Surface` via `Canvas`. The `NavigationTemplate`'s action strip holds controls (e.g., previous/next visual card for history browsing, connection status icon).
+- **Lead Agent tab** → `ListTemplate` showing the text conversation feed from the team lead as a scrollable list of `Row` items.
+- **Sub-Agent tabs** → One `ListTemplate` per active sub-agent, showing their conversation output.
+
+#### Connection Indicator
+
+The connection status (connected/disconnected) is displayed as an icon in the `TabTemplate`'s header or the `NavigationTemplate`'s action strip, consuming no extra screen real estate.
+
+#### Visual Card History
+
+The user navigates previous visual cards using action strip buttons (back/forward) within the Visual Card tab. The app cycles through cached bitmaps and redraws the `Surface` accordingly.
+
+#### SurfaceCallback Lifecycle
+
+The app implements `SurfaceCallback` with these callbacks:
+- `onSurfaceAvailable(SurfaceContainer)` — acquire the `Surface`, store dimensions, draw the current bitmap.
+- `onVisibleAreaChanged(Rect)` — adapt rendering to the unobstructed visible area (templates may overlay routing cards or action strips).
+- `onStableAreaChanged(Rect)` — the smallest rectangle guaranteed always visible; use for critical content placement.
+- `onSurfaceDestroyed(SurfaceContainer)` — release resources.
+
+#### Touch Input
+
+Tab switches are handled natively by the `TabTemplate`. Action strip buttons handle visual card navigation. All touch events are forwarded from the head unit to the Pixel via Android Auto.
 
 ### 6.2 Fallback Interface (Phone Screen)
 
-When the user is away from the van (e.g., on a hike with a Bluetooth headset), the Android app provides a minimal phone-native interface:
+When the user is away from the van (e.g., on a hike with a Bluetooth headset), the Android app provides a minimal phone-native interface using standard Android Activities (not constrained by the Car App Library):
 
 - Voice input and TTS output (primary interaction mode).
 - Text transcript display.
