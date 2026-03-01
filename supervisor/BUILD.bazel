@@ -3,11 +3,17 @@ load("@rules_python//python:defs.bzl", "py_library", "py_test")
 
 package(default_visibility = ["//visibility:public"])
 
+# ============================================================================
+# Libraries
+# ============================================================================
+
 py_library(
     name = "event_store",
     srcs = ["src/event_store.py"],
     imports = [".."],
-    deps = ["//proto/vanpilot/v1:sync_py_proto"],
+    deps = [
+        "//proto/vanpilot/v1:sync_py_proto",
+    ],
 )
 
 py_library(
@@ -60,6 +66,10 @@ py_library(
     ],
 )
 
+# ============================================================================
+# Tests (fine-grained: one target per test module)
+# ============================================================================
+
 py_test(
     name = "event_store_test",
     srcs = ["tests/test_event_store.py"],
@@ -90,7 +100,9 @@ py_test(
     srcs = ["tests/test_tmux_launcher.py"],
     main = "tests/test_tmux_launcher.py",
     imports = [".."],
-    deps = [":tmux_launcher"],
+    deps = [
+        ":tmux_launcher",
+    ],
 )
 
 py_test(
@@ -99,8 +111,8 @@ py_test(
     main = "tests/test_server.py",
     imports = [".."],
     deps = [
-        ":server",
         ":mcp_bridge",
+        ":server",
         "//proto/vanpilot/v1:sync_py_proto",
         requirement("grpcio"),
     ],
@@ -112,8 +124,8 @@ py_test(
     main = "tests/test_watchdog.py",
     imports = [".."],
     deps = [
-        ":watchdog",
         ":event_store",
+        ":watchdog",
         "//proto/vanpilot/v1:sync_py_proto",
     ],
 )
@@ -124,8 +136,8 @@ py_test(
     main = "tests/test_mcp_bridge.py",
     imports = [".."],
     deps = [
-        ":mcp_bridge",
         ":event_store",
+        ":mcp_bridge",
         "//proto/vanpilot/v1:sync_py_proto",
     ],
 )
