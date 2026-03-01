@@ -5,7 +5,7 @@ import struct
 import unittest
 import zlib
 
-from goldens.golden_diff import compare_golden, read_png_pixels
+from goldens.golden_diff import compare_golden, read_png_pixels, _defilter_row
 from mcp.src.png_util import make_png
 
 
@@ -17,6 +17,82 @@ def _png_chunk(chunk_type: bytes, data: bytes) -> bytes:
         + raw
         + struct.pack(">I", zlib.crc32(raw) & 0xFFFFFFFF)
     )
+
+
+def _make_filtered_png(
+    width: int,
+    height: int,
+    pixels: list[list[tuple[int, int, int]]],
+    filter_type: int,
+    color_type: int = 2,
+) -> bytes:
+    """Build a PNG with a specific filter type applied to all rows.
+
+    Args:
+        width: Image width.
+        height: Image height.
+        pixels: 2D list of (R,G,B) tuples, pixels[y][x].
+        filter_type: PNG filter type (0-4) to apply.
+        color_type: PNG color type (2=RGB, 6=RGBA).
+
+    Returns:
+        Raw PNG bytes.
+    """
+    bpp = 3 if color_type == 2 else 4
+
+    # Build unfiltered rows as bytearrays
+    unfiltered_rows = []
+    for y in range(height):
+        row = bytearray()
+        for x in range(width):
+            r, g, b = pixels[y][x]
+            row.extend([r, g, b])
+            if color_type == 6:
+                row.append(255)  # alpha
+        unfiltered_rows.append(row)
+
+    # Apply the filter to each row
+    filtered_data = bytearray()
+    for y in range(height):
+        cur = unfiltered_rows[y]
+        prev = unfiltered_rows[y - 1] if y > 0 else bytearray(len(cur))
+        filtered_data.append(filter_type)
+
+        if filter_type == 0:  # None
+            filtered_data.extend(cur)
+        elif filter_type == 1:  # Sub
+            for i in range(len(cur)):
+                left = cur[i - bpp] if i >= bpp else 0
+                filtered_data.append((cur[i] - left) & 0xFF)
+        elif filter_type == 2:  # Up
+            for i in range(len(cur)):
+                filtered_data.append((cur[i] - prev[i]) & 0xFF)
+        elif filter_type == 3:  # Average
+            for i in range(len(cur)):
+                left = cur[i - bpp] if i >= bpp else 0
+                filtered_data.append((cur[i] - (left + prev[i]) // 2) & 0xFF)
+        elif filter_type == 4:  # Paeth
+            for i in range(len(cur)):
+                left = cur[i - bpp] if i >= bpp else 0
+                up = prev[i]
+                up_left = prev[i - bpp] if i >= bpp else 0
+                # Paeth predictor
+                p = left + up - up_left
+                pa, pb, pc = abs(p - left), abs(p - up), abs(p - up_left)
+                if pa <= pb and pa <= pc:
+                    pr = left
+                elif pb <= pc:
+                    pr = up
+                else:
+                    pr = up_left
+                filtered_data.append((cur[i] - pr) & 0xFF)
+
+    sig = b"\x89PNG\r\n\x1a\n"
+    ihdr_data = struct.pack(">IIBBBBB", width, height, 8, color_type, 0, 0, 0)
+    ihdr = _png_chunk(b"IHDR", ihdr_data)
+    idat = _png_chunk(b"IDAT", zlib.compress(bytes(filtered_data)))
+    iend = _png_chunk(b"IEND", b"")
+    return sig + ihdr + idat + iend
 
 
 class ReadPngPixelsTest(unittest.TestCase):
@@ -99,6 +175,114 @@ class ReadPngPixelsTest(unittest.TestCase):
 
         # RGBA actual vs RGB golden — should match
         match, diff_count, _ = compare_golden(rgba_png, rgb_png)
+        self.assertTrue(match)
+        self.assertEqual(diff_count, 0)
+
+
+class PngFilterTest(unittest.TestCase):
+    """Test PNG filter type defiltering (Sub, Up, Average, Paeth)."""
+
+    def _gradient_pixels(self, width, height):
+        """Generate a gradient image for realistic filter testing."""
+        pixels = []
+        for y in range(height):
+            row = []
+            for x in range(width):
+                r = (x * 37 + y * 13) % 256
+                g = (x * 59 + y * 7) % 256
+                b = (x * 23 + y * 41) % 256
+                row.append((r, g, b))
+            pixels.append(row)
+        return pixels
+
+    def test_filter_type_0_none(self):
+        """Filter type 0 (None) — identity, no transformation."""
+        pixels = self._gradient_pixels(4, 4)
+        png = _make_filtered_png(4, 4, pixels, filter_type=0)
+        w, h, decoded = read_png_pixels(png)
+        self.assertEqual(w, 4)
+        self.assertEqual(h, 4)
+        for y in range(4):
+            for x in range(4):
+                self.assertEqual(decoded[y * 4 + x], pixels[y][x])
+
+    def test_filter_type_1_sub(self):
+        """Filter type 1 (Sub) — each byte uses the left neighbor as predictor."""
+        pixels = self._gradient_pixels(8, 4)
+        png = _make_filtered_png(8, 4, pixels, filter_type=1)
+        w, h, decoded = read_png_pixels(png)
+        self.assertEqual(w, 8)
+        self.assertEqual(h, 4)
+        for y in range(4):
+            for x in range(8):
+                self.assertEqual(decoded[y * 8 + x], pixels[y][x])
+
+    def test_filter_type_2_up(self):
+        """Filter type 2 (Up) — each byte uses the above neighbor as predictor."""
+        pixels = self._gradient_pixels(4, 8)
+        png = _make_filtered_png(4, 8, pixels, filter_type=2)
+        w, h, decoded = read_png_pixels(png)
+        self.assertEqual(w, 4)
+        self.assertEqual(h, 8)
+        for y in range(8):
+            for x in range(4):
+                self.assertEqual(decoded[y * 4 + x], pixels[y][x])
+
+    def test_filter_type_3_average(self):
+        """Filter type 3 (Average) — uses average of left and above."""
+        pixels = self._gradient_pixels(6, 6)
+        png = _make_filtered_png(6, 6, pixels, filter_type=3)
+        w, h, decoded = read_png_pixels(png)
+        self.assertEqual(w, 6)
+        self.assertEqual(h, 6)
+        for y in range(6):
+            for x in range(6):
+                self.assertEqual(decoded[y * 6 + x], pixels[y][x])
+
+    def test_filter_type_4_paeth(self):
+        """Filter type 4 (Paeth) — uses Paeth predictor of left, above, upper-left."""
+        pixels = self._gradient_pixels(5, 5)
+        png = _make_filtered_png(5, 5, pixels, filter_type=4)
+        w, h, decoded = read_png_pixels(png)
+        self.assertEqual(w, 5)
+        self.assertEqual(h, 5)
+        for y in range(5):
+            for x in range(5):
+                self.assertEqual(decoded[y * 5 + x], pixels[y][x])
+
+    def test_filter_sub_with_rgba(self):
+        """Filter type 1 (Sub) with RGBA color type — alpha discarded."""
+        pixels = self._gradient_pixels(4, 3)
+        png = _make_filtered_png(4, 3, pixels, filter_type=1, color_type=6)
+        w, h, decoded = read_png_pixels(png)
+        self.assertEqual(w, 4)
+        self.assertEqual(h, 3)
+        for y in range(3):
+            for x in range(4):
+                self.assertEqual(decoded[y * 4 + x], pixels[y][x])
+
+    def test_filter_paeth_with_rgba(self):
+        """Filter type 4 (Paeth) with RGBA color type — alpha discarded."""
+        pixels = self._gradient_pixels(4, 4)
+        png = _make_filtered_png(4, 4, pixels, filter_type=4, color_type=6)
+        w, h, decoded = read_png_pixels(png)
+        self.assertEqual(w, 4)
+        self.assertEqual(h, 4)
+        for y in range(4):
+            for x in range(4):
+                self.assertEqual(decoded[y * 4 + x], pixels[y][x])
+
+    def test_unknown_filter_type_raises(self):
+        """Unknown filter type 5 should raise ValueError."""
+        with self.assertRaises(ValueError):
+            _defilter_row(5, b"\x00\x00\x00", bytearray(3), 3)
+
+    def test_compare_golden_with_filtered_png(self):
+        """compare_golden should work with filter type 1 (Sub) PNGs."""
+        pixels = self._gradient_pixels(10, 10)
+        actual = _make_filtered_png(10, 10, pixels, filter_type=1)
+        golden = _make_filtered_png(10, 10, pixels, filter_type=0)
+        match, diff_count, _ = compare_golden(actual, golden)
         self.assertTrue(match)
         self.assertEqual(diff_count, 0)
 

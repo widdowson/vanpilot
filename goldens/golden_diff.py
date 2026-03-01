@@ -14,12 +14,71 @@ from mcp.src.png_util import make_png
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
+def _paeth_predictor(a: int, b: int, c: int) -> int:
+    """PNG Paeth predictor function per the PNG specification."""
+    p = a + b - c
+    pa = abs(p - a)
+    pb = abs(p - b)
+    pc = abs(p - c)
+    if pa <= pb and pa <= pc:
+        return a
+    elif pb <= pc:
+        return b
+    else:
+        return c
+
+
+def _defilter_row(
+    filter_type: int,
+    raw_row: bytes,
+    prev_row: bytes,
+    bpp: int,
+) -> bytearray:
+    """Defilter a single PNG row according to the filter type.
+
+    Args:
+        filter_type: PNG filter type (0-4).
+        raw_row: The filtered row bytes (without the filter byte).
+        prev_row: The defiltered previous row (zeros for the first row).
+        bpp: Bytes per pixel (3 for RGB, 4 for RGBA).
+
+    Returns:
+        Defiltered row as bytearray.
+
+    Raises:
+        ValueError: If the filter type is unknown.
+    """
+    row = bytearray(len(raw_row))
+    if filter_type == 0:  # None
+        row[:] = raw_row
+    elif filter_type == 1:  # Sub
+        for i in range(len(raw_row)):
+            left = row[i - bpp] if i >= bpp else 0
+            row[i] = (raw_row[i] + left) & 0xFF
+    elif filter_type == 2:  # Up
+        for i in range(len(raw_row)):
+            row[i] = (raw_row[i] + prev_row[i]) & 0xFF
+    elif filter_type == 3:  # Average
+        for i in range(len(raw_row)):
+            left = row[i - bpp] if i >= bpp else 0
+            row[i] = (raw_row[i] + (left + prev_row[i]) // 2) & 0xFF
+    elif filter_type == 4:  # Paeth
+        for i in range(len(raw_row)):
+            left = row[i - bpp] if i >= bpp else 0
+            up = prev_row[i]
+            up_left = prev_row[i - bpp] if i >= bpp else 0
+            row[i] = (raw_row[i] + _paeth_predictor(left, up, up_left)) & 0xFF
+    else:
+        raise ValueError(f"Unknown PNG filter type {filter_type}")
+    return row
+
+
 def read_png_pixels(png_data: bytes) -> tuple[int, int, list[tuple[int, int, int]]]:
     """Decode a PNG image into width, height, and flat list of RGB tuples.
 
     Supports 8-bit RGB (color type 2) and 8-bit RGBA (color type 6) PNGs.
     RGBA alpha channels are discarded — only RGB values are returned.
-    Only filter type 0 (None) is supported.
+    Supports all standard PNG filter types (0-4): None, Sub, Up, Average, Paeth.
 
     Args:
         png_data: Raw PNG file bytes.
@@ -62,19 +121,21 @@ def read_png_pixels(png_data: bytes) -> tuple[int, int, list[tuple[int, int, int
         raise ValueError("No IDAT chunks found")
 
     raw = zlib.decompress(b"".join(idat_chunks))
-    pixels = []
     bpp = 3 if color_type == 2 else 4  # bytes per pixel
-    row_bytes = 1 + width * bpp  # filter byte + pixel data
+    stride = width * bpp  # pixel data per row (no filter byte)
+    prev_row = bytearray(stride)  # zeros for first row
+    pixels = []
+
     for y in range(height):
-        row_start = y * row_bytes
-        filter_byte = raw[row_start]
-        if filter_byte != 0:
-            raise ValueError(f"Unsupported filter type {filter_byte} at row {y}")
+        row_start = y * (1 + stride)
+        filter_type = raw[row_start]
+        raw_row = raw[row_start + 1 : row_start + 1 + stride]
+        defiltered = _defilter_row(filter_type, raw_row, prev_row, bpp)
         for x in range(width):
-            offset = row_start + 1 + x * bpp
-            r, g, b = raw[offset], raw[offset + 1], raw[offset + 2]
-            # Alpha channel (if present) is discarded
+            offset = x * bpp
+            r, g, b = defiltered[offset], defiltered[offset + 1], defiltered[offset + 2]
             pixels.append((r, g, b))
+        prev_row = defiltered
 
     return width, height, pixels
 
@@ -102,7 +163,6 @@ def compare_golden(
     g_w, g_h, g_pixels = read_png_pixels(golden_png)
 
     if a_w != g_w or a_h != g_h:
-        # Size mismatch — generate a minimal diff indicator
         diff_png = _make_size_mismatch_png(a_w, a_h, g_w, g_h)
         return False, a_w * a_h, diff_png
 
@@ -118,9 +178,8 @@ def compare_golden(
             or abs(ab - gb) > tolerance
         ):
             diff_count += 1
-            diff_pixels.append((255, 0, 0))  # Red for changed
+            diff_pixels.append((255, 0, 0))
         else:
-            # Dim version of actual for context
             diff_pixels.append((ar // 3, ag // 3, ab // 3))
 
     if diff_count == 0:

@@ -1,24 +1,28 @@
 """Emulator-based golden screenshot test.
 
-This test connects to a running emulator sidecar, captures a screenshot,
-and compares it against committed golden images using pixel-by-pixel diffing.
+This test connects to a running emulator (either via TCP sidecar or native
+ADB discovery), captures a screenshot, and compares it against committed
+golden images using pixel-by-pixel diffing.
 
-Prerequisites:
-  - Emulator sidecar running:
-    docker run --platform linux/amd64 -d --name vanpilot-emu -p 5555:5555 vanpilot-emu
-  - VanPilot APK installed on the emulator
+Supports two modes:
+  1. Docker sidecar: set EMU_HOST and EMU_PORT env vars
+  2. Native emulator: auto-discovered via `adb devices` as emulator-NNNN
 
 This test is tagged "manual" in BUILD.bazel so it only runs when explicitly
 requested (not during `bazel test //...`).
 
 Usage:
+  # TCP sidecar
   bazel test //goldens:emulator_golden_test --test_env=EMU_HOST=localhost --test_env=EMU_PORT=5555
+
+  # Native emulator (auto-detect)
+  bazel test //goldens:emulator_golden_test
 """
 
 import os
 import subprocess
 import sys
-import time
+import struct
 import unittest
 
 # Allow imports from workspace root
@@ -27,9 +31,8 @@ sys.path.insert(0, os.path.join(os.environ.get("TEST_SRCDIR", ""), os.environ.ge
 from goldens.golden_diff import compare_golden, read_png_pixels
 
 
-EMU_HOST = os.environ.get("EMU_HOST", "localhost")
-EMU_PORT = os.environ.get("EMU_PORT", "5555")
-EMU_ADDR = f"{EMU_HOST}:{EMU_PORT}"
+EMU_HOST = os.environ.get("EMU_HOST", "")
+EMU_PORT = os.environ.get("EMU_PORT", "")
 BOOT_TIMEOUT = 300  # 5 minutes
 
 GOLDEN_DIR = os.path.join(
@@ -40,9 +43,51 @@ GOLDEN_DIR = os.path.join(
 )
 
 
+def _find_emulator_serial() -> str | None:
+    """Find an available emulator, trying native first then TCP.
+
+    Returns:
+        ADB serial string, or None if no emulator is available.
+    """
+    # Try native emulator discovery first
+    try:
+        result = subprocess.run(
+            ["adb", "devices"],
+            capture_output=True, text=True, timeout=10,
+        )
+        for line in result.stdout.splitlines():
+            parts = line.split()
+            if len(parts) >= 2 and parts[0].startswith("emulator-") and parts[1] == "device":
+                return parts[0]
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+
+    # Fall back to TCP connect if EMU_HOST/EMU_PORT are set
+    if EMU_HOST:
+        addr = f"{EMU_HOST}:{EMU_PORT or '5555'}"
+        try:
+            subprocess.run(
+                ["adb", "connect", addr],
+                capture_output=True, text=True, timeout=10,
+            )
+            result = subprocess.run(
+                ["adb", "-s", addr, "shell", "getprop", "sys.boot_completed"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.stdout.strip() == "1":
+                return addr
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+
+    return None
+
+
+EMU_SERIAL = _find_emulator_serial()
+
+
 def _adb(*args: str, timeout: int = 30) -> str:
-    """Run an ADB command targeting the emulator sidecar."""
-    cmd = ["adb", "-s", EMU_ADDR] + list(args)
+    """Run an ADB command targeting the discovered emulator."""
+    cmd = ["adb", "-s", EMU_SERIAL] + list(args)
     result = subprocess.run(
         cmd, capture_output=True, text=True, timeout=timeout
     )
@@ -51,24 +96,11 @@ def _adb(*args: str, timeout: int = 30) -> str:
 
 def _adb_check(*args: str, timeout: int = 30) -> str:
     """Run an ADB command, raising on failure."""
-    cmd = ["adb", "-s", EMU_ADDR] + list(args)
+    cmd = ["adb", "-s", EMU_SERIAL] + list(args)
     result = subprocess.run(
         cmd, capture_output=True, text=True, timeout=timeout, check=True
     )
     return result.stdout.strip()
-
-
-def _is_emulator_available() -> bool:
-    """Check if the emulator sidecar is reachable and booted."""
-    try:
-        subprocess.run(
-            ["adb", "connect", EMU_ADDR],
-            capture_output=True, text=True, timeout=10,
-        )
-        result = _adb("shell", "getprop", "sys.boot_completed", timeout=10)
-        return result.strip() == "1"
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
-        return False
 
 
 def _capture_screenshot(output_path: str) -> None:
@@ -80,8 +112,8 @@ def _capture_screenshot(output_path: str) -> None:
 
 
 @unittest.skipUnless(
-    _is_emulator_available(),
-    f"Emulator sidecar not available at {EMU_ADDR}",
+    EMU_SERIAL is not None,
+    "No emulator available (set EMU_HOST/EMU_PORT for TCP, or start a native emulator)",
 )
 class EmulatorGoldenTest(unittest.TestCase):
     """Compare live emulator screenshots against committed goldens."""
@@ -122,10 +154,7 @@ class EmulatorGoldenTest(unittest.TestCase):
         with open(output, "rb") as f:
             data = f.read()
 
-        # The emulator screenshot should be decodable (even if not 8-bit RGB)
         self.assertTrue(data.startswith(b"\x89PNG\r\n\x1a\n"))
-        # Check PNG IHDR for dimensions
-        import struct
         # IHDR starts at byte 16 (8 sig + 4 length + 4 type)
         w, h = struct.unpack(">II", data[16:24])
         self.assertGreater(w, 0)
@@ -157,7 +186,6 @@ class EmulatorGoldenTest(unittest.TestCase):
             self._save_undeclared("diff.png", diff_png)
 
         if not match:
-            total_pixels = len(actual)  # approximate
             self.fail(
                 f"Screenshot does not match golden: {diff_count} pixels differ. "
                 f"See diff.png in test outputs."
