@@ -233,7 +233,7 @@ kt_jvm_library(
         "@maven//:com_google_truth_truth",
     ],
 )
-kt_jvm_library(
+
 kt_jvm_library(
     name = "sync_service_client_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/grpc/SyncServiceClientTest.kt"],
@@ -247,6 +247,7 @@ kt_jvm_library(
         "@maven//:com_google_truth_truth",
     ],
 )
+
 kt_jvm_library(
     name = "android_app_service_impl_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/grpc/AndroidAppServiceImplTest.kt"],
