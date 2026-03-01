@@ -16,8 +16,9 @@ PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 def read_png_pixels(png_data: bytes) -> tuple[int, int, list[tuple[int, int, int]]]:
     """Decode a PNG image into width, height, and flat list of RGB tuples.
 
-    Only supports 8-bit RGB (color type 2) PNGs with a single IDAT chunk
-    and filter type 0 (None) — which is what make_png() produces.
+    Supports 8-bit RGB (color type 2) and 8-bit RGBA (color type 6) PNGs.
+    RGBA alpha channels are discarded — only RGB values are returned.
+    Only filter type 0 (None) is supported.
 
     Args:
         png_data: Raw PNG file bytes.
@@ -33,6 +34,7 @@ def read_png_pixels(png_data: bytes) -> tuple[int, int, list[tuple[int, int, int
 
     pos = 8
     width = height = 0
+    color_type = 0
     idat_chunks = []
 
     while pos < len(png_data):
@@ -42,13 +44,14 @@ def read_png_pixels(png_data: bytes) -> tuple[int, int, list[tuple[int, int, int
         pos += 12 + length  # length + type + data + crc
 
         if chunk_type == b"IHDR":
-            w, h, bit_depth, color_type = struct.unpack(">IIBB", chunk_data[:10])
-            if bit_depth != 8 or color_type != 2:
+            w, h, bit_depth, ct = struct.unpack(">IIBB", chunk_data[:10])
+            if bit_depth != 8 or ct not in (2, 6):
                 raise ValueError(
                     f"Unsupported PNG format: bit_depth={bit_depth}, "
-                    f"color_type={color_type} (only 8-bit RGB supported)"
+                    f"color_type={ct} (only 8-bit RGB and RGBA supported)"
                 )
             width, height = w, h
+            color_type = ct
         elif chunk_type == b"IDAT":
             idat_chunks.append(chunk_data)
         elif chunk_type == b"IEND":
@@ -59,15 +62,17 @@ def read_png_pixels(png_data: bytes) -> tuple[int, int, list[tuple[int, int, int
 
     raw = zlib.decompress(b"".join(idat_chunks))
     pixels = []
-    row_bytes = 1 + width * 3  # filter byte + RGB per pixel
+    bpp = 3 if color_type == 2 else 4  # bytes per pixel
+    row_bytes = 1 + width * bpp  # filter byte + pixel data
     for y in range(height):
         row_start = y * row_bytes
         filter_byte = raw[row_start]
         if filter_byte != 0:
             raise ValueError(f"Unsupported filter type {filter_byte} at row {y}")
         for x in range(width):
-            offset = row_start + 1 + x * 3
+            offset = row_start + 1 + x * bpp
             r, g, b = raw[offset], raw[offset + 1], raw[offset + 2]
+            # Alpha channel (if present) is discarded
             pixels.append((r, g, b))
 
     return width, height, pixels

@@ -1,10 +1,22 @@
 """Tests for golden_diff pixel comparison library."""
 
 import os
+import struct
 import unittest
+import zlib
 
 from goldens.golden_diff import compare_golden, read_png_pixels
 from mcp.src.png_util import make_png
+
+
+def _png_chunk(chunk_type: bytes, data: bytes) -> bytes:
+    """Build a PNG chunk: length + type + data + CRC32."""
+    raw = chunk_type + data
+    return (
+        struct.pack(">I", len(data))
+        + raw
+        + struct.pack(">I", zlib.crc32(raw) & 0xFFFFFFFF)
+    )
 
 
 class ReadPngPixelsTest(unittest.TestCase):
@@ -35,6 +47,60 @@ class ReadPngPixelsTest(unittest.TestCase):
         self.assertEqual(w, 100)
         self.assertEqual(h, 50)
         self.assertEqual(len(pixels), 5000)
+
+    def test_decode_rgba_color_type_6(self):
+        """read_png_pixels should decode RGBA PNGs, discarding the alpha channel."""
+        width, height = 2, 2
+        color = (50, 100, 150, 200)  # RGBA
+
+        # Build a minimal valid RGBA PNG (color type 6) by hand.
+        sig = b"\x89PNG\r\n\x1a\n"
+        ihdr_data = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
+        ihdr = _png_chunk(b"IHDR", ihdr_data)
+
+        rows = []
+        for _ in range(height):
+            row = b"\x00"  # filter type 0
+            for _ in range(width):
+                row += bytes(color)
+            rows.append(row)
+        idat = _png_chunk(b"IDAT", zlib.compress(b"".join(rows)))
+        iend = _png_chunk(b"IEND", b"")
+        rgba_png = sig + ihdr + idat + iend
+
+        w, h, pixels = read_png_pixels(rgba_png)
+        self.assertEqual(w, 2)
+        self.assertEqual(h, 2)
+        self.assertEqual(len(pixels), 4)
+        # Alpha should be discarded — only RGB returned
+        for pixel in pixels:
+            self.assertEqual(pixel, (50, 100, 150))
+
+    def test_compare_golden_with_rgba(self):
+        """compare_golden should work when one image is RGBA."""
+        width, height = 3, 3
+        color_rgb = (50, 100, 150)
+
+        # Make an RGBA PNG with same RGB values
+        sig = b"\x89PNG\r\n\x1a\n"
+        ihdr_data = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
+        ihdr = _png_chunk(b"IHDR", ihdr_data)
+        rows = []
+        for _ in range(height):
+            row = b"\x00"
+            for _ in range(width):
+                row += bytes(color_rgb) + b"\xff"  # RGBA, full alpha
+            rows.append(row)
+        idat = _png_chunk(b"IDAT", zlib.compress(b"".join(rows)))
+        iend = _png_chunk(b"IEND", b"")
+        rgba_png = sig + ihdr + idat + iend
+
+        rgb_png = make_png(width, height, color_rgb)
+
+        # RGBA actual vs RGB golden — should match
+        match, diff_count, _ = compare_golden(rgba_png, rgb_png)
+        self.assertTrue(match)
+        self.assertEqual(diff_count, 0)
 
 
 class CompareGoldenTest(unittest.TestCase):

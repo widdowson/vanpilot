@@ -28,8 +28,12 @@ while [[ $SECONDS -lt $DEADLINE ]]; do
 done
 [[ "$(adb -s "${EMU_ADDR}" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]] || { echo "ERROR: Boot timeout"; exit 1; }
 
-APK_PATH="$(find bazel-bin/android -name '*.apk' 2>/dev/null | head -1)"
-[[ -z "${APK_PATH}" ]] && { bazel build //android:vanpilot; APK_PATH="$(find bazel-bin/android -name '*.apk' | head -1)"; }
+APK_PATH="bazel-bin/android/vanpilot.apk"
+if [[ ! -f "${APK_PATH}" ]]; then
+    echo "APK not found at ${APK_PATH}, building..."
+    bazel build //android:vanpilot
+fi
+[[ -f "${APK_PATH}" ]] || { echo "ERROR: APK not found at ${APK_PATH} after build"; exit 1; }
 echo "Installing ${APK_PATH}..."
 adb -s "${EMU_ADDR}" install -r "${APK_PATH}"
 sleep 15
