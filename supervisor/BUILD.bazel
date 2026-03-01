@@ -17,20 +17,32 @@ py_library(
 )
 
 py_library(
+    name = "tmux_launcher",
+    srcs = ["src/tmux_launcher.py"],
+    imports = [".."],
+)
+
+py_library(
+    name = "input_injector",
+    srcs = ["src/input_injector.py"],
+    imports = [".."],
+    deps = [
+        ":event_store",
+        ":tmux_launcher",
+        "//proto/vanpilot/v1:sync_py_proto",
+    ],
+)
+
+py_library(
     name = "sync_service",
     srcs = ["src/sync_service.py"],
     imports = [".."],
     deps = [
         ":event_store",
+        ":input_injector",
         "//proto/vanpilot/v1:sync_py_proto",
         requirement("grpcio"),
     ],
-)
-
-py_library(
-    name = "tmux_launcher",
-    srcs = ["src/tmux_launcher.py"],
-    imports = [".."],
 )
 
 py_library(
@@ -79,6 +91,33 @@ py_test(
     imports = [".."],
     deps = [
         ":tmux_launcher",
+    ],
+)
+
+py_test(
+    name = "input_injector_test",
+    srcs = ["tests/test_input_injector.py"],
+    main = "tests/test_input_injector.py",
+    imports = [".."],
+    deps = [
+        ":event_store",
+        ":input_injector",
+        ":tmux_launcher",
+        "//proto/vanpilot/v1:sync_py_proto",
+    ],
+)
+
+py_test(
+    name = "send_user_input_test",
+    srcs = ["tests/test_send_user_input.py"],
+    main = "tests/test_send_user_input.py",
+    imports = [".."],
+    deps = [
+        ":event_store",
+        ":input_injector",
+        ":sync_service",
+        ":tmux_launcher",
+        "//proto/vanpilot/v1:sync_py_proto",
     ],
 )
 
