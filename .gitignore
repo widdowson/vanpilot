@@ -9,3 +9,6 @@
 
 # Sandbox proxy CA cert (build-time only, not committed)
 supervisor/proxy-ca.crt
+
+# Video captures from golden tests (AC-4.3: never committed)
+*.mp4
