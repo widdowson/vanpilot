@@ -13,3 +13,6 @@ build --disk_cache=~/.cache/bazel-disk
 
 # Verbose failures for debugging
 build --verbose_failures
+
+# Disable layering_check to avoid absolute Xcode SDK path errors (bazelbuild/bazel#24556)
+build --features=-layering_check
