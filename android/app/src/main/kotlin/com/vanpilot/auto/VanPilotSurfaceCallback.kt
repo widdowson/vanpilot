@@ -1,0 +1,85 @@
+package com.vanpilot.auto
+
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Rect
+import android.util.Log
+import androidx.car.app.SurfaceCallback
+import androidx.car.app.SurfaceContainer
+
+/**
+ * Handles the raw Surface provided by the NavigationTemplate.
+ * Draws a solid color rectangle to prove that SurfaceCallback works —
+ * this is the highest-risk item in the entire project.
+ */
+class VanPilotSurfaceCallback : SurfaceCallback {
+
+    companion object {
+        const val TAG = "VanPilotSurface"
+        /** VanPilot brand teal — a distinctive color for golden screenshot verification. */
+        const val FILL_COLOR = 0xFF1A8A7D.toInt()
+    }
+
+    /** The most recently provided surface container, or null if destroyed. */
+    var currentSurface: SurfaceContainer? = null
+        private set
+
+    /** The visible area reported by the host, or null if not yet known. */
+    var visibleArea: Rect? = null
+        private set
+
+    /** The stable area reported by the host, or null if not yet known. */
+    var stableArea: Rect? = null
+        private set
+
+    /** Tracks whether onSurfaceAvailable has been called at least once. */
+    var surfaceAvailableCount: Int = 0
+        private set
+
+    override fun onSurfaceAvailable(surfaceContainer: SurfaceContainer) {
+        Log.i(TAG, "Surface available: ${surfaceContainer.width}x${surfaceContainer.height} " +
+                "dpi=${surfaceContainer.dpi}")
+        currentSurface = surfaceContainer
+        surfaceAvailableCount++
+        drawSolidColor(surfaceContainer)
+    }
+
+    override fun onVisibleAreaChanged(visibleArea: Rect) {
+        Log.i(TAG, "Visible area changed: $visibleArea")
+        this.visibleArea = visibleArea
+        currentSurface?.let { drawSolidColor(it) }
+    }
+
+    override fun onStableAreaChanged(stableArea: Rect) {
+        Log.i(TAG, "Stable area changed: $stableArea")
+        this.stableArea = stableArea
+    }
+
+    override fun onSurfaceDestroyed(surfaceContainer: SurfaceContainer) {
+        Log.i(TAG, "Surface destroyed")
+        currentSurface = null
+    }
+
+    /**
+     * Draws a solid color rectangle filling the entire surface.
+     * This is the minimum viable proof that SurfaceCallback rendering works.
+     */
+    private fun drawSolidColor(surfaceContainer: SurfaceContainer) {
+        val surface = surfaceContainer.surface ?: return
+        val canvas: Canvas = surface.lockCanvas(null) ?: return
+        try {
+            val paint = Paint().apply {
+                color = FILL_COLOR
+                style = Paint.Style.FILL
+            }
+            canvas.drawRect(
+                0f, 0f,
+                canvas.width.toFloat(), canvas.height.toFloat(),
+                paint
+            )
+        } finally {
+            surface.unlockCanvasAndPost(canvas)
+        }
+    }
+}
