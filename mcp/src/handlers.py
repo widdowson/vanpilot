@@ -1,29 +1,50 @@
-"""Stub handler implementations for MCP tools.
+"""Handler implementations for MCP tools.
 
-These return mock responses and will be replaced with real
-implementations that communicate with the supervisor via gRPC
-when the end-to-end wiring is complete (Phase 7).
+These provide a local bitmap cache and display state. In production,
+the display_bitmap handler will forward commands to the supervisor
+via gRPC when the end-to-end wiring is complete (Phase 7).
 """
 
 import base64
-import hashlib
+
+from mcp.src.png_util import png_cache_key, make_teal_display
+
+# Module-level bitmap cache: cache_key -> raw PNG bytes
+_cache: dict[str, bytes] = {}
+
+# The cache key of the currently displayed bitmap (None = default teal)
+_current_display_key: str | None = None
+
+# Cached default teal display (immutable, generated once)
+_default_teal: bytes | None = None
+
+
+def reset() -> None:
+    """Reset all handler state. Call from test setUp for isolation."""
+    global _current_display_key, _default_teal
+    _cache.clear()
+    _current_display_key = None
+    _default_teal = None
 
 
 def handle_display_bitmap(cache_key: str, blocking: bool = False) -> dict:
     """Handle the display_bitmap tool call.
 
-    Stub: Always returns success. In production, this will queue a
-    DisplayCommand event to the supervisor, which forwards it to the
-    Android app via gRPC.
+    Looks up cache_key in the bitmap cache. If found, sets it as the
+    current display. If not found, returns an error.
     """
+    global _current_display_key
+
+    if cache_key not in _cache:
+        return {"success": False, "error": f"Unknown cache key: {cache_key}"}
+
+    _current_display_key = cache_key
     result = {
         "success": True,
         "cache_key": cache_key,
         "blocking": blocking,
     }
     if blocking:
-        # In production, this would wait for Android app confirmation.
-        # Stub: immediately confirm with the same key.
         result["confirmed_cache_key"] = cache_key
     return result
 
@@ -31,54 +52,34 @@ def handle_display_bitmap(cache_key: str, blocking: bool = False) -> dict:
 def handle_submit_bitmap(image_data: str) -> dict:
     """Handle the submit_bitmap tool call.
 
-    Stub: Generates a deterministic cache key from the image data hash
-    and returns a placeholder courtesy screenshot. In production, this
-    will store the bitmap and request the supervisor to render a preview.
+    Decodes the base64 image data, computes a cache key, stores the
+    raw bytes in the cache, and returns the cache key plus a courtesy
+    screenshot (the submitted image itself, base64-encoded).
     """
     raw_bytes = base64.b64decode(image_data)
-    digest = hashlib.sha256(raw_bytes).hexdigest()[:8]
-    cache_key = f"0x{digest.upper()}"
-
-    # Stub courtesy screenshot: a 1x1 transparent PNG
-    stub_screenshot = _make_stub_png()
+    cache_key = png_cache_key(raw_bytes)
+    _cache[cache_key] = raw_bytes
 
     return {
         "cache_key": cache_key,
-        "courtesy_screenshot": base64.b64encode(stub_screenshot).decode(),
+        "courtesy_screenshot": base64.b64encode(raw_bytes).decode(),
     }
 
 
 def handle_get_screenshot() -> dict:
     """Handle the get_screenshot tool call.
 
-    Stub: Returns a placeholder PNG. In production, this will request
-    a screenshot from the Android app via the supervisor's gRPC
-    reverse call to AndroidAppService.RequestScreenshot.
+    If a bitmap has been displayed, returns that bitmap. Otherwise
+    returns the default teal display surface.
     """
-    stub_screenshot = _make_stub_png()
+    global _default_teal
+    if _current_display_key is not None and _current_display_key in _cache:
+        png_bytes = _cache[_current_display_key]
+    else:
+        if _default_teal is None:
+            _default_teal = make_teal_display()
+        png_bytes = _default_teal
+
     return {
-        "screenshot": base64.b64encode(stub_screenshot).decode(),
+        "screenshot": base64.b64encode(png_bytes).decode(),
     }
-
-
-def _make_stub_png() -> bytes:
-    """Generate a minimal valid 1x1 pixel PNG (black) for stub responses."""
-    # Minimal 1x1 black PNG, hand-crafted per the PNG specification.
-    # This avoids a dependency on Pillow for the skeleton.
-    import struct
-    import zlib
-
-    def _chunk(chunk_type: bytes, data: bytes) -> bytes:
-        raw = chunk_type + data
-        return struct.pack(">I", len(data)) + raw + struct.pack(">I", zlib.crc32(raw) & 0xFFFFFFFF)
-
-    signature = b"\x89PNG\r\n\x1a\n"
-    # IHDR: width=1, height=1, bit_depth=8, color_type=2 (RGB)
-    ihdr_data = struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)
-    ihdr = _chunk(b"IHDR", ihdr_data)
-    # IDAT: filter=0, R=0, G=0, B=0
-    raw_data = b"\x00\x00\x00\x00"
-    idat = _chunk(b"IDAT", zlib.compress(raw_data))
-    iend = _chunk(b"IEND", b"")
-
-    return signature + ihdr + idat + iend
