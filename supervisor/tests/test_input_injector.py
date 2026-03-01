@@ -209,7 +209,7 @@ class InputInjectorAsyncTest(unittest.TestCase):
         """Join the thread and verify failure event emitted on timeout."""
         injector = InputInjector(
             self.tmux, self.store,
-            log_dir=self.tmpdir, response_timeout_s=0.1, poll_interval_s=0.02,
+            log_dir=self.tmpdir, response_timeout_s=0.5, poll_interval_s=0.02,
         )
         thread = injector.inject_async("agent-lead", "doomed prompt", "lead")
         thread.join(timeout=2.0)
