@@ -447,8 +447,6 @@ android_local_test(
 )
 
 android_local_test(
-
-android_local_test(
     name = "sync_service_client_test",
     manifest = "app/src/main/AndroidManifest.xml",
     test_class = "com.vanpilot.auto.grpc.SyncServiceClientTest",
