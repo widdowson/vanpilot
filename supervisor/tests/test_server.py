@@ -4,21 +4,21 @@ import unittest
 import grpc
 
 from supervisor.src.server import create_server
+from supervisor.src.mcp_bridge import McpBridge
 from proto.vanpilot.v1 import sync_pb2
 
 
 class ServerTest(unittest.TestCase):
 
-    def test_create_server_returns_server(self):
-        """create_server should return a gRPC server instance."""
-        server, port = create_server(port=0)
+    def test_create_server_returns_server_and_bridge(self):
+        server, port, bridge = create_server(port=0)
         self.assertIsNotNone(server)
         self.assertGreater(port, 0)
+        self.assertIsInstance(bridge, McpBridge)
         server.stop(grace=0)
 
     def test_server_responds_to_get_events(self):
-        """A created server should handle GetEvents calls."""
-        server, port = create_server(port=0)
+        server, port, _bridge = create_server(port=0)
         server.start()
         try:
             channel = grpc.insecure_channel(f"localhost:{port}")
@@ -33,8 +33,7 @@ class ServerTest(unittest.TestCase):
             server.stop(grace=0)
 
     def test_server_uses_specified_port(self):
-        """When port=0, the server should bind to a random free port."""
-        server, port = create_server(port=0)
+        server, port, _bridge = create_server(port=0)
         self.assertGreater(port, 0)
         server.stop(grace=0)
 

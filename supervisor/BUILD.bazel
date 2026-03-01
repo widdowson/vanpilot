@@ -17,6 +17,16 @@ py_library(
 )
 
 py_library(
+    name = "mcp_bridge",
+    srcs = ["src/mcp_bridge.py"],
+    imports = [".."],
+    deps = [
+        ":event_store",
+        "//proto/vanpilot/v1:sync_py_proto",
+    ],
+)
+
+py_library(
     name = "tmux_launcher",
     srcs = ["src/tmux_launcher.py"],
     imports = [".."],
@@ -40,6 +50,7 @@ py_library(
     deps = [
         ":event_store",
         ":input_injector",
+        ":mcp_bridge",
         "//proto/vanpilot/v1:sync_py_proto",
         requirement("grpcio"),
     ],
@@ -61,6 +72,7 @@ py_library(
     imports = [".."],
     deps = [
         ":event_store",
+        ":mcp_bridge",
         ":sync_service",
         requirement("grpcio"),
     ],
@@ -88,6 +100,7 @@ py_test(
     imports = [".."],
     deps = [
         ":event_store",
+        ":mcp_bridge",
         ":sync_service",
         "//proto/vanpilot/v1:sync_py_proto",
         requirement("grpcio"),
@@ -137,6 +150,7 @@ py_test(
     main = "tests/test_server.py",
     imports = [".."],
     deps = [
+        ":mcp_bridge",
         ":server",
         "//proto/vanpilot/v1:sync_py_proto",
         requirement("grpcio"),
@@ -149,9 +163,36 @@ py_test(
     main = "tests/test_watchdog.py",
     imports = [".."],
     deps = [
-        ":watchdog",
         ":event_store",
+        ":watchdog",
         "//proto/vanpilot/v1:sync_py_proto",
+    ],
+)
+
+py_test(
+    name = "mcp_bridge_test",
+    srcs = ["tests/test_mcp_bridge.py"],
+    main = "tests/test_mcp_bridge.py",
+    imports = [".."],
+    deps = [
+        ":event_store",
+        ":mcp_bridge",
+        "//proto/vanpilot/v1:sync_py_proto",
+    ],
+)
+
+py_test(
+    name = "e2e_grpc_test",
+    srcs = ["tests/test_e2e_grpc.py"],
+    main = "tests/test_e2e_grpc.py",
+    imports = [".."],
+    deps = [
+        ":event_store",
+        ":mcp_bridge",
+        ":sync_service",
+        "//mcp:handlers",
+        "//proto/vanpilot/v1:sync_py_proto",
+        requirement("grpcio"),
     ],
 )
 
