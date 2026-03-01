@@ -19,10 +19,7 @@ kt_android_library(
 )
 
 # ============================================================================
-# Main app library (Car App UI + gRPC sync client)
-#
-# SyncClient.kt lives here (not in grpc_lib) because it uses Android
-# APIs (Bitmap, BitmapFactory) that require an android_library target.
+# Main app library (Car App UI — no gRPC deps to avoid dex issues)
 # ============================================================================
 
 kt_android_library(
@@ -35,27 +32,21 @@ kt_android_library(
             "app/src/main/kotlin/com/vanpilot/auto/cache/**",
             "app/src/main/kotlin/com/vanpilot/auto/sync/**",
         ],
-    ) + ["app/src/main/kotlin/com/vanpilot/auto/grpc/SyncClient.kt"],
+    ),
     custom_package = "com.vanpilot.auto",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
     deps = [
         ":voice_lib",
         "@maven//:androidx_car_app_app",
-        "@maven//:io_grpc_grpc_okhttp",
-        "@maven//:io_grpc_grpc_stub",
-        "@maven//:io_grpc_grpc_protobuf_lite",
-        "@maven//:io_grpc_grpc_android",
-        "//proto/vanpilot/v1:sync_java_proto",
-        "//proto/vanpilot/v1:sync_java_grpc",
     ],
 )
 
 # ============================================================================
-# gRPC client/server library (JVM-only for now; Android integration later)
+# gRPC client/server library (JVM-only — no Android API usage)
 #
-# SyncClient.kt is excluded here because it uses Android APIs and lives
-# in vanpilot_lib instead.
+# SyncClient.kt is excluded because it uses Android APIs (Bitmap,
+# BitmapFactory) and must be in an android_library target instead.
 # ============================================================================
 
 kt_jvm_library(
@@ -75,6 +66,30 @@ kt_jvm_library(
         "//proto/vanpilot/v1:screenshot_java_grpc",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:io_grpc_grpc_protobuf_lite",
+    ],
+)
+
+# ============================================================================
+# SyncClient library (Android — uses Bitmap/BitmapFactory)
+#
+# Separate from vanpilot_lib to keep proto/gRPC .jar deps out of the
+# android_binary dex path. Only used by tests for now; will be wired
+# into the production app when the full integration is complete.
+# ============================================================================
+
+kt_android_library(
+    name = "sync_client_lib",
+    srcs = ["app/src/main/kotlin/com/vanpilot/auto/grpc/SyncClient.kt"],
+    custom_package = "com.vanpilot.auto",
+    manifest = "app/src/main/AndroidManifest.xml",
+    deps = [
+        ":vanpilot_lib",
+        "@maven//:io_grpc_grpc_okhttp",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_grpc_grpc_protobuf_lite",
+        "@maven//:io_grpc_grpc_android",
+        "//proto/vanpilot/v1:sync_java_proto",
+        "//proto/vanpilot/v1:sync_java_grpc",
     ],
 )
 
@@ -207,7 +222,7 @@ kt_jvm_library(
     name = "sync_client_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/grpc/SyncClientTest.kt"],
     deps = [
-        ":vanpilot_lib",
+        ":sync_client_lib",
         "@maven//:io_grpc_grpc_inprocess",
         "@maven//:io_grpc_grpc_stub",
         "//proto/vanpilot/v1:sync_java_proto",
