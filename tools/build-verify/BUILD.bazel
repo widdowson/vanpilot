@@ -1,0 +1,24 @@
+# Build canary: verifies Kotlin toolchain and Maven dependency resolution work end-to-end.
+load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library", "kt_jvm_test")
+
+package(default_visibility = ["//visibility:private"])
+
+kt_jvm_library(
+    name = "deps_check",
+    srcs = ["DepsCheck.kt"],
+    deps = [
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core",
+    ],
+)
+
+kt_jvm_test(
+    name = "deps_check_test",
+    srcs = ["DepsCheckTest.kt"],
+    test_class = "com.vanpilot.buildverify.DepsCheckTest",
+    deps = [
+        ":deps_check",
+        "@maven//:junit_junit",
+        "@maven//:com_google_truth_truth",
+    ],
+)
