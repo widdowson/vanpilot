@@ -54,17 +54,17 @@ py_test(
     ],
 )
 
-java_proto_library(
+java_lite_proto_library(
     name = "sync_java_proto",
     deps = [":sync_proto"],
 )
 
-java_proto_library(
+java_lite_proto_library(
     name = "display_java_proto",
     deps = [":display_proto"],
 )
 
-java_proto_library(
+java_lite_proto_library(
     name = "screenshot_java_proto",
     deps = [":screenshot_proto"],
 )
@@ -73,16 +73,19 @@ java_grpc_library(
     name = "sync_java_grpc",
     srcs = [":sync_proto"],
     deps = [":sync_java_proto"],
+    flavor = "lite",
 )
 
 java_grpc_library(
     name = "display_java_grpc",
     srcs = [":display_proto"],
     deps = [":display_java_proto"],
+    flavor = "lite",
 )
 
 java_grpc_library(
     name = "screenshot_java_grpc",
     srcs = [":screenshot_proto"],
     deps = [":screenshot_java_proto"],
+    flavor = "lite",
 )
