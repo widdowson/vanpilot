@@ -4,15 +4,14 @@ package com.vanpilot.auto
  * Manages conversation data for the lead agent and sub-agent tabs.
  *
  * Holds messages per agent and provides methods to build tab content.
- * TabTemplate supports a maximum of 4 tabs total (1 Visual + 1 Lead Agent + up to 2 sub-agents,
- * or 1 Visual + up to 3 sub-agents if lead agent tab is not shown).
- * We reserve 1 tab for Visual and 1 for Lead Agent, leaving up to MAX_SUB_AGENT_TABS for sub-agents.
+ * TabTemplate supports a maximum of 4 tabs total: 1 Visual + 1 Lead Agent + up to 2 sub-agents.
+ * MAX_SUB_AGENT_TABS enforces this limit so a registered sub-agent is never silently invisible.
  */
 class ConversationTabManager {
 
     companion object {
         const val LEAD_AGENT_TAB_ID = "lead_agent"
-        const val MAX_SUB_AGENT_TABS = 3
+        const val MAX_SUB_AGENT_TABS = 2
 
         fun subAgentTabId(agentId: String): String = "sub_agent_$agentId"
 

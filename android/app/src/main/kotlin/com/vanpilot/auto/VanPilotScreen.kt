@@ -70,10 +70,9 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
             .build()
         builder.addTab(leadTab)
 
-        // Sub-Agent tabs (dynamic, max 2 since we have Visual + Lead Agent already)
-        val maxSubTabs = 4 - 2
+        // Sub-Agent tabs (dynamic, capped by ConversationTabManager.MAX_SUB_AGENT_TABS)
         for ((index, agentId) in tabManager.getSubAgentIds().withIndex()) {
-            if (index >= maxSubTabs) break
+            if (index >= ConversationTabManager.MAX_SUB_AGENT_TABS) break
             val subTab = Tab.Builder()
                 .setTitle(agentId.replaceFirstChar { it.uppercase() })
                 .setContentId(ConversationTabManager.subAgentTabId(agentId))

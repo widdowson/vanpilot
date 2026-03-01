@@ -30,8 +30,8 @@ class ConversationTabManagerTest {
     }
 
     @Test
-    fun maxSubAgentTabs_isThree() {
-        assertThat(ConversationTabManager.MAX_SUB_AGENT_TABS).isEqualTo(3)
+    fun maxSubAgentTabs_isTwo() {
+        assertThat(ConversationTabManager.MAX_SUB_AGENT_TABS).isEqualTo(2)
     }
 
     // =========================================================================
@@ -80,9 +80,8 @@ class ConversationTabManagerTest {
     fun addMultipleSubAgents_preservesOrder() {
         manager.addSubAgent("researcher")
         manager.addSubAgent("coder")
-        manager.addSubAgent("tester")
         assertThat(manager.getSubAgentIds())
-            .containsExactly("researcher", "coder", "tester")
+            .containsExactly("researcher", "coder")
             .inOrder()
     }
 
@@ -90,10 +89,9 @@ class ConversationTabManagerTest {
     fun addSubAgent_beyondMax_isIgnored() {
         manager.addSubAgent("agent1")
         manager.addSubAgent("agent2")
-        manager.addSubAgent("agent3")
-        manager.addSubAgent("agent4") // should be ignored (max 3)
-        assertThat(manager.getSubAgentIds()).hasSize(3)
-        assertThat(manager.getSubAgentIds()).doesNotContain("agent4")
+        manager.addSubAgent("agent3") // should be ignored (max 2)
+        assertThat(manager.getSubAgentIds()).hasSize(2)
+        assertThat(manager.getSubAgentIds()).doesNotContain("agent3")
     }
 
     @Test
