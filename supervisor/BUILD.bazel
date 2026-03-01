@@ -196,6 +196,46 @@ py_test(
     ],
 )
 
+py_library(
+    name = "bitmap_cache_tracker",
+    srcs = ["src/bitmap_cache_tracker.py"],
+    imports = [".."],
+)
+
+py_test(
+    name = "bitmap_cache_tracker_test",
+    srcs = ["tests/test_bitmap_cache_tracker.py"],
+    main = "tests/test_bitmap_cache_tracker.py",
+    imports = [".."],
+    deps = [
+        ":bitmap_cache_tracker",
+    ],
+)
+
+py_test(
+    name = "bitmap_store_test",
+    srcs = ["tests/test_bitmap_store.py"],
+    main = "tests/test_bitmap_store.py",
+    imports = [".."],
+    deps = [
+        ":mcp_bridge",
+    ],
+)
+
+py_test(
+    name = "get_bitmap_test",
+    srcs = ["tests/test_get_bitmap.py"],
+    main = "tests/test_get_bitmap.py",
+    imports = [".."],
+    deps = [
+        ":event_store",
+        ":mcp_bridge",
+        ":sync_service",
+        "//proto/vanpilot/v1:sync_py_proto",
+        requirement("grpcio"),
+    ],
+)
+
 py_test(
     name = "input_injector_integration_test",
     srcs = ["tests/test_input_injector_integration.py"],

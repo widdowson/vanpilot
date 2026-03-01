@@ -11,7 +11,6 @@ from proto.vanpilot.v1 import sync_pb2
 
 
 class SyncServiceServicerTest(unittest.TestCase):
-    """Unit tests for SyncServiceServicer without a real gRPC server."""
 
     def setUp(self):
         self.store = EventStore()
@@ -79,7 +78,6 @@ class GetBitmapTest(unittest.TestCase):
 
 
 class SyncServiceIntegrationTest(unittest.TestCase):
-    """Integration test that starts a real gRPC server and client."""
 
     def setUp(self):
         self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=2))
@@ -106,7 +104,6 @@ class SyncServiceIntegrationTest(unittest.TestCase):
         self.assertGreater(len(response.events), 0)
 
     def test_get_events_unknown_method_fails(self):
-        """Calling an unknown method should fail with UNIMPLEMENTED."""
         with self.assertRaises(grpc.RpcError) as ctx:
             self.channel.unary_unary(
                 "/vanpilot.v1.SyncService/NonExistent",

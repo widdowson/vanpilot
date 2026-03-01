@@ -42,6 +42,7 @@ class VanPilotSurfaceCallback : SurfaceCallback {
     var currentTheme: DarkModeTheme = DarkModeTheme.light()
         private set
 
+
     var currentBitmap: Bitmap? = null
         private set
     var currentCacheKey: String? = null
@@ -53,6 +54,7 @@ class VanPilotSurfaceCallback : SurfaceCallback {
         Log.i(TAG, "Theme changed: isDarkMode=${theme.isDarkMode}")
         currentSurface?.let { drawCurrentContent(it) }
     }
+
 
     override fun onSurfaceAvailable(surfaceContainer: SurfaceContainer) {
         Log.i(TAG, "Surface available: ${surfaceContainer.width}x${surfaceContainer.height} " +

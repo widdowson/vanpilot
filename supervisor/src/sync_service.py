@@ -11,6 +11,10 @@ from supervisor.src.event_store import EventStore
 from supervisor.src.input_injector import InputInjector
 from supervisor.src.mcp_bridge import BitmapStore
 
+# Single-client MVP: all connected Android apps share one client ID.
+# When multi-client support is added, derive this from the gRPC peer.
+_DEFAULT_CLIENT_ID = "default"
+
 
 class SyncServiceServicer:
     """Implements the SyncService RPCs."""
@@ -56,12 +60,23 @@ class SyncServiceServicer:
         data = self._bitmap_store.get(request.cache_key)
         if data is None:
             return sync_pb2.GetBitmapResponse()
+        self._bitmap_store.mark_sent(_DEFAULT_CLIENT_ID, request.cache_key)
         return sync_pb2.GetBitmapResponse(
             bitmap=sync_pb2.BitmapPayload(
                 cache_key=request.cache_key,
                 image_data=data,
             ),
         )
+
+    def ReconcileCache(
+        self,
+        request: sync_pb2.ReconcileCacheRequest,
+        context: grpc.ServicerContext,
+    ) -> sync_pb2.ReconcileCacheResponse:
+        missing = self._bitmap_store.reconcile(
+            _DEFAULT_CLIENT_ID, set(request.present_keys)
+        )
+        return sync_pb2.ReconcileCacheResponse(missing_keys=list(missing))
 
 
 def add_sync_service_to_server(
@@ -99,6 +114,11 @@ class _SyncServiceGenericHandler(grpc.GenericRpcHandler):
                 servicer.GetBitmap,
                 request_deserializer=sync_pb2.GetBitmapRequest.FromString,
                 response_serializer=sync_pb2.GetBitmapResponse.SerializeToString,
+            ),
+            "/vanpilot.v1.SyncService/ReconcileCache": grpc.unary_unary_rpc_method_handler(
+                servicer.ReconcileCache,
+                request_deserializer=sync_pb2.ReconcileCacheRequest.FromString,
+                response_serializer=sync_pb2.ReconcileCacheResponse.SerializeToString,
             ),
         }
 
