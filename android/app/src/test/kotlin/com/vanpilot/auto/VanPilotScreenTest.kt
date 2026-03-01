@@ -1,32 +1,103 @@
 package com.vanpilot.auto
 
-import androidx.car.app.Screen
+import androidx.car.app.model.Action
+import androidx.car.app.model.TabTemplate
+import androidx.car.app.navigation.model.NavigationTemplate
+import androidx.car.app.testing.ScreenController
+import androidx.car.app.testing.TestCarContext
+import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.junit.runners.JUnit4
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.ConscryptMode
 
 /**
- * Unit tests for VanPilotScreen.
- * Verifies class structure and constants without requiring the full Android runtime.
+ * Behavioral tests for VanPilotScreen.
+ * Uses ScreenController from the Car App Library testing framework.
  */
-@RunWith(JUnit4::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
+@ConscryptMode(ConscryptMode.Mode.OFF)
 class VanPilotScreenTest {
 
-    @Test
-    fun classExtendsScreen() {
-        assertThat(Screen::class.java.isAssignableFrom(VanPilotScreen::class.java))
-            .isTrue()
+    private lateinit var screen: VanPilotScreen
+    private lateinit var controller: ScreenController
+
+    @Before
+    fun setUp() {
+        val carContext = TestCarContext.createCarContext(
+            ApplicationProvider.getApplicationContext()
+        )
+        screen = VanPilotScreen(carContext)
+        controller = ScreenController(screen)
     }
 
     @Test
-    fun visualTabIdConstant() {
+    fun onGetTemplate_returnsTabTemplate() {
+        val template = screen.onGetTemplate()
+        assertThat(template).isInstanceOf(TabTemplate::class.java)
+    }
+
+    @Test
+    fun onGetTemplate_hasTwoTabs() {
+        val template = screen.onGetTemplate()
+        assertThat(template.tabs).hasSize(2)
+    }
+
+    @Test
+    fun onGetTemplate_firstTabTitleIsVisual() {
+        val template = screen.onGetTemplate()
+        assertThat(template.tabs[0].title.toString()).isEqualTo("Visual")
+    }
+
+    @Test
+    fun onGetTemplate_secondTabTitleIsStatus() {
+        val template = screen.onGetTemplate()
+        assertThat(template.tabs[1].title.toString()).isEqualTo("Status")
+    }
+
+    @Test
+    fun onGetTemplate_visualTabContentIdMatchesConstant() {
+        val template = screen.onGetTemplate()
+        assertThat(template.tabs[0].contentId).isEqualTo(VanPilotScreen.VISUAL_TAB_ID)
+    }
+
+    @Test
+    fun onGetTemplate_statusTabContentIdMatchesConstant() {
+        val template = screen.onGetTemplate()
+        assertThat(template.tabs[1].contentId).isEqualTo(VanPilotScreen.STATUS_TAB_ID)
+    }
+
+    @Test
+    fun onGetTemplate_activeTabIsVisualCard() {
+        val template = screen.onGetTemplate()
+        assertThat(template.activeTabContentId).isEqualTo(VanPilotScreen.VISUAL_TAB_ID)
+    }
+
+    @Test
+    fun onGetTemplate_tabContentsHasNavigationTemplate() {
+        val template = screen.onGetTemplate()
+        val contents = template.tabContents
+        assertThat(contents).isNotNull()
+        assertThat(contents!!.template).isInstanceOf(NavigationTemplate::class.java)
+    }
+
+    @Test
+    fun surfaceCallback_isInitialized() {
+        assertThat(screen.surfaceCallback).isNotNull()
+        assertThat(screen.surfaceCallback).isInstanceOf(VanPilotSurfaceCallback::class.java)
+    }
+
+    @Test
+    fun visualTabIdConstant_isCorrect() {
         assertThat(VanPilotScreen.VISUAL_TAB_ID).isEqualTo("visual_card")
     }
 
     @Test
-    fun onGetTemplate_declaredAsOverride() {
-        val method = VanPilotScreen::class.java.getMethod("onGetTemplate")
-        assertThat(method).isNotNull()
+    fun statusTabIdConstant_isCorrect() {
+        assertThat(VanPilotScreen.STATUS_TAB_ID).isEqualTo("status_card")
     }
 }
