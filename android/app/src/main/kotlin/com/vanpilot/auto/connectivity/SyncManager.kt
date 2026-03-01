@@ -33,6 +33,10 @@ class SyncManager(
         try {
             val response = client.getEvents(sinceTimestampMs, batchConfig.maxCount)
 
+            // On the very first successful poll, state transitions DISCONNECTED→CONNECTED,
+            // so wasDisconnected is true and we start with conservative batching. This is
+            // intentional — the first poll behaves like a reconnect to avoid large initial
+            // requests on an unproven connection.
             val wasDisconnected = monitor.state != ConnectionState.CONNECTED
             monitor.onRpcSuccess()
 

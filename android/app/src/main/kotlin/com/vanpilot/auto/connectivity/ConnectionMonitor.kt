@@ -18,6 +18,7 @@ class ConnectionMonitor {
     var consecutiveFailures: Int = 0
         private set
 
+    /** Exposed for the UI layer to show reconnection status (e.g. briefly flash an indicator). */
     var wasRecentlyReconnected: Boolean = false
         private set
 
@@ -56,6 +57,7 @@ class ConnectionMonitor {
         }
     }
 
+    /** Called by the UI layer after it has consumed the reconnection signal. */
     fun clearRecentReconnection() {
         synchronized(lock) {
             wasRecentlyReconnected = false
