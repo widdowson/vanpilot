@@ -8,10 +8,7 @@ the MCP server, supervisor, and gRPC client.
 """
 
 import base64
-import hashlib
-import struct
 import unittest
-import zlib
 import grpc
 from concurrent import futures
 
@@ -24,23 +21,8 @@ from mcp.src.handlers import (
     set_event_callback,
 )
 import mcp.src.handlers as handlers
+from mcp.src.png_util import make_png
 from proto.vanpilot.v1 import sync_pb2
-
-
-def _make_test_png(r: int, g: int, b: int) -> bytes:
-    """Generate a minimal 1x1 PNG with a specific RGB color for testing."""
-    def _chunk(chunk_type: bytes, data: bytes) -> bytes:
-        raw = chunk_type + data
-        return struct.pack(">I", len(data)) + raw + struct.pack(">I", zlib.crc32(raw) & 0xFFFFFFFF)
-
-    signature = b"\x89PNG\r\n\x1a\n"
-    ihdr_data = struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)
-    ihdr = _chunk(b"IHDR", ihdr_data)
-    raw_data = bytes([0, r, g, b])
-    idat = _chunk(b"IDAT", zlib.compress(raw_data))
-    iend = _chunk(b"IEND", b"")
-
-    return signature + ihdr + idat + iend
 
 
 class EndToEndGrpcTest(unittest.TestCase):
@@ -98,7 +80,7 @@ class EndToEndGrpcTest(unittest.TestCase):
 
     def test_submit_bitmap_creates_event(self):
         """submit_bitmap via MCP should create a BitmapPayload event."""
-        png_data = _make_test_png(255, 0, 0)
+        png_data = make_png(10, 10, (255, 0, 0))
         image_b64 = base64.b64encode(png_data).decode()
         result = handle_submit_bitmap(image_data=image_b64)
         cache_key = result["cache_key"]
@@ -114,7 +96,7 @@ class EndToEndGrpcTest(unittest.TestCase):
 
     def test_display_bitmap_creates_event(self):
         """display_bitmap via MCP should create a DisplayCommand event."""
-        png_data = _make_test_png(0, 255, 0)
+        png_data = make_png(10, 10, (0, 255, 0))
         image_b64 = base64.b64encode(png_data).decode()
         result = handle_submit_bitmap(image_data=image_b64)
         cache_key = result["cache_key"]
@@ -131,7 +113,7 @@ class EndToEndGrpcTest(unittest.TestCase):
 
     def test_get_bitmap_returns_submitted_image(self):
         """GetBitmap should return the PNG data submitted via MCP."""
-        png_data = _make_test_png(0, 0, 255)
+        png_data = make_png(10, 10, (0, 0, 255))
         image_b64 = base64.b64encode(png_data).decode()
         result = handle_submit_bitmap(image_data=image_b64)
         cache_key = result["cache_key"]
@@ -149,7 +131,7 @@ class EndToEndGrpcTest(unittest.TestCase):
     def test_full_flow_submit_display_get_events_get_bitmap(self):
         """Full pipeline: submit -> display -> GetEvents -> GetBitmap."""
         # Step 1: Submit a bitmap via MCP
-        png_data = _make_test_png(128, 64, 32)
+        png_data = make_png(10, 10, (128, 64, 32))
         image_b64 = base64.b64encode(png_data).decode()
         submit_result = handle_submit_bitmap(image_data=image_b64)
         cache_key = submit_result["cache_key"]
@@ -172,7 +154,7 @@ class EndToEndGrpcTest(unittest.TestCase):
     def test_events_ordered_by_timestamp(self):
         """Events from the pipeline should be in timestamp order."""
         for i in range(3):
-            data = _make_test_png(i * 80, 0, 0)
+            data = make_png(10, 10, (i * 80, 0, 0))
             handle_submit_bitmap(image_data=base64.b64encode(data).decode())
 
         response = self._get_events()
@@ -181,7 +163,7 @@ class EndToEndGrpcTest(unittest.TestCase):
 
     def test_timestamp_filtering_works_with_bridge_events(self):
         """since_timestamp_ms should correctly filter bridge-created events."""
-        data1 = _make_test_png(255, 0, 0)
+        data1 = make_png(10, 10, (255, 0, 0))
         handle_submit_bitmap(image_data=base64.b64encode(data1).decode())
 
         # Get all events and find the bitmap event's timestamp

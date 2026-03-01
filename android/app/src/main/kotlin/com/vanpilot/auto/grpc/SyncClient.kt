@@ -126,7 +126,11 @@ class SyncClient(
                 val cacheKey = event.displayCommand.cacheKey
                 if (!bitmapCache.has(cacheKey)) {
                     // Fallback: request bitmap from supervisor
-                    requestBitmap(cacheKey)
+                    val fetched = requestBitmap(cacheKey)
+                    if (fetched == null) {
+                        Log.w(TAG, "DisplayCommand for $cacheKey: bitmap not available (GetBitmap returned null)")
+                        return
+                    }
                 }
                 onDisplayCommand(cacheKey)
             }

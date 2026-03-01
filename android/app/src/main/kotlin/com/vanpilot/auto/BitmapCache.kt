@@ -1,16 +1,17 @@
 package com.vanpilot.auto
 
 import android.graphics.Bitmap
+import java.util.concurrent.ConcurrentHashMap
 
 /**
- * In-memory cache for bitmaps received via gRPC BitmapPayload events.
+ * Thread-safe in-memory cache for bitmaps received via gRPC BitmapPayload events.
  *
  * Keyed by the hex cache key (e.g., "0xDEADBEEF") assigned by the MCP server.
- * The Android app decodes PNG bytes into Bitmap objects and stores them here
- * so that DisplayCommand events can reference them by key without retransmission.
+ * Uses ConcurrentHashMap for safe access from both the gRPC polling thread (put)
+ * and the UI thread (get/has).
  */
 class BitmapCache {
-    private val cache = mutableMapOf<String, Bitmap>()
+    private val cache = ConcurrentHashMap<String, Bitmap>()
 
     fun put(cacheKey: String, bitmap: Bitmap) {
         cache[cacheKey] = bitmap
