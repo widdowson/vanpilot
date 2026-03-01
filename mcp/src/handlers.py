@@ -15,6 +15,17 @@ _cache: dict[str, bytes] = {}
 # The cache key of the currently displayed bitmap (None = default teal)
 _current_display_key: str | None = None
 
+# Cached default teal display (immutable, generated once)
+_default_teal: bytes | None = None
+
+
+def reset() -> None:
+    """Reset all handler state. Call from test setUp for isolation."""
+    global _current_display_key, _default_teal
+    _cache.clear()
+    _current_display_key = None
+    _default_teal = None
+
 
 def handle_display_bitmap(cache_key: str, blocking: bool = False) -> dict:
     """Handle the display_bitmap tool call.
@@ -61,10 +72,13 @@ def handle_get_screenshot() -> dict:
     If a bitmap has been displayed, returns that bitmap. Otherwise
     returns the default teal display surface.
     """
+    global _default_teal
     if _current_display_key is not None and _current_display_key in _cache:
         png_bytes = _cache[_current_display_key]
     else:
-        png_bytes = make_teal_display()
+        if _default_teal is None:
+            _default_teal = make_teal_display()
+        png_bytes = _default_teal
 
     return {
         "screenshot": base64.b64encode(png_bytes).decode(),

@@ -16,8 +16,7 @@ class DisplayBitmapHandlerTest(unittest.TestCase):
     """Tests for the display_bitmap tool handler."""
 
     def setUp(self):
-        handlers._cache.clear()
-        handlers._current_display_key = None
+        handlers.reset()
 
     def _submit(self, data: bytes = b"fake png data") -> str:
         """Helper: submit a bitmap and return its cache key."""
@@ -62,8 +61,7 @@ class SubmitBitmapHandlerTest(unittest.TestCase):
     """Tests for the submit_bitmap tool handler."""
 
     def setUp(self):
-        handlers._cache.clear()
-        handlers._current_display_key = None
+        handlers.reset()
 
     def test_returns_cache_key(self):
         image_data = base64.b64encode(b"fake png data").decode()
@@ -99,8 +97,7 @@ class GetScreenshotHandlerTest(unittest.TestCase):
     """Tests for the get_screenshot tool handler."""
 
     def setUp(self):
-        handlers._cache.clear()
-        handlers._current_display_key = None
+        handlers.reset()
 
     def test_returns_screenshot(self):
         result = handle_get_screenshot()

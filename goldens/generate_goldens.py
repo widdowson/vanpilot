@@ -4,7 +4,6 @@ Usage: bazel run //goldens:generate_goldens
 """
 
 import os
-import sys
 
 from mcp.src.png_util import make_teal_display
 

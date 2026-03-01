@@ -1,7 +1,6 @@
 """Golden test for the Phase 3 solid color surface."""
 
 import os
-import struct
 import unittest
 
 from mcp.src.png_util import make_teal_display

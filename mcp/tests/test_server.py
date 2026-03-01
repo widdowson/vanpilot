@@ -77,8 +77,7 @@ class ToolsCallTest(unittest.TestCase):
     """Tests for the tools/call method."""
 
     def setUp(self):
-        handlers._cache.clear()
-        handlers._current_display_key = None
+        handlers.reset()
 
     def test_call_display_bitmap(self):
         # Submit a bitmap first so the cache key exists
