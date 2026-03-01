@@ -154,3 +154,17 @@ py_test(
         "//proto/vanpilot/v1:sync_py_proto",
     ],
 )
+
+py_test(
+    name = "input_injector_integration_test",
+    srcs = ["tests/test_input_injector_integration.py"],
+    main = "tests/test_input_injector_integration.py",
+    imports = [".."],
+    tags = ["requires-tmux"],
+    deps = [
+        ":event_store",
+        ":input_injector",
+        ":tmux_launcher",
+        "//proto/vanpilot/v1:sync_py_proto",
+    ],
+)
