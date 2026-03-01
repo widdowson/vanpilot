@@ -1,5 +1,6 @@
 package com.vanpilot.auto
 
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -10,8 +11,10 @@ import androidx.car.app.SurfaceContainer
 
 /**
  * Handles the raw Surface provided by the NavigationTemplate.
- * Draws a solid color rectangle to prove that SurfaceCallback works —
- * this is the highest-risk item in the entire project.
+ *
+ * Supports two rendering modes:
+ * 1. Default: draws a solid teal rectangle (brand color for golden verification)
+ * 2. Bitmap: draws a received bitmap scaled to fill the surface
  */
 class VanPilotSurfaceCallback : SurfaceCallback {
 
@@ -39,11 +42,16 @@ class VanPilotSurfaceCallback : SurfaceCallback {
     var currentTheme: DarkModeTheme = DarkModeTheme.light()
         private set
 
+    var currentBitmap: Bitmap? = null
+        private set
+    var currentCacheKey: String? = null
+        private set
+
     /** Update the rendering theme. Redraws the surface if available. */
     fun setTheme(theme: DarkModeTheme) {
         currentTheme = theme
         Log.i(TAG, "Theme changed: isDarkMode=${theme.isDarkMode}")
-        currentSurface?.let { drawSolidColor(it) }
+        currentSurface?.let { drawCurrentContent(it) }
     }
 
     override fun onSurfaceAvailable(surfaceContainer: SurfaceContainer) {
@@ -51,13 +59,13 @@ class VanPilotSurfaceCallback : SurfaceCallback {
                 "dpi=${surfaceContainer.dpi}")
         currentSurface = surfaceContainer
         surfaceAvailableCount++
-        drawSolidColor(surfaceContainer)
+        drawCurrentContent(surfaceContainer)
     }
 
     override fun onVisibleAreaChanged(visibleArea: Rect) {
         Log.i(TAG, "Visible area changed: $visibleArea")
         this.visibleArea = visibleArea
-        currentSurface?.let { drawSolidColor(it) }
+        currentSurface?.let { drawCurrentContent(it) }
     }
 
     override fun onStableAreaChanged(stableArea: Rect) {
@@ -70,6 +78,18 @@ class VanPilotSurfaceCallback : SurfaceCallback {
         currentSurface = null
     }
 
+    fun displayBitmap(cacheKey: String, bitmap: Bitmap) {
+        currentBitmap = bitmap
+        currentCacheKey = cacheKey
+        currentSurface?.let { drawCurrentContent(it) }
+    }
+
+    fun clearBitmap() {
+        currentBitmap = null
+        currentCacheKey = null
+        currentSurface?.let { drawCurrentContent(it) }
+    }
+
     /**
      * Draws the VanPilot teal fill onto the given Canvas.
      * Extracted for testability — called by both the live surface path and golden tests.
@@ -80,6 +100,27 @@ class VanPilotSurfaceCallback : SurfaceCallback {
             style = Paint.Style.FILL
         }
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+    }
+
+    private fun drawCurrentContent(surfaceContainer: SurfaceContainer) {
+        val bitmap = currentBitmap
+        if (bitmap != null) {
+            drawBitmapOnSurface(surfaceContainer, bitmap)
+        } else {
+            drawSolidColor(surfaceContainer)
+        }
+    }
+
+    private fun drawBitmapOnSurface(surfaceContainer: SurfaceContainer, bitmap: Bitmap) {
+        val surface = surfaceContainer.surface ?: return
+        val canvas: Canvas = surface.lockCanvas(null) ?: return
+        try {
+            canvas.drawColor(Color.BLACK)
+            val destRect = Rect(0, 0, canvas.width, canvas.height)
+            canvas.drawBitmap(bitmap, null, destRect, null)
+        } finally {
+            surface.unlockCanvasAndPost(canvas)
+        }
     }
 
     /**
