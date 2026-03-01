@@ -52,11 +52,11 @@ class TextToSpeechManager(private val ttsEngine: TtsEngine) {
         get() = pendingQueue.size
 
     private var utteranceCounter: Int = 0
-    private val pendingQueue = mutableListOf<String>()
+    private val pendingQueue = mutableListOf<Pair<String, String>>() // (text, utteranceId)
 
     /**
-     * Speak text immediately (interrupts nothing — if already speaking,
-     * this still starts a new utterance via the engine).
+     * Speak text immediately via the engine. Does not clear the queue —
+     * queued items will still play after this utterance completes.
      * @return the utterance ID assigned to this text.
      */
     fun speak(text: String): String {
@@ -70,12 +70,13 @@ class TextToSpeechManager(private val ttsEngine: TtsEngine) {
      * Add text to the queue. If not currently speaking, speaks immediately.
      * If already speaking, the text is enqueued and will play when the
      * current utterance finishes.
-     * @return the utterance ID assigned to this text.
+     * @return the utterance ID assigned to this text. The same ID will be
+     *         passed to [TextToSpeechListener] callbacks when this item plays.
      */
     fun enqueue(text: String): String {
         val utteranceId = nextUtteranceId()
         if (isSpeaking) {
-            pendingQueue.add(text)
+            pendingQueue.add(text to utteranceId)
         } else {
             isSpeaking = true
             ttsEngine.speak(text, utteranceId, internalListener)
@@ -113,9 +114,8 @@ class TextToSpeechManager(private val ttsEngine: TtsEngine) {
 
         override fun onSpeakingComplete(utteranceId: String) {
             if (pendingQueue.isNotEmpty()) {
-                val next = pendingQueue.removeAt(0)
-                val nextId = nextUtteranceId()
-                ttsEngine.speak(next, nextId, this)
+                val (nextText, nextId) = pendingQueue.removeAt(0)
+                ttsEngine.speak(nextText, nextId, this)
             } else {
                 isSpeaking = false
             }

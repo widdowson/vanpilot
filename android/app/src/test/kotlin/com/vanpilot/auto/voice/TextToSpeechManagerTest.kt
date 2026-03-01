@@ -140,6 +140,31 @@ class TextToSpeechManagerTest {
         assertThat(manager.isSpeaking).isFalse()
     }
 
+    // --- Enqueue utterance ID correlation ---
+
+    @Test
+    fun enqueue_whileSpeaking_returnedIdMatchesCallback() {
+        manager.speak("first")
+        val enqueuedId = manager.enqueue("second")
+
+        // Complete first utterance — "second" starts playing
+        fakeEngine.simulateComplete()
+        // Complete second utterance — callback should use the ID returned by enqueue()
+        fakeEngine.simulateComplete()
+
+        assertThat(completedUtterances).contains(enqueuedId)
+    }
+
+    @Test
+    fun enqueue_whileSpeaking_engineReceivesReturnedId() {
+        manager.speak("first")
+        val enqueuedId = manager.enqueue("second")
+
+        // Complete first utterance — "second" should play with the enqueued ID
+        fakeEngine.simulateComplete()
+        assertThat(fakeEngine.lastUtteranceId).isEqualTo(enqueuedId)
+    }
+
     // --- Stop ---
 
     @Test

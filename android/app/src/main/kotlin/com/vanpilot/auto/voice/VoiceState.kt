@@ -91,6 +91,9 @@ class VoiceStateManager {
 
     /**
      * Attempt to start TTS playback. Not allowed when DISABLED.
+     * Allowed from any non-DISABLED state, including LISTENING —
+     * the higher-level controller is responsible for stopping STT
+     * before calling this if mutual exclusion is desired.
      * @return true if the transition succeeded.
      */
     fun startSpeaking(): Boolean {
