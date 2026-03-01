@@ -5,6 +5,6 @@ import kotlinx.coroutines.CoroutineScope
 
 /** Minimal class to verify Maven dependencies resolve at compile time. */
 class DepsCheck {
-    fun grpcStubClassName(): String = AbstractStub::class.simpleName ?: "AbstractStub"
-    fun coroutineScopeName(): String = CoroutineScope::class.simpleName ?: "CoroutineScope"
+    fun grpcStubClassName(): String = AbstractStub::class.simpleName!!
+    fun coroutineScopeName(): String = CoroutineScope::class.simpleName!!
 }
