@@ -7,9 +7,11 @@ Verifies that the server correctly handles the MCP protocol:
 - Error handling for invalid requests
 """
 
+import base64
 import json
 import unittest
 
+from mcp.src import handlers
 from mcp.src.server import handle_request, SERVER_INFO
 
 
@@ -74,14 +76,34 @@ class ToolsListTest(unittest.TestCase):
 class ToolsCallTest(unittest.TestCase):
     """Tests for the tools/call method."""
 
+    def setUp(self):
+        handlers._cache.clear()
+        handlers._current_display_key = None
+
     def test_call_display_bitmap(self):
+        # Submit a bitmap first so the cache key exists
+        submit_request = {
+            "jsonrpc": "2.0",
+            "id": 30,
+            "method": "tools/call",
+            "params": {
+                "name": "submit_bitmap",
+                "arguments": {
+                    "image_data": base64.b64encode(b"test png").decode(),
+                },
+            },
+        }
+        submit_response = handle_request(submit_request)
+        submit_data = json.loads(submit_response["result"]["content"][0]["text"])
+        cache_key = submit_data["cache_key"]
+
         request = {
             "jsonrpc": "2.0",
             "id": 3,
             "method": "tools/call",
             "params": {
                 "name": "display_bitmap",
-                "arguments": {"cache_key": "0xDEADBEEF"},
+                "arguments": {"cache_key": cache_key},
             },
         }
         response = handle_request(request)
@@ -93,8 +115,6 @@ class ToolsCallTest(unittest.TestCase):
         self.assertTrue(result_data["success"])
 
     def test_call_submit_bitmap(self):
-        import base64
-
         request = {
             "jsonrpc": "2.0",
             "id": 4,
