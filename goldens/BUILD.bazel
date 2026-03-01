@@ -1,0 +1,25 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "phase3_goldens",
+    srcs = ["phase3/solid_color_surface.png"],
+)
+
+py_binary(
+    name = "generate_goldens",
+    srcs = ["generate_goldens.py"],
+    main = "generate_goldens.py",
+    imports = [".."],
+    deps = ["//mcp:png_util"],
+)
+
+py_test(
+    name = "solid_color_surface_test",
+    srcs = ["test_solid_color_surface.py"],
+    main = "test_solid_color_surface.py",
+    imports = [".."],
+    data = [":phase3_goldens"],
+    deps = ["//mcp:png_util"],
+)

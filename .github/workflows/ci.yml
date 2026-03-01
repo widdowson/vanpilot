@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  build-and-test:
+  test:
     runs-on: macos-latest  # macOS for Android emulator support
     timeout-minutes: 30
 
