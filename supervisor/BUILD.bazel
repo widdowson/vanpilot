@@ -46,6 +46,16 @@ py_library(
 )
 
 py_library(
+    name = "watchdog",
+    srcs = ["src/watchdog.py"],
+    imports = [".."],
+    deps = [
+        ":event_store",
+        "//proto/vanpilot/v1:sync_py_proto",
+    ],
+)
+
+py_library(
     name = "server",
     srcs = ["src/server.py"],
     imports = [".."],
@@ -130,5 +140,17 @@ py_test(
         ":server",
         "//proto/vanpilot/v1:sync_py_proto",
         requirement("grpcio"),
+    ],
+)
+
+py_test(
+    name = "watchdog_test",
+    srcs = ["tests/test_watchdog.py"],
+    main = "tests/test_watchdog.py",
+    imports = [".."],
+    deps = [
+        ":watchdog",
+        ":event_store",
+        "//proto/vanpilot/v1:sync_py_proto",
     ],
 )
