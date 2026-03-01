@@ -4,7 +4,7 @@ package(default_visibility = ["//visibility:public"])
 
 filegroup(
     name = "phase3_goldens",
-    srcs = ["phase3/solid_color_surface.png"],
+    srcs = ["//goldens/phase3:golden_images"],
 )
 
 py_binary(

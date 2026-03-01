@@ -1,37 +1,45 @@
 package com.vanpilot.auto
 
-import androidx.car.app.CarAppService
+import androidx.car.app.Session
+import androidx.car.app.testing.TestCarContext
 import androidx.car.app.validation.HostValidator
+import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.junit.runners.JUnit4
+import org.robolectric.Robolectric
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.ConscryptMode
 
 /**
- * Unit tests for VanPilotCarAppService.
- * Verifies class structure and constants without requiring the full Android runtime.
+ * Behavioral tests for VanPilotCarAppService.
+ * Uses Robolectric to instantiate the actual service and verify its behavior.
  */
-@RunWith(JUnit4::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
+@ConscryptMode(ConscryptMode.Mode.OFF)
 class VanPilotCarAppServiceTest {
 
     @Test
-    fun classExtendsCarAppService() {
-        assertThat(CarAppService::class.java.isAssignableFrom(VanPilotCarAppService::class.java))
-            .isTrue()
+    fun createHostValidator_returnsAllowAllHosts() {
+        val service = Robolectric.setupService(VanPilotCarAppService::class.java)
+        val validator = service.createHostValidator()
+        assertThat(validator).isEqualTo(HostValidator.ALLOW_ALL_HOSTS_VALIDATOR)
     }
 
     @Test
-    fun onCreateSession_declaredAsOverride() {
-        // Verify the method exists and is callable via reflection
-        val method = VanPilotCarAppService::class.java.getMethod("onCreateSession")
-        assertThat(method).isNotNull()
-        assertThat(method.returnType.name).isEqualTo("androidx.car.app.Session")
+    fun onCreateSession_returnsVanPilotSession() {
+        val service = Robolectric.setupService(VanPilotCarAppService::class.java)
+        val session = service.onCreateSession()
+        assertThat(session).isInstanceOf(VanPilotSession::class.java)
     }
 
     @Test
-    fun createHostValidator_declaredAsOverride() {
-        val method = VanPilotCarAppService::class.java.getMethod("createHostValidator")
-        assertThat(method).isNotNull()
-        assertThat(method.returnType.name).isEqualTo("androidx.car.app.validation.HostValidator")
+    fun onCreateSession_returnsNewSessionEachTime() {
+        val service = Robolectric.setupService(VanPilotCarAppService::class.java)
+        val session1 = service.onCreateSession()
+        val session2 = service.onCreateSession()
+        assertThat(session1).isNotSameInstanceAs(session2)
     }
 }

@@ -1,28 +1,48 @@
 package com.vanpilot.auto
 
-import androidx.car.app.Session
+import android.content.Intent
+import androidx.car.app.testing.SessionController
+import androidx.car.app.testing.TestCarContext
+import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.junit.runners.JUnit4
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.ConscryptMode
 
 /**
- * Unit tests for VanPilotSession.
- * Verifies class structure without requiring the full Android runtime.
+ * Behavioral tests for VanPilotSession.
+ * Uses SessionController from the Car App Library testing framework.
  */
-@RunWith(JUnit4::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
+@ConscryptMode(ConscryptMode.Mode.OFF)
 class VanPilotSessionTest {
 
-    @Test
-    fun classExtendsSession() {
-        assertThat(Session::class.java.isAssignableFrom(VanPilotSession::class.java))
-            .isTrue()
+    private lateinit var session: VanPilotSession
+    private lateinit var controller: SessionController
+
+    @Before
+    fun setUp() {
+        session = VanPilotSession()
+        val testCarContext = TestCarContext.createCarContext(
+            ApplicationProvider.getApplicationContext()
+        )
+        controller = SessionController(session, testCarContext, Intent())
     }
 
     @Test
-    fun onCreateScreen_declaredAsOverride() {
-        val method = VanPilotSession::class.java.getMethod("onCreateScreen", android.content.Intent::class.java)
-        assertThat(method).isNotNull()
-        assertThat(method.returnType.name).isEqualTo("androidx.car.app.Screen")
+    fun onCreateScreen_returnsVanPilotScreen() {
+        val screen = session.onCreateScreen(Intent())
+        assertThat(screen).isInstanceOf(VanPilotScreen::class.java)
+    }
+
+    @Test
+    fun onCreateScreen_screenHasSurfaceCallback() {
+        val screen = session.onCreateScreen(Intent()) as VanPilotScreen
+        assertThat(screen.surfaceCallback).isNotNull()
+        assertThat(screen.surfaceCallback).isInstanceOf(VanPilotSurfaceCallback::class.java)
     }
 }

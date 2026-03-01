@@ -62,6 +62,18 @@ class VanPilotSurfaceCallback : SurfaceCallback {
     }
 
     /**
+     * Draws the VanPilot teal fill onto the given Canvas.
+     * Extracted for testability — called by both the live surface path and golden tests.
+     */
+    fun drawToCanvas(canvas: Canvas, width: Int, height: Int) {
+        val paint = Paint().apply {
+            color = FILL_COLOR
+            style = Paint.Style.FILL
+        }
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+    }
+
+    /**
      * Draws a solid color rectangle filling the entire surface.
      * This is the minimum viable proof that SurfaceCallback rendering works.
      */
@@ -69,15 +81,7 @@ class VanPilotSurfaceCallback : SurfaceCallback {
         val surface = surfaceContainer.surface ?: return
         val canvas: Canvas = surface.lockCanvas(null) ?: return
         try {
-            val paint = Paint().apply {
-                color = FILL_COLOR
-                style = Paint.Style.FILL
-            }
-            canvas.drawRect(
-                0f, 0f,
-                canvas.width.toFloat(), canvas.height.toFloat(),
-                paint
-            )
+            drawToCanvas(canvas, canvas.width, canvas.height)
         } finally {
             surface.unlockCanvasAndPost(canvas)
         }
