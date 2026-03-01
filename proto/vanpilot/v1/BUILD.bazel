@@ -1,0 +1,28 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_proto//proto:defs.bzl", "proto_library")
+
+package(default_visibility = ["//visibility:public"])
+
+proto_library(
+    name = "sync_proto",
+    srcs = ["sync.proto"],
+)
+
+proto_library(
+    name = "display_proto",
+    srcs = ["display.proto"],
+)
+
+proto_library(
+    name = "screenshot_proto",
+    srcs = ["screenshot.proto"],
+)
+
+build_test(
+    name = "proto_build_test",
+    targets = [
+        ":sync_proto",
+        ":display_proto",
+        ":screenshot_proto",
+    ],
+)
