@@ -6,7 +6,7 @@ import org.junit.Test
 class DepsCheckTest {
     @Test
     fun grpcDependencyResolves() {
-        assertThat(DepsCheck().grpcStatusName()).isEqualTo("OK")
+        assertThat(DepsCheck().grpcStubClassName()).isEqualTo("AbstractStub")
     }
 
     @Test
