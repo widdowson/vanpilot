@@ -115,6 +115,7 @@ Minimal app that proves the Car App Library + SurfaceCallback approach works.
 - `SurfaceCallback.onSurfaceAvailable()` draws a solid color rectangle on the `Canvas`
 - Verify it renders in Android emulator + DHU
 - Fine-grained Bazel test targets (not one monolithic test)
+- **Golden screenshots**: Capture via `adb shell screencap` and commit to `goldens/`. PR must include visual evidence of the solid-color rectangle rendering on the DHU surface. No automated comparison yet — human reviews the PNG in the PR diff.
 
 ### Phase 4: Supervisor Skeleton
 
@@ -145,6 +146,7 @@ Minimal app that proves the Car App Library + SurfaceCallback approach works.
 - Android app blits a `BitmapPayload` onto the `SurfaceCallback` surface
 - Supervisor reverse-calls Android app's `AndroidAppService`
 - Integration test with emulator + Docker
+- **Golden screenshots**: Capture and commit goldens showing text displayed in ListTemplate tab and a bitmap blitted onto the Surface via gRPC
 
 ### Phase 8: Voice I/O
 
@@ -152,8 +154,11 @@ Minimal app that proves the Car App Library + SurfaceCallback approach works.
 - `TextToSpeech` for TTS, reading incoming `TextMessage` events aloud
 - Voice disabled in offline mode
 - Bazel test targets per component
+- **Golden screenshots**: Capture and commit goldens showing voice UI states (listening indicator, disabled state in offline mode) if applicable
 
 ### Phase 9: Golden Test Infrastructure
+
+Upgrades the manual golden screenshots (committed since Phase 3) into automated Bazel test targets.
 
 - Bazel rules to launch Android emulator + Android Auto DHU
 - Automate DHU pairing with emulator over adb
@@ -161,3 +166,4 @@ Minimal app that proves the Car App Library + SurfaceCallback approach works.
 - Pixel-by-pixel comparison against committed goldens with configurable tolerance
 - Diff image generation on failure
 - Optional video capture via `--test_arg=--record-video`
+- Reusable golden tooling may be extracted from `apwphotos-appv2` as a shared submodule

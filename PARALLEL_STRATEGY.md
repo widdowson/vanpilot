@@ -77,13 +77,18 @@ All Phase 3-5 workstreams consume proto-generated stubs, but none should modify 
 
 Bazel's disk cache (`~/.cache/bazel`) is shared across worktrees. This is a **benefit**, not a problem — cached build artifacts from one worktree speed up builds in others. No special coordination needed.
 
+### Golden Screenshots from Phase 3 Onward
+
+Every PR that changes Android Auto UI must include golden screenshots captured via `adb shell screencap` and committed to `goldens/`. This starts in **Phase 3** (the first UI phase), not Phase 9. Phase 9 upgrades these manual goldens into automated Bazel test targets with pixel-diff comparison.
+
 ### Android Emulator + DHU Resource Footprint
 
-The Android emulator plus Desktop Head Unit (DHU) consumes ~2-3 GB RAM when running. This limits concurrent golden testing:
+The Android emulator plus Desktop Head Unit (DHU) consumes ~2-3 GB RAM when running. This applies from **Wave 1 onward** (Phase 3 needs the emulator for golden capture):
 
 - Only **one agent at a time** should run the emulator + DHU for golden screenshot capture
+- In Wave 1, only the `android` agent needs the emulator — no contention
+- In Wave 3, the team lead must serialize emulator access between `grpc-e2e` and `golden` agents
 - Agents can build and run unit tests in parallel (Robolectric tests don't need the emulator)
-- The team lead should serialize golden test runs across agents
 
 ---
 
