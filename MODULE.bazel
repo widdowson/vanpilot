@@ -20,7 +20,6 @@ bazel_dep(name = "rules_jvm_external", version = "6.10")
 bazel_dep(name = "rules_proto", version = "7.1.0")
 bazel_dep(name = "protobuf", version = "33.4")
 bazel_dep(name = "grpc-java", version = "1.78.0")
-bazel_dep(name = "rules_proto_grpc_python", version = "5.8.0")
 
 # ============================================================================
 # Python (supervisor process, MCP server)

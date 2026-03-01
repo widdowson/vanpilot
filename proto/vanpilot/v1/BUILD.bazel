@@ -1,5 +1,6 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -24,5 +25,30 @@ build_test(
         ":sync_proto",
         ":display_proto",
         ":screenshot_proto",
+    ],
+)
+
+py_proto_library(
+    name = "sync_py_proto",
+    deps = [":sync_proto"],
+)
+
+py_proto_library(
+    name = "display_py_proto",
+    deps = [":display_proto"],
+)
+
+py_proto_library(
+    name = "screenshot_py_proto",
+    deps = [":screenshot_proto"],
+)
+
+py_test(
+    name = "codegen_test",
+    srcs = ["codegen_test.py"],
+    deps = [
+        ":sync_py_proto",
+        ":display_py_proto",
+        ":screenshot_py_proto",
     ],
 )
