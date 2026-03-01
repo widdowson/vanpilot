@@ -16,11 +16,15 @@ class BitmapStore:
     """Thread-safe store for bitmap data, keyed by cache key.
 
     Used by GetBitmap to serve bitmaps that the Android app doesn't have cached.
+    Also tracks which keys have been sent to each client (AC-7.3) and supports
+    cache reconciliation on reconnection (AC-7.4).
     """
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._cache: dict[str, bytes] = {}
+        # client_id -> set of cache keys sent to that client
+        self._sent: dict[str, set[str]] = {}
 
     def put(self, cache_key: str, data: bytes) -> None:
         with self._lock:
@@ -33,6 +37,42 @@ class BitmapStore:
     def has(self, cache_key: str) -> bool:
         with self._lock:
             return cache_key in self._cache
+
+    def all_keys(self) -> set[str]:
+        """Return all stored cache keys."""
+        with self._lock:
+            return set(self._cache.keys())
+
+    def mark_sent(self, client_id: str, cache_key: str) -> None:
+        """Record that a cache key has been sent to a client (AC-7.3)."""
+        with self._lock:
+            if client_id not in self._sent:
+                self._sent[client_id] = set()
+            self._sent[client_id].add(cache_key)
+
+    def get_sent_keys(self, client_id: str) -> set[str]:
+        """Return the set of cache keys sent to a client."""
+        with self._lock:
+            return set(self._sent.get(client_id, set()))
+
+    def clear_client(self, client_id: str) -> None:
+        """Remove all tracking for a client (e.g., on disconnect)."""
+        with self._lock:
+            self._sent.pop(client_id, None)
+
+    def reconcile(self, client_id: str, present_keys: set[str]) -> set[str]:
+        """Reconcile cache state with a client on reconnection (AC-7.4).
+
+        Args:
+            client_id: Identifier for the reconnecting client.
+            present_keys: Cache keys the client reports having.
+
+        Returns:
+            Set of cache keys the supervisor has that the client is missing.
+        """
+        with self._lock:
+            self._sent[client_id] = set(present_keys)
+            return set(self._cache.keys()) - present_keys
 
 
 def _current_time_ms() -> int:

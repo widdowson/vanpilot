@@ -16,6 +16,11 @@ service SyncService {
 
   // Request a bitmap that is not in the local cache.
   rpc GetBitmap(GetBitmapRequest) returns (GetBitmapResponse);
+
+  // Reconcile bitmap cache state on reconnection. The Android app reports
+  // which cache keys it holds, and the supervisor responds with keys that
+  // the app is missing (i.e., keys the supervisor has but the app does not).
+  rpc ReconcileCache(ReconcileCacheRequest) returns (ReconcileCacheResponse);
 }
 
 message GetEventsRequest {
@@ -110,4 +115,14 @@ message GetBitmapRequest {
 
 message GetBitmapResponse {
   BitmapPayload bitmap = 1;
+}
+
+message ReconcileCacheRequest {
+  // Cache keys the Android app currently holds.
+  repeated string present_keys = 1;
+}
+
+message ReconcileCacheResponse {
+  // Cache keys that the supervisor has but the app does not.
+  repeated string missing_keys = 1;
 }

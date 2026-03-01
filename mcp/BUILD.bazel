@@ -82,3 +82,11 @@ py_test(
     imports = [".."],
     deps = [":server_lib"],
 )
+
+py_test(
+    name = "handlers_cache_flip_test",
+    srcs = ["tests/test_handlers_cache_flip.py"],
+    main = "tests/test_handlers_cache_flip.py",
+    imports = [".."],
+    deps = [":handlers"],
+)

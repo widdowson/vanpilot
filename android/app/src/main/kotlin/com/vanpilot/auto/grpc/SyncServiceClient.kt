@@ -4,6 +4,8 @@ import com.vanpilot.proto.v1.GetBitmapRequest
 import com.vanpilot.proto.v1.GetBitmapResponse
 import com.vanpilot.proto.v1.GetEventsRequest
 import com.vanpilot.proto.v1.GetEventsResponse
+import com.vanpilot.proto.v1.ReconcileCacheRequest
+import com.vanpilot.proto.v1.ReconcileCacheResponse
 import com.vanpilot.proto.v1.SendUserInputRequest
 import com.vanpilot.proto.v1.SendUserInputResponse
 import com.vanpilot.proto.v1.SyncServiceGrpc
@@ -41,6 +43,13 @@ class SyncServiceClient(private val channel: ManagedChannel) {
             .setCacheKey(cacheKey)
             .build()
         return stub.getBitmap(request)
+    }
+
+    fun reconcileCache(presentKeys: List<String>): ReconcileCacheResponse {
+        val request = ReconcileCacheRequest.newBuilder()
+            .addAllPresentKeys(presentKeys)
+            .build()
+        return stub.reconcileCache(request)
     }
 
     fun shutdown() {

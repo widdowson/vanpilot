@@ -1,14 +1,21 @@
 package com.vanpilot.auto.sync
 
 import com.vanpilot.auto.cache.BitmapCache
+import com.vanpilot.auto.cache.BitmapFetcher
 import com.vanpilot.proto.v1.Event
 
 /**
  * Processes Event objects received from GetEventsResponse.
  *
  * Stores processed results internally for consumption by the UI layer.
+ * When a DisplayCommand references a cache key not in BitmapCache and
+ * a [BitmapFetcher] is configured, automatically requests the missing
+ * bitmap from the supervisor (AC-7.2).
  */
-class EventProcessor(private val cache: BitmapCache) {
+class EventProcessor(
+    private val cache: BitmapCache,
+    private val fetcher: BitmapFetcher? = null
+) {
 
     private val _textMessages = mutableListOf<ProcessedTextMessage>()
     val textMessages: List<ProcessedTextMessage> get() = _textMessages.toList()
@@ -17,6 +24,10 @@ class EventProcessor(private val cache: BitmapCache) {
     val alerts: List<ProcessedAlert> get() = _alerts.toList()
 
     var currentDisplayKey: String? = null
+        private set
+
+    /** Count of auto-fetched bitmaps (for testing). */
+    var fetchCount: Int = 0
         private set
 
     fun processEvent(event: Event) {
@@ -32,7 +43,16 @@ class EventProcessor(private val cache: BitmapCache) {
                 cache.put(payload.cacheKey, payload.imageData.toByteArray())
             }
             event.hasDisplayCommand() -> {
-                currentDisplayKey = event.displayCommand.cacheKey
+                val key = event.displayCommand.cacheKey
+                // Auto-request missing bitmap from supervisor (AC-7.2)
+                if (!cache.contains(key) && fetcher != null) {
+                    val data = fetcher.fetchBitmap(key)
+                    if (data != null) {
+                        cache.put(key, data)
+                        fetchCount++
+                    }
+                }
+                currentDisplayKey = key
             }
             event.hasWatchdogTimeout() -> {
                 val wt = event.watchdogTimeout
