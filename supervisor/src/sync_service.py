@@ -8,10 +8,7 @@ import grpc
 
 from proto.vanpilot.v1 import sync_pb2
 from supervisor.src.event_store import EventStore
-try:
-    from supervisor.src.input_injector import InputInjector
-except ImportError:
-    InputInjector = None  # type: ignore[assignment,misc]
+from supervisor.src.input_injector import InputInjector
 
 
 class SyncServiceServicer:
