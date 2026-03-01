@@ -28,6 +28,16 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
     val surfaceCallback = VanPilotSurfaceCallback()
     val tabManager = ConversationTabManager.createWithMockData()
 
+    /** Tracks the current dark mode state. */
+    var currentIsDarkMode: Boolean = false
+        private set
+
+    /** Updates the theme based on dark mode state and propagates to surface callback. */
+    fun updateTheme(isDarkMode: Boolean) {
+        currentIsDarkMode = isDarkMode
+        surfaceCallback.setTheme(DarkModeTheme.forDarkMode(isDarkMode))
+    }
+
     companion object {
         const val VISUAL_TAB_ID = "visual_card"
         const val LEAD_AGENT_TAB_ID = ConversationTabManager.LEAD_AGENT_TAB_ID
@@ -51,6 +61,11 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
     }
 
     override fun onGetTemplate(): TabTemplate {
+        // Read dark mode state from the host on every template refresh.
+        // onGetTemplate() is called on configuration changes, so this
+        // picks up dark mode toggling automatically.
+        updateTheme(carContext.isDarkMode)
+
         val appIcon = CarIcon.Builder(CarIcon.APP_ICON).build()
 
         val builder = TabTemplate.Builder(object : TabTemplate.TabCallback {
