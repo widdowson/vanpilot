@@ -58,7 +58,7 @@ class SyncClient(
             val events = response.eventsList
 
             if (events.isNotEmpty()) {
-                sinceTimestampMs = events.last().timestampMs + 1
+                sinceTimestampMs = events.last().timestampMs
                 // Adaptive batching: grow on success
                 if (maxCount < MAX_BATCH_SIZE) {
                     maxCount = (maxCount * 2).coerceAtMost(MAX_BATCH_SIZE)

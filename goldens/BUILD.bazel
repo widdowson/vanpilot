@@ -1,11 +1,29 @@
-load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
 package(default_visibility = ["//visibility:public"])
+
+# ============================================================================
+# Filegroups
+# ============================================================================
 
 filegroup(
     name = "phase3_goldens",
     srcs = ["//goldens/phase3:golden_images"],
 )
+
+# ============================================================================
+# Libraries
+# ============================================================================
+
+py_library(
+    name = "video_capture",
+    srcs = ["video_capture.py"],
+    imports = [".."],
+)
+
+# ============================================================================
+# Binaries
+# ============================================================================
 
 py_binary(
     name = "generate_goldens",
@@ -15,6 +33,10 @@ py_binary(
     deps = ["//mcp:png_util"],
 )
 
+# ============================================================================
+# Tests — fine-grained, one per test module
+# ============================================================================
+
 py_test(
     name = "solid_color_surface_test",
     srcs = ["test_solid_color_surface.py"],
@@ -22,4 +44,40 @@ py_test(
     imports = [".."],
     data = [":phase3_goldens"],
     deps = ["//mcp:png_util"],
+)
+
+py_test(
+    name = "video_capture_config_test",
+    srcs = ["test_video_capture.py"],
+    main = "test_video_capture.py",
+    imports = [".."],
+    args = ["VideoCaptureConfigTest"],
+    deps = [":video_capture"],
+)
+
+py_test(
+    name = "video_capture_disabled_test",
+    srcs = ["test_video_capture.py"],
+    main = "test_video_capture.py",
+    imports = [".."],
+    args = ["VideoCaptureDisabledTest"],
+    deps = [":video_capture"],
+)
+
+py_test(
+    name = "video_capture_enabled_test",
+    srcs = ["test_video_capture.py"],
+    main = "test_video_capture.py",
+    imports = [".."],
+    args = ["VideoCaptureEnabledTest"],
+    deps = [":video_capture"],
+)
+
+py_test(
+    name = "video_capture_duration_test",
+    srcs = ["test_video_capture.py"],
+    main = "test_video_capture.py",
+    imports = [".."],
+    args = ["VideoCaptureConfigCustomDurationTest"],
+    deps = [":video_capture"],
 )

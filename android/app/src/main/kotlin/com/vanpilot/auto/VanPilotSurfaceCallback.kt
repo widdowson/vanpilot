@@ -20,8 +20,6 @@ class VanPilotSurfaceCallback : SurfaceCallback {
 
     companion object {
         const val TAG = "VanPilotSurface"
-        /** VanPilot brand teal — a distinctive color for golden screenshot verification. */
-        const val FILL_COLOR = 0xFF1A8A7D.toInt()
     }
 
     /** The most recently provided surface container, or null if destroyed. */
@@ -40,10 +38,23 @@ class VanPilotSurfaceCallback : SurfaceCallback {
     var surfaceAvailableCount: Int = 0
         private set
 
+    /** Current theme for rendering. Defaults to light mode. */
+    var currentTheme: DarkModeTheme = DarkModeTheme.light()
+        private set
+
+
     var currentBitmap: Bitmap? = null
         private set
     var currentCacheKey: String? = null
         private set
+
+    /** Update the rendering theme. Redraws the surface if available. */
+    fun setTheme(theme: DarkModeTheme) {
+        currentTheme = theme
+        Log.i(TAG, "Theme changed: isDarkMode=${theme.isDarkMode}")
+        currentSurface?.let { drawCurrentContent(it) }
+    }
+
 
     override fun onSurfaceAvailable(surfaceContainer: SurfaceContainer) {
         Log.i(TAG, "Surface available: ${surfaceContainer.width}x${surfaceContainer.height} " +
@@ -87,7 +98,7 @@ class VanPilotSurfaceCallback : SurfaceCallback {
      */
     fun drawToCanvas(canvas: Canvas, width: Int, height: Int) {
         val paint = Paint().apply {
-            color = FILL_COLOR
+            color = currentTheme.surfaceColor
             style = Paint.Style.FILL
         }
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)

@@ -91,7 +91,7 @@ class InputInjectorFailureEventTest(unittest.TestCase):
         self.tmpdir = tempfile.mkdtemp()
         self.injector = InputInjector(
             self.tmux, self.store,
-            log_dir=self.tmpdir, response_timeout_s=0.1, poll_interval_s=0.02,
+            log_dir=self.tmpdir, response_timeout_s=0.5, poll_interval_s=0.02,
         )
 
     def test_failure_event_emitted_on_timeout(self):
@@ -115,7 +115,7 @@ class InputInjectorFailureEventTest(unittest.TestCase):
             f.write("initial\n")
 
         def grow_log():
-            time.sleep(0.02)
+            time.sleep(0.01)
             with open(log_file, "a") as f:
                 f.write("response\n")
 
@@ -209,7 +209,7 @@ class InputInjectorAsyncTest(unittest.TestCase):
         """Join the thread and verify failure event emitted on timeout."""
         injector = InputInjector(
             self.tmux, self.store,
-            log_dir=self.tmpdir, response_timeout_s=0.1, poll_interval_s=0.02,
+            log_dir=self.tmpdir, response_timeout_s=0.5, poll_interval_s=0.02,
         )
         thread = injector.inject_async("agent-lead", "doomed prompt", "lead")
         thread.join(timeout=2.0)

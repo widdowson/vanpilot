@@ -6,9 +6,12 @@ import com.vanpilot.proto.v1.GetEventsRequest
 import com.vanpilot.proto.v1.GetEventsResponse
 import com.vanpilot.proto.v1.ReconcileCacheRequest
 import com.vanpilot.proto.v1.ReconcileCacheResponse
+import com.vanpilot.proto.v1.ReportThemeRequest
+import com.vanpilot.proto.v1.ReportThemeResponse
 import com.vanpilot.proto.v1.SendUserInputRequest
 import com.vanpilot.proto.v1.SendUserInputResponse
 import com.vanpilot.proto.v1.SyncServiceGrpc
+import com.vanpilot.proto.v1.ThemeMode
 import io.grpc.ManagedChannel
 
 /**
@@ -50,6 +53,13 @@ class SyncServiceClient(private val channel: ManagedChannel) {
             .addAllPresentKeys(presentKeys)
             .build()
         return stub.reconcileCache(request)
+    }
+
+    fun reportTheme(theme: ThemeMode): ReportThemeResponse {
+        val request = ReportThemeRequest.newBuilder()
+            .setTheme(theme)
+            .build()
+        return stub.reportTheme(request)
     }
 
     fun shutdown() {

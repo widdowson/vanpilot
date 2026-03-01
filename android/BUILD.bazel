@@ -31,6 +31,7 @@ kt_android_library(
             "app/src/main/kotlin/com/vanpilot/auto/grpc/**",
             "app/src/main/kotlin/com/vanpilot/auto/cache/**",
             "app/src/main/kotlin/com/vanpilot/auto/sync/**",
+            "app/src/main/kotlin/com/vanpilot/auto/connectivity/**",
         ],
     ),
     custom_package = "com.vanpilot.auto",
@@ -48,7 +49,6 @@ kt_android_library(
 # SyncClient.kt is excluded because it uses Android APIs (Bitmap,
 # BitmapFactory) and must be in an android_library target instead.
 # ============================================================================
-
 kt_jvm_library(
     name = "grpc_lib",
     srcs = glob(
@@ -56,6 +56,7 @@ kt_jvm_library(
             "app/src/main/kotlin/com/vanpilot/auto/grpc/**/*.kt",
             "app/src/main/kotlin/com/vanpilot/auto/cache/**/*.kt",
             "app/src/main/kotlin/com/vanpilot/auto/sync/**/*.kt",
+            "app/src/main/kotlin/com/vanpilot/auto/connectivity/**/*.kt",
         ],
         exclude = ["app/src/main/kotlin/com/vanpilot/auto/grpc/SyncClient.kt"],
     ),
@@ -112,7 +113,6 @@ android_binary(
 # @ConscryptMode(OFF) annotation bypasses the Conscrypt JNI requirement
 # on aarch64 hosts.
 # ============================================================================
-
 kt_jvm_library(
     name = "car_app_service_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/VanPilotCarAppServiceTest.kt"],
@@ -126,7 +126,6 @@ kt_jvm_library(
         "@maven//:org_robolectric_robolectric",
     ],
 )
-
 kt_jvm_library(
     name = "session_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/VanPilotSessionTest.kt"],
@@ -140,7 +139,6 @@ kt_jvm_library(
         "@maven//:org_robolectric_robolectric",
     ],
 )
-
 kt_jvm_library(
     name = "screen_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/VanPilotScreenTest.kt"],
@@ -154,7 +152,6 @@ kt_jvm_library(
         "@maven//:org_robolectric_robolectric",
     ],
 )
-
 kt_jvm_library(
     name = "surface_callback_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/VanPilotSurfaceCallbackTest.kt"],
@@ -167,8 +164,60 @@ kt_jvm_library(
     ],
 )
 
-# ---- gRPC / sync test libraries ----
+# ---- Dark mode test libraries ----
 
+kt_jvm_library(
+    name = "dark_mode_theme_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/DarkModeThemeTest.kt"],
+    deps = [
+        ":vanpilot_lib",
+        "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_robolectric_robolectric",
+    ],
+)
+
+kt_jvm_library(
+    name = "surface_callback_dark_mode_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/VanPilotSurfaceCallbackDarkModeTest.kt"],
+    deps = [
+        ":vanpilot_lib",
+        "@maven//:androidx_car_app_app",
+        "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_robolectric_robolectric",
+    ],
+)
+
+kt_jvm_library(
+    name = "screen_dark_mode_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/VanPilotScreenDarkModeTest.kt"],
+    deps = [
+        ":vanpilot_lib",
+        "@maven//:androidx_car_app_app",
+        "@maven//:androidx_car_app_app_testing",
+        "@maven//:androidx_test_core",
+        "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_robolectric_robolectric",
+    ],
+)
+
+kt_jvm_library(
+    name = "sync_client_report_theme_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/grpc/SyncServiceClientReportThemeTest.kt"],
+    deps = [
+        ":grpc_lib",
+        "//proto/vanpilot/v1:sync_java_proto",
+        "//proto/vanpilot/v1:sync_java_grpc",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_grpc_grpc_inprocess",
+        "@maven//:junit_junit",
+        "@maven//:com_google_truth_truth",
+    ],
+)
+
+# ---- gRPC / sync test libraries ----
 kt_jvm_library(
     name = "bitmap_cache_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/cache/BitmapCacheTest.kt"],
@@ -178,7 +227,6 @@ kt_jvm_library(
         "@maven//:com_google_truth_truth",
     ],
 )
-
 kt_jvm_library(
     name = "event_processor_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/sync/EventProcessorTest.kt"],
@@ -217,7 +265,6 @@ kt_jvm_library(
         "@maven//:com_google_truth_truth",
     ],
 )
-
 kt_jvm_library(
     name = "sync_client_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/grpc/SyncClientTest.kt"],
@@ -229,13 +276,59 @@ kt_jvm_library(
         "//proto/vanpilot/v1:sync_java_grpc",
         "@maven//:junit_junit",
         "@maven//:com_google_truth_truth",
+        "@maven//:org_robolectric_robolectric",
+    ],
+)
+
+# ---- Connectivity / offline resilience test libraries ----
+
+kt_jvm_library(
+    name = "connection_state_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/connectivity/ConnectionStateTest.kt"],
+    deps = [
+        ":grpc_lib",
+        "@maven//:junit_junit",
+        "@maven//:com_google_truth_truth",
+    ],
+)
+
+kt_jvm_library(
+    name = "connection_monitor_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/connectivity/ConnectionMonitorTest.kt"],
+    deps = [
+        ":grpc_lib",
+        "@maven//:junit_junit",
+        "@maven//:com_google_truth_truth",
+    ],
+)
+
+kt_jvm_library(
+    name = "adaptive_batch_config_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/connectivity/AdaptiveBatchConfigTest.kt"],
+    deps = [
+        ":grpc_lib",
+        "@maven//:junit_junit",
+        "@maven//:com_google_truth_truth",
+    ],
+)
+
+kt_jvm_library(
+    name = "sync_manager_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/connectivity/SyncManagerTest.kt"],
+    deps = [
+        ":grpc_lib",
+        "//proto/vanpilot/v1:sync_java_proto",
+        "//proto/vanpilot/v1:sync_java_grpc",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_grpc_grpc_inprocess",
+        "@maven//:junit_junit",
+        "@maven//:com_google_truth_truth",
     ],
 )
 
 # ============================================================================
 # Voice test fakes (shared by voice test targets)
 # ============================================================================
-
 kt_jvm_library(
     name = "voice_test_fakes_lib",
     srcs = [
@@ -250,7 +343,6 @@ kt_jvm_library(
 # ============================================================================
 # Voice test libraries
 # ============================================================================
-
 kt_jvm_library(
     name = "voice_state_machine_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/voice/VoiceStateMachineTest.kt"],
@@ -262,7 +354,6 @@ kt_jvm_library(
         "@maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core",
     ],
 )
-
 kt_jvm_library(
     name = "voice_ui_state_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/voice/VoiceUiStateTest.kt"],
@@ -272,7 +363,6 @@ kt_jvm_library(
         "@maven//:com_google_truth_truth",
     ],
 )
-
 kt_jvm_library(
     name = "stt_manager_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/voice/SttManagerTest.kt"],
@@ -282,7 +372,6 @@ kt_jvm_library(
         "@maven//:com_google_truth_truth",
     ],
 )
-
 kt_jvm_library(
     name = "tts_manager_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/voice/TtsManagerTest.kt"],
@@ -290,6 +379,44 @@ kt_jvm_library(
         ":voice_lib",
         "@maven//:junit_junit",
         "@maven//:com_google_truth_truth",
+    ],
+)
+
+# ============================================================================
+# Conversation tab test libraries
+# ============================================================================
+
+kt_jvm_library(
+    name = "conversation_message_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/ConversationMessageTest.kt"],
+    deps = [
+        ":vanpilot_lib",
+        "@maven//:junit_junit",
+        "@maven//:com_google_truth_truth",
+    ],
+)
+
+kt_jvm_library(
+    name = "conversation_tab_manager_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/ConversationTabManagerTest.kt"],
+    deps = [
+        ":vanpilot_lib",
+        "@maven//:junit_junit",
+        "@maven//:com_google_truth_truth",
+    ],
+)
+
+kt_jvm_library(
+    name = "screen_tabs_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/VanPilotScreenTabsTest.kt"],
+    deps = [
+        ":vanpilot_lib",
+        "@maven//:androidx_car_app_app",
+        "@maven//:androidx_car_app_app_testing",
+        "@maven//:androidx_test_core",
+        "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_robolectric_robolectric",
     ],
 )
 
@@ -338,6 +465,49 @@ android_local_test(
     test_class = "com.vanpilot.auto.VanPilotSurfaceCallbackTest",
     deps = [
         ":surface_callback_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+# ---- Dark mode test targets ----
+
+android_local_test(
+    name = "dark_mode_theme_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    test_class = "com.vanpilot.auto.DarkModeThemeTest",
+    deps = [
+        ":dark_mode_theme_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_local_test(
+    name = "surface_callback_dark_mode_test",
+    data = ["//goldens/phase3:golden_images"],
+    manifest = "app/src/main/AndroidManifest.xml",
+    test_class = "com.vanpilot.auto.VanPilotSurfaceCallbackDarkModeTest",
+    deps = [
+        ":surface_callback_dark_mode_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_local_test(
+    name = "screen_dark_mode_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    test_class = "com.vanpilot.auto.VanPilotScreenDarkModeTest",
+    deps = [
+        ":screen_dark_mode_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_local_test(
+    name = "sync_client_report_theme_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    test_class = "com.vanpilot.auto.grpc.SyncServiceClientReportThemeTest",
+    deps = [
+        ":sync_client_report_theme_test_lib",
         "@robolectric//bazel:android-all",
     ],
 )
@@ -442,6 +612,48 @@ android_local_test(
     ],
 )
 
+# ---- Connectivity / offline resilience test targets ----
+
+android_local_test(
+    name = "connection_state_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    test_class = "com.vanpilot.auto.connectivity.ConnectionStateTest",
+    deps = [
+        ":connection_state_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_local_test(
+    name = "connection_monitor_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    test_class = "com.vanpilot.auto.connectivity.ConnectionMonitorTest",
+    deps = [
+        ":connection_monitor_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_local_test(
+    name = "adaptive_batch_config_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    test_class = "com.vanpilot.auto.connectivity.AdaptiveBatchConfigTest",
+    deps = [
+        ":adaptive_batch_config_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_local_test(
+    name = "sync_manager_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    test_class = "com.vanpilot.auto.connectivity.SyncManagerTest",
+    deps = [
+        ":sync_manager_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
 # ---- Voice test targets ----
 
 android_local_test(
@@ -480,6 +692,38 @@ android_local_test(
     test_class = "com.vanpilot.auto.voice.TtsManagerTest",
     deps = [
         ":tts_manager_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+# ---- Conversation tab test targets ----
+
+android_local_test(
+    name = "conversation_message_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    test_class = "com.vanpilot.auto.ConversationMessageTest",
+    deps = [
+        ":conversation_message_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_local_test(
+    name = "conversation_tab_manager_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    test_class = "com.vanpilot.auto.ConversationTabManagerTest",
+    deps = [
+        ":conversation_tab_manager_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_local_test(
+    name = "screen_tabs_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    test_class = "com.vanpilot.auto.VanPilotScreenTabsTest",
+    deps = [
+        ":screen_tabs_test_lib",
         "@robolectric//bazel:android-all",
     ],
 )

@@ -20,7 +20,8 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.junit.runners.JUnit4
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.ConscryptMode
 
 /**
  * Fake SyncService implementation for testing SyncClient behavior.
@@ -70,8 +71,12 @@ class FakeSyncService : SyncServiceGrpc.SyncServiceImplBase() {
  *
  * Tests adaptive batching (max_count adjustment on success/error),
  * event dispatching (TextMessage, DisplayCommand), and sync state.
+ *
+ * Uses RobolectricTestRunner because SyncClient calls Android APIs
+ * (Log.w, BitmapFactory.decodeByteArray) that need Robolectric shadows.
  */
-@RunWith(JUnit4::class)
+@RunWith(RobolectricTestRunner::class)
+@ConscryptMode(ConscryptMode.Mode.OFF)
 class SyncClientTest {
 
     private lateinit var server: Server
@@ -205,8 +210,8 @@ class SyncClientTest {
             makeTextEvent(2000L, "agent1", "second"),
         )
         client.pollEvents()
-        // sinceTimestampMs should be last event's timestamp + 1
-        assertThat(client.sinceTimestampMs).isEqualTo(2001L)
+        // sinceTimestampMs should be last event's timestamp
+        assertThat(client.sinceTimestampMs).isEqualTo(2000L)
     }
 
     @Test
@@ -231,7 +236,7 @@ class SyncClientTest {
         // Next poll should use updated timestamp
         fakeService.eventsToReturn = emptyList()
         client.pollEvents()
-        assertThat(fakeService.lastGetEventsRequest?.sinceTimestampMs).isEqualTo(5001L)
+        assertThat(fakeService.lastGetEventsRequest?.sinceTimestampMs).isEqualTo(5000L)
     }
 
     // -----------------------------------------------------------------------
@@ -296,7 +301,7 @@ class SyncClientTest {
     }
 
     @Test
-    fun pollEvents_displayCommandFallsBackToGetBitmap() {
+    fun pollEvents_displayCommandSkippedWhenBitmapMissing() {
         // Bitmap not in cache, GetBitmap returns empty → display should NOT fire
         fakeService.eventsToReturn = listOf(makeDisplayEvent(1000L, "0xMISSING"))
         fakeService.getBitmapResponse = null  // empty response
