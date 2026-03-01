@@ -85,10 +85,8 @@ kt_android_library(
     manifest = "app/src/main/AndroidManifest.xml",
     deps = [
         ":vanpilot_lib",
-        "@maven//:io_grpc_grpc_okhttp",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:io_grpc_grpc_protobuf_lite",
-        "@maven//:io_grpc_grpc_android",
         "//proto/vanpilot/v1:sync_java_proto",
         "//proto/vanpilot/v1:sync_java_grpc",
     ],
