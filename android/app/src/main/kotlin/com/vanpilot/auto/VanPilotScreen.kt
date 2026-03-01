@@ -36,18 +36,26 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
     /** The currently active tab content ID. Defaults to Visual tab. */
     private var activeTabId: String = VISUAL_TAB_ID
 
+    /**
+     * Handle tab selection: update active tab state and refresh the template.
+     * Called by the TabCallback and also usable directly in tests.
+     */
+    fun selectTab(tabContentId: String) {
+        activeTabId = tabContentId
+        if (tabContentId != VISUAL_TAB_ID) {
+            tabManager.activeConversationTabId = tabContentId
+        } else {
+            tabManager.activeConversationTabId = null
+        }
+        invalidate()
+    }
+
     override fun onGetTemplate(): TabTemplate {
         val appIcon = CarIcon.Builder(CarIcon.APP_ICON).build()
 
         val builder = TabTemplate.Builder(object : TabTemplate.TabCallback {
             override fun onTabSelected(tabContentId: String) {
-                activeTabId = tabContentId
-                if (tabContentId != VISUAL_TAB_ID) {
-                    tabManager.activeConversationTabId = tabContentId
-                } else {
-                    tabManager.activeConversationTabId = null
-                }
-                invalidate()
+                selectTab(tabContentId)
             }
         })
 

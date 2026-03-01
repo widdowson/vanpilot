@@ -1,7 +1,6 @@
 package com.vanpilot.auto
 
 import androidx.car.app.model.ListTemplate
-import androidx.car.app.model.TabTemplate
 import androidx.car.app.navigation.model.NavigationTemplate
 import androidx.car.app.testing.TestCarContext
 import androidx.test.core.app.ApplicationProvider
@@ -15,7 +14,7 @@ import org.robolectric.annotation.ConscryptMode
 
 /**
  * Behavioral tests for VanPilotScreen conversation tab switching.
- * Verifies onTabSelected triggers correct state changes.
+ * Verifies selectTab triggers correct state changes.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
@@ -83,8 +82,7 @@ class VanPilotScreenTabsTest {
 
     @Test
     fun selectLeadAgentTab_updatesActiveTab() {
-        val template = screen.onGetTemplate()
-        template.tabCallback.onTabSelected(VanPilotScreen.LEAD_AGENT_TAB_ID)
+        screen.selectTab(VanPilotScreen.LEAD_AGENT_TAB_ID)
 
         val updated = screen.onGetTemplate()
         assertThat(updated.activeTabContentId)
@@ -93,8 +91,7 @@ class VanPilotScreenTabsTest {
 
     @Test
     fun selectLeadAgentTab_showsListTemplate() {
-        val template = screen.onGetTemplate()
-        template.tabCallback.onTabSelected(VanPilotScreen.LEAD_AGENT_TAB_ID)
+        screen.selectTab(VanPilotScreen.LEAD_AGENT_TAB_ID)
 
         val updated = screen.onGetTemplate()
         assertThat(updated.tabContents!!.template)
@@ -103,8 +100,7 @@ class VanPilotScreenTabsTest {
 
     @Test
     fun selectLeadAgentTab_updatesTabManager() {
-        val template = screen.onGetTemplate()
-        template.tabCallback.onTabSelected(VanPilotScreen.LEAD_AGENT_TAB_ID)
+        screen.selectTab(VanPilotScreen.LEAD_AGENT_TAB_ID)
 
         assertThat(screen.tabManager.activeConversationTabId)
             .isEqualTo(VanPilotScreen.LEAD_AGENT_TAB_ID)
@@ -113,8 +109,7 @@ class VanPilotScreenTabsTest {
     @Test
     fun selectSubAgentTab_updatesActiveTab() {
         val subAgentTabId = ConversationTabManager.subAgentTabId("researcher")
-        val template = screen.onGetTemplate()
-        template.tabCallback.onTabSelected(subAgentTabId)
+        screen.selectTab(subAgentTabId)
 
         val updated = screen.onGetTemplate()
         assertThat(updated.activeTabContentId).isEqualTo(subAgentTabId)
@@ -123,8 +118,7 @@ class VanPilotScreenTabsTest {
     @Test
     fun selectSubAgentTab_showsListTemplate() {
         val subAgentTabId = ConversationTabManager.subAgentTabId("researcher")
-        val template = screen.onGetTemplate()
-        template.tabCallback.onTabSelected(subAgentTabId)
+        screen.selectTab(subAgentTabId)
 
         val updated = screen.onGetTemplate()
         assertThat(updated.tabContents!!.template)
@@ -134,8 +128,7 @@ class VanPilotScreenTabsTest {
     @Test
     fun selectSubAgentTab_updatesTabManager() {
         val subAgentTabId = ConversationTabManager.subAgentTabId("researcher")
-        val template = screen.onGetTemplate()
-        template.tabCallback.onTabSelected(subAgentTabId)
+        screen.selectTab(subAgentTabId)
 
         assertThat(screen.tabManager.activeConversationTabId)
             .isEqualTo(subAgentTabId)
@@ -143,28 +136,22 @@ class VanPilotScreenTabsTest {
 
     @Test
     fun switchBackToVisual_restoresNavigationTemplate() {
-        val template = screen.onGetTemplate()
-        // Switch to Lead Agent
-        template.tabCallback.onTabSelected(VanPilotScreen.LEAD_AGENT_TAB_ID)
-        // Switch back to Visual
-        val updated = screen.onGetTemplate()
-        updated.tabCallback.onTabSelected(VanPilotScreen.VISUAL_TAB_ID)
+        screen.selectTab(VanPilotScreen.LEAD_AGENT_TAB_ID)
+        screen.selectTab(VanPilotScreen.VISUAL_TAB_ID)
 
-        val final_ = screen.onGetTemplate()
-        assertThat(final_.activeTabContentId)
+        val template = screen.onGetTemplate()
+        assertThat(template.activeTabContentId)
             .isEqualTo(VanPilotScreen.VISUAL_TAB_ID)
-        assertThat(final_.tabContents!!.template)
+        assertThat(template.tabContents!!.template)
             .isInstanceOf(NavigationTemplate::class.java)
     }
 
     @Test
     fun switchBackToVisual_clearsConversationTabId() {
-        val template = screen.onGetTemplate()
-        template.tabCallback.onTabSelected(VanPilotScreen.LEAD_AGENT_TAB_ID)
+        screen.selectTab(VanPilotScreen.LEAD_AGENT_TAB_ID)
         assertThat(screen.tabManager.activeConversationTabId).isNotNull()
 
-        val updated = screen.onGetTemplate()
-        updated.tabCallback.onTabSelected(VanPilotScreen.VISUAL_TAB_ID)
+        screen.selectTab(VanPilotScreen.VISUAL_TAB_ID)
         assertThat(screen.tabManager.activeConversationTabId).isNull()
     }
 }
