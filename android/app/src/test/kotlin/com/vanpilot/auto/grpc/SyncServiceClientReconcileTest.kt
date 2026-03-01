@@ -4,12 +4,13 @@ import com.google.common.truth.Truth.assertThat
 import com.vanpilot.proto.v1.ReconcileCacheRequest
 import com.vanpilot.proto.v1.ReconcileCacheResponse
 import com.vanpilot.proto.v1.SyncServiceGrpc
+import io.grpc.ManagedChannel
+import io.grpc.Server
 import io.grpc.inprocess.InProcessChannelBuilder
 import io.grpc.inprocess.InProcessServerBuilder
 import io.grpc.stub.StreamObserver
-import io.grpc.testing.GrpcCleanupRule
+import org.junit.After
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
@@ -20,9 +21,8 @@ import org.junit.runners.JUnit4
 @RunWith(JUnit4::class)
 class SyncServiceClientReconcileTest {
 
-    @get:Rule
-    val grpcCleanup = GrpcCleanupRule()
-
+    private lateinit var server: Server
+    private lateinit var channel: ManagedChannel
     private lateinit var client: SyncServiceClient
     private val lastReconcileRequest = mutableListOf<ReconcileCacheRequest>()
 
@@ -44,20 +44,22 @@ class SyncServiceClientReconcileTest {
     @Before
     fun setUp() {
         val serverName = InProcessServerBuilder.generateName()
-        grpcCleanup.register(
-            InProcessServerBuilder.forName(serverName)
-                .directExecutor()
-                .addService(fakeService)
-                .build()
-                .start()
-        )
-        val channel = grpcCleanup.register(
-            InProcessChannelBuilder.forName(serverName)
-                .directExecutor()
-                .build()
-        )
+        server = InProcessServerBuilder.forName(serverName)
+            .directExecutor()
+            .addService(fakeService)
+            .build()
+            .start()
+        channel = InProcessChannelBuilder.forName(serverName)
+            .directExecutor()
+            .build()
         client = SyncServiceClient(channel)
         lastReconcileRequest.clear()
+    }
+
+    @After
+    fun tearDown() {
+        channel.shutdownNow()
+        server.shutdownNow()
     }
 
     @Test

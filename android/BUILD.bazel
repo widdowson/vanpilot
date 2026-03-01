@@ -579,7 +579,6 @@ kt_jvm_library(
 
 kt_jvm_library(
     name = "sync_service_client_reconcile_test_lib",
-    testonly = True,
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/grpc/SyncServiceClientReconcileTest.kt"],
     deps = [
         ":grpc_lib",
@@ -587,7 +586,6 @@ kt_jvm_library(
         "//proto/vanpilot/v1:sync_java_grpc",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:io_grpc_grpc_inprocess",
-        "@maven//:io_grpc_grpc_testing",
         "@maven//:junit_junit",
         "@maven//:com_google_truth_truth",
     ],
