@@ -2,6 +2,9 @@ package com.vanpilot.auto
 
 import androidx.car.app.CarContext
 import androidx.car.app.Screen
+import androidx.car.app.model.Action
+import androidx.car.app.model.ActionStrip
+import androidx.car.app.model.CarIcon
 import androidx.car.app.model.Header
 import androidx.car.app.model.ItemList
 import androidx.car.app.model.ListTemplate
@@ -34,6 +37,8 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
     private var activeTabId: String = VISUAL_TAB_ID
 
     override fun onGetTemplate(): TabTemplate {
+        val appIcon = CarIcon.Builder(CarIcon.APP_ICON).build()
+
         val builder = TabTemplate.Builder(object : TabTemplate.TabCallback {
             override fun onTabSelected(tabContentId: String) {
                 activeTabId = tabContentId
@@ -50,11 +55,7 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
         val visualTab = Tab.Builder()
             .setTitle("Visual")
             .setContentId(VISUAL_TAB_ID)
-            .setIcon(
-                androidx.car.app.model.CarIcon.Builder(
-                    androidx.car.app.model.CarIcon.APP_ICON
-                ).build()
-            )
+            .setIcon(appIcon)
             .build()
         builder.addTab(visualTab)
 
@@ -62,11 +63,7 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
         val leadTab = Tab.Builder()
             .setTitle("Lead Agent")
             .setContentId(LEAD_AGENT_TAB_ID)
-            .setIcon(
-                androidx.car.app.model.CarIcon.Builder(
-                    androidx.car.app.model.CarIcon.APP_ICON
-                ).build()
-            )
+            .setIcon(appIcon)
             .build()
         builder.addTab(leadTab)
 
@@ -76,11 +73,7 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
             val subTab = Tab.Builder()
                 .setTitle(agentId.replaceFirstChar { it.uppercase() })
                 .setContentId(ConversationTabManager.subAgentTabId(agentId))
-                .setIcon(
-                    androidx.car.app.model.CarIcon.Builder(
-                        androidx.car.app.model.CarIcon.APP_ICON
-                    ).build()
-                )
+                .setIcon(appIcon)
                 .build()
             builder.addTab(subTab)
         }
@@ -88,7 +81,9 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
         // Set active tab content
         val tabContents = when (activeTabId) {
             VISUAL_TAB_ID -> {
-                val navTemplate = NavigationTemplate.Builder().build()
+                val navTemplate = NavigationTemplate.Builder()
+                    .setActionStrip(ActionStrip.Builder().addAction(Action.PAN).build())
+                    .build()
                 TabContents.Builder(navTemplate).build()
             }
             LEAD_AGENT_TAB_ID -> {
@@ -105,7 +100,7 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
 
         builder.setTabContents(tabContents)
         builder.setActiveTabContentId(activeTabId)
-        builder.setHeaderAction(androidx.car.app.model.Action.APP_ICON)
+        builder.setHeaderAction(Action.APP_ICON)
 
         return builder.build()
     }
