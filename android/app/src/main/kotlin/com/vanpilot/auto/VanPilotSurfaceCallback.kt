@@ -1,5 +1,6 @@
 package com.vanpilot.auto
 
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -10,45 +11,42 @@ import androidx.car.app.SurfaceContainer
 
 /**
  * Handles the raw Surface provided by the NavigationTemplate.
- * Draws a solid color rectangle to prove that SurfaceCallback works —
- * this is the highest-risk item in the entire project.
+ *
+ * Supports two rendering modes:
+ * 1. Default: draws a solid teal rectangle
+ * 2. Bitmap: draws a received bitmap scaled to fill the surface
  */
 class VanPilotSurfaceCallback : SurfaceCallback {
 
     companion object {
         const val TAG = "VanPilotSurface"
-        /** VanPilot brand teal — a distinctive color for golden screenshot verification. */
         const val FILL_COLOR = 0xFF1A8A7D.toInt()
     }
 
-    /** The most recently provided surface container, or null if destroyed. */
     var currentSurface: SurfaceContainer? = null
         private set
-
-    /** The visible area reported by the host, or null if not yet known. */
     var visibleArea: Rect? = null
         private set
-
-    /** The stable area reported by the host, or null if not yet known. */
     var stableArea: Rect? = null
         private set
-
-    /** Tracks whether onSurfaceAvailable has been called at least once. */
     var surfaceAvailableCount: Int = 0
+        private set
+    var currentBitmap: Bitmap? = null
+        private set
+    var currentCacheKey: String? = null
         private set
 
     override fun onSurfaceAvailable(surfaceContainer: SurfaceContainer) {
-        Log.i(TAG, "Surface available: ${surfaceContainer.width}x${surfaceContainer.height} " +
-                "dpi=${surfaceContainer.dpi}")
+        Log.i(TAG, "Surface available: ${surfaceContainer.width}x${surfaceContainer.height} dpi=${surfaceContainer.dpi}")
         currentSurface = surfaceContainer
         surfaceAvailableCount++
-        drawSolidColor(surfaceContainer)
+        drawCurrentContent(surfaceContainer)
     }
 
     override fun onVisibleAreaChanged(visibleArea: Rect) {
         Log.i(TAG, "Visible area changed: $visibleArea")
         this.visibleArea = visibleArea
-        currentSurface?.let { drawSolidColor(it) }
+        currentSurface?.let { drawCurrentContent(it) }
     }
 
     override fun onStableAreaChanged(stableArea: Rect) {
@@ -61,10 +59,39 @@ class VanPilotSurfaceCallback : SurfaceCallback {
         currentSurface = null
     }
 
-    /**
-     * Draws a solid color rectangle filling the entire surface.
-     * This is the minimum viable proof that SurfaceCallback rendering works.
-     */
+    fun displayBitmap(cacheKey: String, bitmap: Bitmap) {
+        currentBitmap = bitmap
+        currentCacheKey = cacheKey
+        currentSurface?.let { drawCurrentContent(it) }
+    }
+
+    fun clearBitmap() {
+        currentBitmap = null
+        currentCacheKey = null
+        currentSurface?.let { drawCurrentContent(it) }
+    }
+
+    private fun drawCurrentContent(surfaceContainer: SurfaceContainer) {
+        val bitmap = currentBitmap
+        if (bitmap != null) {
+            drawBitmapOnSurface(surfaceContainer, bitmap)
+        } else {
+            drawSolidColor(surfaceContainer)
+        }
+    }
+
+    private fun drawBitmapOnSurface(surfaceContainer: SurfaceContainer, bitmap: Bitmap) {
+        val surface = surfaceContainer.surface ?: return
+        val canvas: Canvas = surface.lockCanvas(null) ?: return
+        try {
+            canvas.drawColor(Color.BLACK)
+            val destRect = Rect(0, 0, canvas.width, canvas.height)
+            canvas.drawBitmap(bitmap, null, destRect, null)
+        } finally {
+            surface.unlockCanvasAndPost(canvas)
+        }
+    }
+
     private fun drawSolidColor(surfaceContainer: SurfaceContainer) {
         val surface = surfaceContainer.surface ?: return
         val canvas: Canvas = surface.lockCanvas(null) ?: return
@@ -73,11 +100,7 @@ class VanPilotSurfaceCallback : SurfaceCallback {
                 color = FILL_COLOR
                 style = Paint.Style.FILL
             }
-            canvas.drawRect(
-                0f, 0f,
-                canvas.width.toFloat(), canvas.height.toFloat(),
-                paint
-            )
+            canvas.drawRect(0f, 0f, canvas.width.toFloat(), canvas.height.toFloat(), paint)
         } finally {
             surface.unlockCanvasAndPost(canvas)
         }

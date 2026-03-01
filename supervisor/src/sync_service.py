@@ -4,13 +4,15 @@ import grpc
 
 from proto.vanpilot.v1 import sync_pb2
 from supervisor.src.event_store import EventStore
+from supervisor.src.mcp_bridge import BitmapStore
 
 
 class SyncServiceServicer:
     """Implements the SyncService RPCs."""
 
-    def __init__(self, store: EventStore) -> None:
+    def __init__(self, store: EventStore, bitmap_store: BitmapStore | None = None) -> None:
         self._store = store
+        self._bitmap_store = bitmap_store or BitmapStore()
 
     def GetEvents(
         self,
@@ -28,7 +30,6 @@ class SyncServiceServicer:
         request: sync_pb2.SendUserInputRequest,
         context: grpc.ServicerContext,
     ) -> sync_pb2.SendUserInputResponse:
-        # Stub: accept but don't deliver yet
         return sync_pb2.SendUserInputResponse(accepted=True)
 
     def GetBitmap(
@@ -36,19 +37,22 @@ class SyncServiceServicer:
         request: sync_pb2.GetBitmapRequest,
         context: grpc.ServicerContext,
     ) -> sync_pb2.GetBitmapResponse:
-        # Stub: return empty response
-        return sync_pb2.GetBitmapResponse()
+        data = self._bitmap_store.get(request.cache_key)
+        if data is None:
+            return sync_pb2.GetBitmapResponse()
+        return sync_pb2.GetBitmapResponse(
+            bitmap=sync_pb2.BitmapPayload(
+                cache_key=request.cache_key,
+                image_data=data,
+            ),
+        )
 
 
 def add_sync_service_to_server(
-    server: grpc.Server, store: EventStore
+    server: grpc.Server, store: EventStore, bitmap_store: BitmapStore | None = None,
 ) -> None:
-    """Register SyncService handlers on a gRPC server.
-
-    Uses manual method handlers since we don't have generated _pb2_grpc stubs.
-    """
-    servicer = SyncServiceServicer(store)
-
+    """Register SyncService handlers on a gRPC server."""
+    servicer = SyncServiceServicer(store, bitmap_store)
     handler = _SyncServiceGenericHandler(servicer)
     server.add_generic_rpc_handlers([handler])
 
