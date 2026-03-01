@@ -82,12 +82,12 @@ vanpilot/
 ├── proto/
 │   └── vanpilot/
 │       └── v1/
-│           ├── BUILD
+│           ├── BUILD.bazel
 │           ├── sync.proto
 │           ├── display.proto
 │           └── screenshot.proto
 ├── supervisor/
-│   ├── BUILD
+│   ├── BUILD.bazel
 │   ├── src/
 │   │   ├── main.py
 │   │   ├── tmux_manager.py
@@ -98,7 +98,7 @@ vanpilot/
 │   │   └── grpc_server.py
 │   └── tests/
 ├── android/
-│   ├── BUILD
+│   ├── BUILD.bazel
 │   ├── app/
 │   │   ├── src/
 │   │   │   ├── main/
@@ -106,12 +106,12 @@ vanpilot/
 │   │   │   │   ├── res/
 │   │   │   │   └── AndroidManifest.xml
 │   │   │   └── test/
-│   │   └── BUILD
+│   │   └── BUILD.bazel
 │   └── auto/
 │       ├── src/
-│       └── BUILD
+│       └── BUILD.bazel
 ├── mcp/
-│   ├── BUILD
+│   ├── BUILD.bazel
 │   └── src/
 │       └── display_mcp.py
 ├── goldens/

@@ -59,6 +59,7 @@ use_repo(android_sdk_repository_extension, "androidsdk")
 register_toolchains(
     "@androidsdk//:sdk-toolchain",
     "@androidsdk//:all",
+    "//:kotlin_toolchain",
 )
 
 # ============================================================================
@@ -74,10 +75,10 @@ maven.install(
         "androidx.car.app:app-testing:1.7.0",
 
         # gRPC for Android (use -lite variants for Android)
-        "io.grpc:grpc-okhttp:1.79.0",
-        "io.grpc:grpc-stub:1.79.0",
-        "io.grpc:grpc-protobuf-lite:1.79.0",
-        "io.grpc:grpc-android:1.79.0",
+        "io.grpc:grpc-okhttp:1.78.0",
+        "io.grpc:grpc-stub:1.78.0",
+        "io.grpc:grpc-protobuf-lite:1.78.0",
+        "io.grpc:grpc-android:1.78.0",
 
         # Kotlin coroutines
         "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0",
@@ -95,6 +96,5 @@ maven.install(
     ],
     aar_import_bzl_label = "@rules_android//rules:rules.bzl",
     use_starlark_android_rules = True,
-    lock_file = "//:maven_install.json",
 )
 use_repo(maven, "maven")
