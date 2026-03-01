@@ -130,3 +130,67 @@ android_local_test(
         "@robolectric//bazel:android-all",
     ],
 )
+
+# ============================================================================
+# Voice I/O test libraries and targets (Phase 8)
+# ============================================================================
+
+kt_jvm_library(
+    name = "voice_state_manager_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/voice/VoiceStateManagerTest.kt"],
+    deps = [
+        ":vanpilot_lib",
+        "@maven//:junit_junit",
+        "@maven//:com_google_truth_truth",
+    ],
+)
+
+kt_jvm_library(
+    name = "speech_to_text_manager_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/voice/SpeechToTextManagerTest.kt"],
+    deps = [
+        ":vanpilot_lib",
+        "@maven//:junit_junit",
+        "@maven//:com_google_truth_truth",
+    ],
+)
+
+kt_jvm_library(
+    name = "text_to_speech_manager_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/voice/TextToSpeechManagerTest.kt"],
+    deps = [
+        ":vanpilot_lib",
+        "@maven//:junit_junit",
+        "@maven//:com_google_truth_truth",
+    ],
+)
+
+android_local_test(
+    name = "voice_state_manager_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    test_class = "com.vanpilot.auto.voice.VoiceStateManagerTest",
+    deps = [
+        ":voice_state_manager_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_local_test(
+    name = "speech_to_text_manager_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    test_class = "com.vanpilot.auto.voice.SpeechToTextManagerTest",
+    deps = [
+        ":speech_to_text_manager_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_local_test(
+    name = "text_to_speech_manager_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    test_class = "com.vanpilot.auto.voice.TextToSpeechManagerTest",
+    deps = [
+        ":text_to_speech_manager_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
