@@ -34,10 +34,9 @@ android_binary(
 # ============================================================================
 # Test libraries (Kotlin sources compiled for test targets)
 #
-# Tests use plain JUnit4 runner (not Robolectric) because Robolectric's
-# native runtime requires Conscrypt JNI for aarch64, which is not published.
-# On x86_64 hosts, these tests can be upgraded to use RobolectricTestRunner
-# for full Android framework emulation.
+# Behavioral tests using Robolectric + Car App Library testing framework.
+# @ConscryptMode(OFF) annotation bypasses the Conscrypt JNI requirement
+# on aarch64 hosts.
 # ============================================================================
 
 kt_jvm_library(
@@ -46,8 +45,11 @@ kt_jvm_library(
     deps = [
         ":vanpilot_lib",
         "@maven//:androidx_car_app_app",
-        "@maven//:junit_junit",
+        "@maven//:androidx_car_app_app_testing",
+        "@maven//:androidx_test_core",
         "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_robolectric_robolectric",
     ],
 )
 
@@ -57,8 +59,11 @@ kt_jvm_library(
     deps = [
         ":vanpilot_lib",
         "@maven//:androidx_car_app_app",
-        "@maven//:junit_junit",
+        "@maven//:androidx_car_app_app_testing",
+        "@maven//:androidx_test_core",
         "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_robolectric_robolectric",
     ],
 )
 
@@ -68,8 +73,11 @@ kt_jvm_library(
     deps = [
         ":vanpilot_lib",
         "@maven//:androidx_car_app_app",
-        "@maven//:junit_junit",
+        "@maven//:androidx_car_app_app_testing",
+        "@maven//:androidx_test_core",
         "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_robolectric_robolectric",
     ],
 )
 
@@ -79,16 +87,18 @@ kt_jvm_library(
     deps = [
         ":vanpilot_lib",
         "@maven//:androidx_car_app_app",
-        "@maven//:junit_junit",
         "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_robolectric_robolectric",
     ],
 )
 
 # ============================================================================
 # Test targets (fine-grained, one per test class)
 #
-# Using android_local_test with @robolectric//bazel:android-all to provide
-# Android SDK stubs. Tests use JUnit4 runner for aarch64 compatibility.
+# Using android_local_test with Robolectric for full Android framework
+# emulation. @ConscryptMode(OFF) on each test class avoids the aarch64
+# Conscrypt native library requirement.
 # ============================================================================
 
 android_local_test(
@@ -123,6 +133,7 @@ android_local_test(
 
 android_local_test(
     name = "surface_callback_test",
+    data = ["//goldens/phase3:golden_images"],
     manifest = "app/src/main/AndroidManifest.xml",
     test_class = "com.vanpilot.auto.VanPilotSurfaceCallbackTest",
     deps = [
