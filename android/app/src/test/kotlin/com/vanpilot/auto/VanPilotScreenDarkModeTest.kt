@@ -57,4 +57,15 @@ class VanPilotScreenDarkModeTest {
         assertThat(screen.surfaceCallback.currentTheme.surfaceColor)
             .isEqualTo(DarkModeTheme.light().surfaceColor)
     }
+
+    @Test
+    fun onGetTemplate_readsCarContextIsDarkMode() {
+        // TestCarContext defaults to light mode (isDarkMode = false).
+        // onGetTemplate should call updateTheme(carContext.isDarkMode).
+        screen.onGetTemplate()
+        assertThat(screen.currentIsDarkMode).isFalse()
+        assertThat(screen.surfaceCallback.currentTheme.isDarkMode).isFalse()
+        assertThat(screen.surfaceCallback.currentTheme.surfaceColor)
+            .isEqualTo(DarkModeTheme.light().surfaceColor)
+    }
 }

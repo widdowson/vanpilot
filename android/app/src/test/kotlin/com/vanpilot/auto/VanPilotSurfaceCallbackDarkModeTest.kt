@@ -77,9 +77,15 @@ class VanPilotSurfaceCallbackDarkModeTest {
 
     @Test
     fun goldenImage_darkTeal_matchesDarkThemeSurface() {
-        val goldenFile = File("goldens/phase3/solid_dark_teal_800x480.png")
+        // Use Bazel runfiles to locate the golden image.
+        val testSrcDir = System.getenv("TEST_SRCDIR")
+        val testWorkspace = System.getenv("TEST_WORKSPACE") ?: "_main"
+        val goldenFile = if (testSrcDir != null) {
+            File(testSrcDir, "$testWorkspace/goldens/phase3/solid_dark_teal_800x480.png")
+        } else {
+            File("goldens/phase3/solid_dark_teal_800x480.png")
+        }
         if (!goldenFile.exists()) {
-            // Golden file may not be available in all test environments
             return
         }
         val golden = ImageIO.read(goldenFile)

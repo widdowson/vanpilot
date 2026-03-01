@@ -17,8 +17,6 @@ class VanPilotSurfaceCallback : SurfaceCallback {
 
     companion object {
         const val TAG = "VanPilotSurface"
-        /** VanPilot brand teal — a distinctive color for golden screenshot verification. */
-        const val FILL_COLOR = 0xFF1A8A7D.toInt()
     }
 
     /** The most recently provided surface container, or null if destroyed. */

@@ -39,6 +39,11 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
     }
 
     override fun onGetTemplate(): TabTemplate {
+        // Read dark mode state from the host on every template refresh.
+        // onGetTemplate() is called on configuration changes, so this
+        // picks up dark mode toggling automatically.
+        updateTheme(carContext.isDarkMode)
+
         val navigationTemplate = NavigationTemplate.Builder()
             .setActionStrip(ActionStrip.Builder().addAction(Action.PAN).build())
             .build()
