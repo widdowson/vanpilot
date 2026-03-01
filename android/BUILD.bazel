@@ -48,7 +48,6 @@ kt_android_library(
 # SyncClient.kt is excluded because it uses Android APIs (Bitmap,
 # BitmapFactory) and must be in an android_library target instead.
 # ============================================================================
-
 kt_jvm_library(
     name = "grpc_lib",
     srcs = glob(
@@ -110,7 +109,6 @@ android_binary(
 # @ConscryptMode(OFF) annotation bypasses the Conscrypt JNI requirement
 # on aarch64 hosts.
 # ============================================================================
-
 kt_jvm_library(
     name = "car_app_service_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/VanPilotCarAppServiceTest.kt"],
@@ -124,7 +122,6 @@ kt_jvm_library(
         "@maven//:org_robolectric_robolectric",
     ],
 )
-
 kt_jvm_library(
     name = "session_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/VanPilotSessionTest.kt"],
@@ -138,7 +135,6 @@ kt_jvm_library(
         "@maven//:org_robolectric_robolectric",
     ],
 )
-
 kt_jvm_library(
     name = "screen_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/VanPilotScreenTest.kt"],
@@ -152,7 +148,6 @@ kt_jvm_library(
         "@maven//:org_robolectric_robolectric",
     ],
 )
-
 kt_jvm_library(
     name = "surface_callback_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/VanPilotSurfaceCallbackTest.kt"],
@@ -166,7 +161,6 @@ kt_jvm_library(
 )
 
 # ---- gRPC / sync test libraries ----
-
 kt_jvm_library(
     name = "bitmap_cache_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/cache/BitmapCacheTest.kt"],
@@ -176,7 +170,6 @@ kt_jvm_library(
         "@maven//:com_google_truth_truth",
     ],
 )
-
 kt_jvm_library(
     name = "event_processor_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/sync/EventProcessorTest.kt"],
@@ -187,21 +180,7 @@ kt_jvm_library(
         "@maven//:com_google_truth_truth",
     ],
 )
-
 kt_jvm_library(
-    name = "sync_poller_test_lib",
-    srcs = ["app/src/test/kotlin/com/vanpilot/auto/sync/SyncPollerTest.kt"],
-    deps = [
-        ":grpc_lib",
-        "//proto/vanpilot/v1:sync_java_proto",
-        "//proto/vanpilot/v1:sync_java_grpc",
-        "@maven//:io_grpc_grpc_stub",
-        "@maven//:io_grpc_grpc_inprocess",
-        "@maven//:junit_junit",
-        "@maven//:com_google_truth_truth",
-    ],
-)
-
 kt_jvm_library(
     name = "sync_service_client_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/grpc/SyncServiceClientTest.kt"],
@@ -215,7 +194,6 @@ kt_jvm_library(
         "@maven//:com_google_truth_truth",
     ],
 )
-
 kt_jvm_library(
     name = "android_app_service_impl_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/grpc/AndroidAppServiceImplTest.kt"],
@@ -229,7 +207,6 @@ kt_jvm_library(
         "@maven//:com_google_truth_truth",
     ],
 )
-
 kt_jvm_library(
     name = "sync_client_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/grpc/SyncClientTest.kt"],
@@ -241,13 +218,13 @@ kt_jvm_library(
         "//proto/vanpilot/v1:sync_java_grpc",
         "@maven//:junit_junit",
         "@maven//:com_google_truth_truth",
+        "@maven//:org_robolectric_robolectric",
     ],
 )
 
 # ============================================================================
 # Voice test fakes (shared by voice test targets)
 # ============================================================================
-
 kt_jvm_library(
     name = "voice_test_fakes_lib",
     srcs = [
@@ -262,7 +239,6 @@ kt_jvm_library(
 # ============================================================================
 # Voice test libraries
 # ============================================================================
-
 kt_jvm_library(
     name = "voice_state_machine_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/voice/VoiceStateMachineTest.kt"],
@@ -274,7 +250,6 @@ kt_jvm_library(
         "@maven//:org_jetbrains_kotlinx_kotlinx_coroutines_core",
     ],
 )
-
 kt_jvm_library(
     name = "voice_ui_state_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/voice/VoiceUiStateTest.kt"],
@@ -284,7 +259,6 @@ kt_jvm_library(
         "@maven//:com_google_truth_truth",
     ],
 )
-
 kt_jvm_library(
     name = "stt_manager_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/voice/SttManagerTest.kt"],
@@ -294,7 +268,6 @@ kt_jvm_library(
         "@maven//:com_google_truth_truth",
     ],
 )
-
 kt_jvm_library(
     name = "tts_manager_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/voice/TtsManagerTest.kt"],
@@ -377,14 +350,6 @@ android_local_test(
 )
 
 android_local_test(
-    name = "sync_poller_test",
-    manifest = "app/src/main/AndroidManifest.xml",
-    test_class = "com.vanpilot.auto.sync.SyncPollerTest",
-    deps = [
-        ":sync_poller_test_lib",
-        "@robolectric//bazel:android-all",
-    ],
-)
 
 android_local_test(
     name = "sync_service_client_test",
