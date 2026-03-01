@@ -11,7 +11,7 @@
 services:
   supervisor:
     build:
-      context: .
+      context: .  # Repo root required — Dockerfile copies from both proto/ and supervisor/
       dockerfile: supervisor/Dockerfile
       args:
         PROXY_CA_CERT: "${PROXY_CA_CERT:-}"
@@ -38,8 +38,8 @@ services:
 
   mcp:
     build:
-      context: .
-      dockerfile: mcp/Dockerfile
+      context: mcp
+      dockerfile: Dockerfile
     # MCP server uses stdio — no ports exposed.
     # In production, Claude Code spawns this process directly.
     # Here we keep it as a buildable service for verification.
