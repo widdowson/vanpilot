@@ -37,10 +37,7 @@ py_binary(
     srcs = ["src/server.py"],
     main = "src/server.py",
     imports = [".."],
-    deps = [
-        ":tools",
-        ":handlers",
-    ],
+    deps = [":server_lib"],
 )
 
 # ============================================================================
