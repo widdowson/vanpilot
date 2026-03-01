@@ -5,7 +5,7 @@ load("@rules_android//rules:rules.bzl", "android_binary")
 package(default_visibility = ["//visibility:public"])
 
 # ============================================================================
-# Main app library
+# Voice I/O library (STT, TTS, state machine)
 # ============================================================================
 
 kt_android_library(
@@ -18,12 +18,24 @@ kt_android_library(
     ],
 )
 
+# ============================================================================
+# Main app library (Car App UI + gRPC sync client)
+#
+# SyncClient.kt lives here (not in grpc_lib) because it uses Android
+# APIs (Bitmap, BitmapFactory) that require an android_library target.
+# ============================================================================
+
 kt_android_library(
     name = "vanpilot_lib",
     srcs = glob(
         ["app/src/main/kotlin/**/*.kt"],
-        exclude = ["app/src/main/kotlin/com/vanpilot/auto/voice/**/*.kt"],
-    ),
+        exclude = [
+            "app/src/main/kotlin/com/vanpilot/auto/voice/**/*.kt",
+            "app/src/main/kotlin/com/vanpilot/auto/grpc/**",
+            "app/src/main/kotlin/com/vanpilot/auto/cache/**",
+            "app/src/main/kotlin/com/vanpilot/auto/sync/**",
+        ],
+    ) + ["app/src/main/kotlin/com/vanpilot/auto/grpc/SyncClient.kt"],
     custom_package = "com.vanpilot.auto",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -36,6 +48,33 @@ kt_android_library(
         "@maven//:io_grpc_grpc_android",
         "//proto/vanpilot/v1:sync_java_proto",
         "//proto/vanpilot/v1:sync_java_grpc",
+    ],
+)
+
+# ============================================================================
+# gRPC client/server library (JVM-only for now; Android integration later)
+#
+# SyncClient.kt is excluded here because it uses Android APIs and lives
+# in vanpilot_lib instead.
+# ============================================================================
+
+kt_jvm_library(
+    name = "grpc_lib",
+    srcs = glob(
+        [
+            "app/src/main/kotlin/com/vanpilot/auto/grpc/**/*.kt",
+            "app/src/main/kotlin/com/vanpilot/auto/cache/**/*.kt",
+            "app/src/main/kotlin/com/vanpilot/auto/sync/**/*.kt",
+        ],
+        exclude = ["app/src/main/kotlin/com/vanpilot/auto/grpc/SyncClient.kt"],
+    ),
+    deps = [
+        "//proto/vanpilot/v1:sync_java_proto",
+        "//proto/vanpilot/v1:sync_java_grpc",
+        "//proto/vanpilot/v1:screenshot_java_proto",
+        "//proto/vanpilot/v1:screenshot_java_grpc",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_grpc_grpc_protobuf_lite",
     ],
 )
 
@@ -54,10 +93,9 @@ android_binary(
 # ============================================================================
 # Test libraries (Kotlin sources compiled for test targets)
 #
-# Tests use plain JUnit4 runner (not Robolectric) because Robolectric's
-# native runtime requires Conscrypt JNI for aarch64, which is not published.
-# On x86_64 hosts, these tests can be upgraded to use RobolectricTestRunner
-# for full Android framework emulation.
+# Behavioral tests using Robolectric + Car App Library testing framework.
+# @ConscryptMode(OFF) annotation bypasses the Conscrypt JNI requirement
+# on aarch64 hosts.
 # ============================================================================
 
 kt_jvm_library(
@@ -66,8 +104,11 @@ kt_jvm_library(
     deps = [
         ":vanpilot_lib",
         "@maven//:androidx_car_app_app",
-        "@maven//:junit_junit",
+        "@maven//:androidx_car_app_app_testing",
+        "@maven//:androidx_test_core",
         "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_robolectric_robolectric",
     ],
 )
 
@@ -77,8 +118,11 @@ kt_jvm_library(
     deps = [
         ":vanpilot_lib",
         "@maven//:androidx_car_app_app",
-        "@maven//:junit_junit",
+        "@maven//:androidx_car_app_app_testing",
+        "@maven//:androidx_test_core",
         "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_robolectric_robolectric",
     ],
 )
 
@@ -88,8 +132,11 @@ kt_jvm_library(
     deps = [
         ":vanpilot_lib",
         "@maven//:androidx_car_app_app",
-        "@maven//:junit_junit",
+        "@maven//:androidx_car_app_app_testing",
+        "@maven//:androidx_test_core",
         "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_robolectric_robolectric",
     ],
 )
 
@@ -99,16 +146,58 @@ kt_jvm_library(
     deps = [
         ":vanpilot_lib",
         "@maven//:androidx_car_app_app",
+        "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_robolectric_robolectric",
+    ],
+)
+
+# ---- gRPC / sync test libraries ----
+
+kt_jvm_library(
+    name = "bitmap_cache_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/cache/BitmapCacheTest.kt"],
+    deps = [
+        ":grpc_lib",
         "@maven//:junit_junit",
         "@maven//:com_google_truth_truth",
     ],
 )
 
 kt_jvm_library(
-    name = "bitmap_cache_test_lib",
-    srcs = ["app/src/test/kotlin/com/vanpilot/auto/BitmapCacheTest.kt"],
+    name = "event_processor_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/sync/EventProcessorTest.kt"],
     deps = [
-        ":vanpilot_lib",
+        ":grpc_lib",
+        "//proto/vanpilot/v1:sync_java_proto",
+        "@maven//:junit_junit",
+        "@maven//:com_google_truth_truth",
+    ],
+)
+
+kt_jvm_library(
+    name = "sync_service_client_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/grpc/SyncServiceClientTest.kt"],
+    deps = [
+        ":grpc_lib",
+        "//proto/vanpilot/v1:sync_java_proto",
+        "//proto/vanpilot/v1:sync_java_grpc",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_grpc_grpc_inprocess",
+        "@maven//:junit_junit",
+        "@maven//:com_google_truth_truth",
+    ],
+)
+
+kt_jvm_library(
+    name = "android_app_service_impl_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/grpc/AndroidAppServiceImplTest.kt"],
+    deps = [
+        ":grpc_lib",
+        "//proto/vanpilot/v1:screenshot_java_proto",
+        "//proto/vanpilot/v1:screenshot_java_grpc",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_grpc_grpc_inprocess",
         "@maven//:junit_junit",
         "@maven//:com_google_truth_truth",
     ],
@@ -128,6 +217,10 @@ kt_jvm_library(
     ],
 )
 
+# ============================================================================
+# Voice test fakes (shared by voice test targets)
+# ============================================================================
+
 kt_jvm_library(
     name = "voice_test_fakes_lib",
     srcs = [
@@ -138,6 +231,10 @@ kt_jvm_library(
         ":voice_lib",
     ],
 )
+
+# ============================================================================
+# Voice test libraries
+# ============================================================================
 
 kt_jvm_library(
     name = "voice_state_machine_test_lib",
@@ -184,8 +281,9 @@ kt_jvm_library(
 # ============================================================================
 # Test targets (fine-grained, one per test class)
 #
-# Using android_local_test with @robolectric//bazel:android-all to provide
-# Android SDK stubs. Tests use JUnit4 runner for aarch64 compatibility.
+# Using android_local_test with Robolectric for full Android framework
+# emulation. @ConscryptMode(OFF) on each test class avoids the aarch64
+# Conscrypt native library requirement.
 # ============================================================================
 
 android_local_test(
@@ -220,6 +318,7 @@ android_local_test(
 
 android_local_test(
     name = "surface_callback_test",
+    data = ["//goldens/phase3:golden_images"],
     manifest = "app/src/main/AndroidManifest.xml",
     test_class = "com.vanpilot.auto.VanPilotSurfaceCallbackTest",
     deps = [
@@ -228,12 +327,44 @@ android_local_test(
     ],
 )
 
+# ---- gRPC / sync test targets ----
+
 android_local_test(
     name = "bitmap_cache_test",
     manifest = "app/src/main/AndroidManifest.xml",
-    test_class = "com.vanpilot.auto.BitmapCacheTest",
+    test_class = "com.vanpilot.auto.cache.BitmapCacheTest",
     deps = [
         ":bitmap_cache_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_local_test(
+    name = "event_processor_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    test_class = "com.vanpilot.auto.sync.EventProcessorTest",
+    deps = [
+        ":event_processor_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_local_test(
+    name = "sync_service_client_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    test_class = "com.vanpilot.auto.grpc.SyncServiceClientTest",
+    deps = [
+        ":sync_service_client_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_local_test(
+    name = "android_app_service_impl_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    test_class = "com.vanpilot.auto.grpc.AndroidAppServiceImplTest",
+    deps = [
+        ":android_app_service_impl_test_lib",
         "@robolectric//bazel:android-all",
     ],
 )
@@ -247,6 +378,8 @@ android_local_test(
         "@robolectric//bazel:android-all",
     ],
 )
+
+# ---- Voice test targets ----
 
 android_local_test(
     name = "voice_state_machine_test",

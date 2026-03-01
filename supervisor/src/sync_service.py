@@ -1,18 +1,29 @@
 """gRPC SyncService implementation using manual method handlers."""
 
+from __future__ import annotations
+
+from typing import Optional
+
 import grpc
 
 from proto.vanpilot.v1 import sync_pb2
 from supervisor.src.event_store import EventStore
+from supervisor.src.input_injector import InputInjector
 from supervisor.src.mcp_bridge import BitmapStore
 
 
 class SyncServiceServicer:
     """Implements the SyncService RPCs."""
 
-    def __init__(self, store: EventStore, bitmap_store: BitmapStore | None = None) -> None:
+    def __init__(
+        self,
+        store: EventStore,
+        bitmap_store: BitmapStore | None = None,
+        input_injector: Optional[InputInjector] = None,
+    ) -> None:
         self._store = store
         self._bitmap_store = bitmap_store or BitmapStore()
+        self._input_injector = input_injector
 
     def GetEvents(
         self,
@@ -30,6 +41,11 @@ class SyncServiceServicer:
         request: sync_pb2.SendUserInputRequest,
         context: grpc.ServicerContext,
     ) -> sync_pb2.SendUserInputResponse:
+        if self._input_injector is None:
+            return sync_pb2.SendUserInputResponse(accepted=False)
+        target = request.target_agent_id or "lead"
+        session_name = f"vanpilot-{target}"
+        self._input_injector.inject_async(session_name, request.text, target)
         return sync_pb2.SendUserInputResponse(accepted=True)
 
     def GetBitmap(
@@ -49,10 +65,17 @@ class SyncServiceServicer:
 
 
 def add_sync_service_to_server(
-    server: grpc.Server, store: EventStore, bitmap_store: BitmapStore | None = None,
+    server: grpc.Server,
+    store: EventStore,
+    bitmap_store: BitmapStore | None = None,
+    input_injector: Optional[InputInjector] = None,
 ) -> None:
-    """Register SyncService handlers on a gRPC server."""
-    servicer = SyncServiceServicer(store, bitmap_store)
+    """Register SyncService handlers on a gRPC server.
+
+    Uses manual method handlers since we don't have generated _pb2_grpc stubs.
+    """
+    servicer = SyncServiceServicer(store, bitmap_store, input_injector)
+
     handler = _SyncServiceGenericHandler(servicer)
     server.add_generic_rpc_handlers([handler])
 

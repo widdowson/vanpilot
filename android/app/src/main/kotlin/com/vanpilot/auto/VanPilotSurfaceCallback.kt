@@ -13,31 +13,41 @@ import androidx.car.app.SurfaceContainer
  * Handles the raw Surface provided by the NavigationTemplate.
  *
  * Supports two rendering modes:
- * 1. Default: draws a solid teal rectangle
+ * 1. Default: draws a solid teal rectangle (brand color for golden verification)
  * 2. Bitmap: draws a received bitmap scaled to fill the surface
  */
 class VanPilotSurfaceCallback : SurfaceCallback {
 
     companion object {
         const val TAG = "VanPilotSurface"
+        /** VanPilot brand teal — a distinctive color for golden screenshot verification. */
         const val FILL_COLOR = 0xFF1A8A7D.toInt()
     }
 
+    /** The most recently provided surface container, or null if destroyed. */
     var currentSurface: SurfaceContainer? = null
         private set
+
+    /** The visible area reported by the host, or null if not yet known. */
     var visibleArea: Rect? = null
         private set
+
+    /** The stable area reported by the host, or null if not yet known. */
     var stableArea: Rect? = null
         private set
+
+    /** Tracks whether onSurfaceAvailable has been called at least once. */
     var surfaceAvailableCount: Int = 0
         private set
+
     var currentBitmap: Bitmap? = null
         private set
     var currentCacheKey: String? = null
         private set
 
     override fun onSurfaceAvailable(surfaceContainer: SurfaceContainer) {
-        Log.i(TAG, "Surface available: ${surfaceContainer.width}x${surfaceContainer.height} dpi=${surfaceContainer.dpi}")
+        Log.i(TAG, "Surface available: ${surfaceContainer.width}x${surfaceContainer.height} " +
+                "dpi=${surfaceContainer.dpi}")
         currentSurface = surfaceContainer
         surfaceAvailableCount++
         drawCurrentContent(surfaceContainer)
@@ -71,6 +81,18 @@ class VanPilotSurfaceCallback : SurfaceCallback {
         currentSurface?.let { drawCurrentContent(it) }
     }
 
+    /**
+     * Draws the VanPilot teal fill onto the given Canvas.
+     * Extracted for testability — called by both the live surface path and golden tests.
+     */
+    fun drawToCanvas(canvas: Canvas, width: Int, height: Int) {
+        val paint = Paint().apply {
+            color = FILL_COLOR
+            style = Paint.Style.FILL
+        }
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+    }
+
     private fun drawCurrentContent(surfaceContainer: SurfaceContainer) {
         val bitmap = currentBitmap
         if (bitmap != null) {
@@ -92,15 +114,15 @@ class VanPilotSurfaceCallback : SurfaceCallback {
         }
     }
 
+    /**
+     * Draws a solid color rectangle filling the entire surface.
+     * This is the minimum viable proof that SurfaceCallback rendering works.
+     */
     private fun drawSolidColor(surfaceContainer: SurfaceContainer) {
         val surface = surfaceContainer.surface ?: return
         val canvas: Canvas = surface.lockCanvas(null) ?: return
         try {
-            val paint = Paint().apply {
-                color = FILL_COLOR
-                style = Paint.Style.FILL
-            }
-            canvas.drawRect(0f, 0f, canvas.width.toFloat(), canvas.height.toFloat(), paint)
+            drawToCanvas(canvas, canvas.width, canvas.height)
         } finally {
             surface.unlockCanvasAndPost(canvas)
         }
