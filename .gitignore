@@ -8,4 +8,4 @@
 /.worktrees/
 
 # Sandbox proxy CA cert (build-time only, not committed)
-docker/proxy-ca.crt
+supervisor/proxy-ca.crt

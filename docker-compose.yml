@@ -12,7 +12,7 @@ services:
   supervisor:
     build:
       context: .
-      dockerfile: docker/Dockerfile.supervisor
+      dockerfile: supervisor/Dockerfile
       args:
         PROXY_CA_CERT: "${PROXY_CA_CERT:-}"
     ports:
@@ -39,7 +39,7 @@ services:
   mcp:
     build:
       context: .
-      dockerfile: docker/Dockerfile.mcp
+      dockerfile: mcp/Dockerfile
     # MCP server uses stdio — no ports exposed.
     # In production, Claude Code spawns this process directly.
     # Here we keep it as a buildable service for verification.

@@ -8,7 +8,7 @@ FROM python:3.12-slim AS builder
 
 # Configure proxy CA trust for sandbox environments.
 # proxy-ca.crt is copied from the build context (may be empty in prod).
-COPY docker/proxy-ca.crt* /tmp/
+COPY supervisor/proxy-ca.crt* /tmp/
 RUN if [ -s /tmp/proxy-ca.crt ]; then \
       cp /tmp/proxy-ca.crt /usr/local/share/ca-certificates/proxy-ca.crt && \
       update-ca-certificates; \
@@ -35,7 +35,7 @@ RUN python -m grpc_tools.protoc \
 FROM python:3.12-slim
 
 # Configure proxy CA trust for sandbox environments
-COPY docker/proxy-ca.crt* /tmp/
+COPY supervisor/proxy-ca.crt* /tmp/
 RUN if [ -s /tmp/proxy-ca.crt ]; then \
       cp /tmp/proxy-ca.crt /usr/local/share/ca-certificates/proxy-ca.crt && \
       update-ca-certificates; \
