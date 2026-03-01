@@ -20,6 +20,9 @@ import threading
 import time
 from dataclasses import dataclass
 
+# Temporary path on the emulator where screenrecord writes its output.
+_REMOTE_VIDEO_PATH = "/sdcard/golden_video.mp4"
+
 
 @dataclass
 class VideoCaptureConfig:
@@ -64,9 +67,13 @@ class VideoCaptureConfig:
 class VideoCapture:
     """Manages emulator video capture for golden test diagnostics.
 
-    Uses `adb shell screenrecord` to record the emulator screen. Recording
-    runs in a background thread and is stopped when a golden frame is captured.
-    The recording captures a rolling window of the last N seconds.
+    Uses `adb shell screenrecord` to record the emulator screen. Note:
+    screenrecord captures the device screen, not the DHU surface specifically.
+    This is acceptable for diagnostics — the emulator screen shows the app
+    under test and provides sufficient context for debugging golden failures.
+
+    Recording runs in a background thread and is stopped when a golden frame
+    is captured. The recording captures a rolling window of the last N seconds.
 
     When disabled (default), all methods are no-ops with zero overhead.
     """
@@ -98,7 +105,7 @@ class VideoCapture:
             if self._recording:
                 return
 
-            self._remote_path = "/sdcard/golden_video.mp4"
+            self._remote_path = _REMOTE_VIDEO_PATH
             adb_addr = f"{self._config.adb_host}:{self._config.adb_port}"
 
             cmd = [
