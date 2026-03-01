@@ -5,10 +5,11 @@ On mismatch, generates a diff image highlighting changed pixels.
 Uses only the standard library (struct + zlib) for PNG I/O.
 """
 
-import os
 import struct
 import zlib
 from typing import Optional
+
+from mcp.src.png_util import make_png
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -154,9 +155,6 @@ def _make_size_mismatch_png(
     actual_w: int, actual_h: int, golden_w: int, golden_h: int
 ) -> bytes:
     """Create a small PNG indicating a size mismatch."""
-    # 100x50 red image as a clear indicator
-    from mcp.src.png_util import make_png
-
     return make_png(100, 50, (255, 0, 0))
 
 
