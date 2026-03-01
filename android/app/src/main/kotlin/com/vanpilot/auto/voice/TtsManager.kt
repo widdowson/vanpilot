@@ -38,6 +38,19 @@ class TtsManager(context: Context) : TtsEngine {
             tts?.language = value
         }
 
+    private val progressListener = object : UtteranceProgressListener() {
+        override fun onDone(uid: String?) {
+            _isSpeaking = false
+            onUtteranceCompleted?.invoke()
+        }
+
+        override fun onError(uid: String?) {
+            _isSpeaking = false
+        }
+
+        override fun onStart(uid: String?) {}
+    }
+
     init {
         tts = TextToSpeech(context) { status ->
             initialized = status == TextToSpeech.SUCCESS
@@ -45,28 +58,21 @@ class TtsManager(context: Context) : TtsEngine {
                 tts?.language = locale
                 tts?.setSpeechRate(speechRate)
                 tts?.setPitch(pitch)
+                tts?.setOnUtteranceProgressListener(progressListener)
             }
         }
     }
 
     override val isSpeaking: Boolean get() = _isSpeaking
 
+    /**
+     * Speak the given text using QUEUE_FLUSH — any in-progress utterance
+     * is stopped and replaced by [text].
+     */
     override fun speak(text: String) {
         if (!initialized) return
         _isSpeaking = true
         val utteranceId = System.currentTimeMillis().toString()
-        tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onDone(uid: String?) {
-                _isSpeaking = false
-                onUtteranceCompleted?.invoke()
-            }
-
-            override fun onError(uid: String?) {
-                _isSpeaking = false
-            }
-
-            override fun onStart(uid: String?) {}
-        })
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, Bundle(), utteranceId)
     }
 
