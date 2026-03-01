@@ -5,8 +5,9 @@ import androidx.car.app.Screen
 import androidx.car.app.model.Action
 import androidx.car.app.model.ActionStrip
 import androidx.car.app.model.CarIcon
-import androidx.car.app.model.Pane
-import androidx.car.app.model.PaneTemplate
+import androidx.car.app.model.Header
+import androidx.car.app.model.ItemList
+import androidx.car.app.model.ListTemplate
 import androidx.car.app.model.Row
 import androidx.car.app.model.Tab
 import androidx.car.app.model.TabContents
@@ -15,13 +16,17 @@ import androidx.car.app.navigation.model.NavigationTemplate
 
 /**
  * The main screen of the VanPilot Android Auto app.
- * Uses a TabTemplate with two tabs: a Visual tab embedding a NavigationTemplate
- * with a SurfaceCallback for custom rendering, and a Status tab showing app info.
- * TabTemplate requires a minimum of 2 tabs.
+ * Uses a TabTemplate with tabs:
+ * - Visual Card: NavigationTemplate with SurfaceCallback for bitmap rendering
+ * - Lead Agent: ListTemplate showing the lead agent's conversation feed
+ * - Sub-Agent tabs: One ListTemplate per active sub-agent (up to 2)
+ *
+ * TabTemplate supports a maximum of 4 tabs total.
  */
 class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
 
     val surfaceCallback = VanPilotSurfaceCallback()
+    val tabManager = ConversationTabManager.createWithMockData()
 
     /** Tracks the current dark mode state. */
     var currentIsDarkMode: Boolean = false
@@ -35,7 +40,24 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
 
     companion object {
         const val VISUAL_TAB_ID = "visual_card"
-        const val STATUS_TAB_ID = "status_card"
+        const val LEAD_AGENT_TAB_ID = ConversationTabManager.LEAD_AGENT_TAB_ID
+    }
+
+    /** The currently active tab content ID. Defaults to Visual tab. */
+    private var activeTabId: String = VISUAL_TAB_ID
+
+    /**
+     * Handle tab selection: update active tab state and refresh the template.
+     * Called by the TabCallback and also usable directly in tests.
+     */
+    fun selectTab(tabContentId: String) {
+        activeTabId = tabContentId
+        if (tabContentId != VISUAL_TAB_ID) {
+            tabManager.activeConversationTabId = tabContentId
+        } else {
+            tabManager.activeConversationTabId = null
+        }
+        invalidate()
     }
 
     override fun onGetTemplate(): TabTemplate {
@@ -44,34 +66,99 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
         // picks up dark mode toggling automatically.
         updateTheme(carContext.isDarkMode)
 
-        val navigationTemplate = NavigationTemplate.Builder()
-            .setActionStrip(ActionStrip.Builder().addAction(Action.PAN).build())
-            .build()
-
         val appIcon = CarIcon.Builder(CarIcon.APP_ICON).build()
 
+        val builder = TabTemplate.Builder(object : TabTemplate.TabCallback {
+            override fun onTabSelected(tabContentId: String) {
+                selectTab(tabContentId)
+            }
+        })
+
+        // Visual Card tab
         val visualTab = Tab.Builder()
             .setTitle("Visual")
             .setContentId(VISUAL_TAB_ID)
             .setIcon(appIcon)
             .build()
+        builder.addTab(visualTab)
 
-        val statusTab = Tab.Builder()
-            .setTitle("Status")
-            .setContentId(STATUS_TAB_ID)
+        // Lead Agent tab
+        val leadTab = Tab.Builder()
+            .setTitle("Lead Agent")
+            .setContentId(LEAD_AGENT_TAB_ID)
             .setIcon(appIcon)
             .build()
+        builder.addTab(leadTab)
 
-        return TabTemplate.Builder(object : TabTemplate.TabCallback {
-            override fun onTabSelected(tabContentId: String) {
-                // Tab selection handling — no-op for now
+        // Sub-Agent tabs (dynamic, capped by ConversationTabManager.MAX_SUB_AGENT_TABS)
+        for ((index, agentId) in tabManager.getSubAgentIds().withIndex()) {
+            if (index >= ConversationTabManager.MAX_SUB_AGENT_TABS) break
+            val subTab = Tab.Builder()
+                .setTitle(agentId.replaceFirstChar { it.uppercase() })
+                .setContentId(ConversationTabManager.subAgentTabId(agentId))
+                .setIcon(appIcon)
+                .build()
+            builder.addTab(subTab)
+        }
+
+        // Set active tab content
+        val tabContents = when (activeTabId) {
+            VISUAL_TAB_ID -> {
+                val navTemplate = NavigationTemplate.Builder()
+                    .setActionStrip(ActionStrip.Builder().addAction(Action.PAN).build())
+                    .build()
+                TabContents.Builder(navTemplate).build()
             }
-        })
-            .setTabContents(TabContents.Builder(navigationTemplate).build())
-            .addTab(visualTab)
-            .addTab(statusTab)
-            .setActiveTabContentId(VISUAL_TAB_ID)
-            .setHeaderAction(Action.APP_ICON)
+            LEAD_AGENT_TAB_ID -> {
+                TabContents.Builder(
+                    buildMessageList(tabManager.getLeadAgentMessages(), "Lead Agent")
+                ).build()
+            }
+            else -> {
+                val agentId = ConversationTabManager.agentIdFromTabId(activeTabId)
+                val messages = tabManager.getSubAgentMessages(agentId)
+                TabContents.Builder(buildMessageList(messages, agentId)).build()
+            }
+        }
+
+        builder.setTabContents(tabContents)
+        builder.setActiveTabContentId(activeTabId)
+        builder.setHeaderAction(Action.APP_ICON)
+
+        return builder.build()
+    }
+
+    /**
+     * Builds a ListTemplate from a list of conversation messages.
+     * If no messages, shows a placeholder row.
+     */
+    private fun buildMessageList(
+        messages: List<ConversationMessage>,
+        title: String
+    ): ListTemplate {
+        val listBuilder = ItemList.Builder()
+
+        if (messages.isEmpty()) {
+            listBuilder.addItem(
+                Row.Builder()
+                    .setTitle("No messages yet")
+                    .build()
+            )
+        } else {
+            val displayMessages = messages.takeLast(ConversationTabManager.MAX_MESSAGES_PER_TAB)
+            for (msg in displayMessages) {
+                listBuilder.addItem(
+                    Row.Builder()
+                        .setTitle(msg.text)
+                        .addText(msg.sender)
+                        .build()
+                )
+            }
+        }
+
+        return ListTemplate.Builder()
+            .setSingleList(listBuilder.build())
+            .setHeader(Header.Builder().setTitle(title).build())
             .build()
     }
 }
