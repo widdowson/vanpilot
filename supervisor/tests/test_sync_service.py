@@ -11,27 +11,32 @@ from proto.vanpilot.v1 import sync_pb2
 
 
 class SyncServiceServicerTest(unittest.TestCase):
+    """Unit tests for SyncServiceServicer without a real gRPC server."""
 
     def setUp(self):
         self.store = EventStore()
         self.servicer = SyncServiceServicer(self.store)
 
     def test_get_events_returns_response(self):
+        """GetEvents should return a GetEventsResponse."""
         request = sync_pb2.GetEventsRequest(since_timestamp_ms=0, max_count=10)
         response = self.servicer.GetEvents(request, context=None)
         self.assertIsInstance(response, sync_pb2.GetEventsResponse)
 
     def test_get_events_returns_hardcoded_events(self):
+        """GetEvents with timestamp 0 should return the hardcoded events."""
         request = sync_pb2.GetEventsRequest(since_timestamp_ms=0, max_count=100)
         response = self.servicer.GetEvents(request, context=None)
         self.assertGreater(len(response.events), 0)
 
     def test_get_events_respects_max_count(self):
+        """GetEvents should not return more than max_count events."""
         request = sync_pb2.GetEventsRequest(since_timestamp_ms=0, max_count=1)
         response = self.servicer.GetEvents(request, context=None)
         self.assertEqual(len(response.events), 1)
 
     def test_get_events_respects_since_timestamp(self):
+        """GetEvents should filter by since_timestamp_ms."""
         all_req = sync_pb2.GetEventsRequest(since_timestamp_ms=0, max_count=100)
         all_resp = self.servicer.GetEvents(all_req, context=None)
         if len(all_resp.events) < 2:
@@ -74,6 +79,7 @@ class GetBitmapTest(unittest.TestCase):
 
 
 class SyncServiceIntegrationTest(unittest.TestCase):
+    """Integration test that starts a real gRPC server and client."""
 
     def setUp(self):
         self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=2))
@@ -89,6 +95,7 @@ class SyncServiceIntegrationTest(unittest.TestCase):
         self.server.stop(grace=0)
 
     def test_get_events_over_grpc(self):
+        """Should be able to call GetEvents over a real gRPC connection."""
         request = sync_pb2.GetEventsRequest(since_timestamp_ms=0, max_count=10)
         response = self.channel.unary_unary(
             "/vanpilot.v1.SyncService/GetEvents",
@@ -99,6 +106,7 @@ class SyncServiceIntegrationTest(unittest.TestCase):
         self.assertGreater(len(response.events), 0)
 
     def test_get_events_unknown_method_fails(self):
+        """Calling an unknown method should fail with UNIMPLEMENTED."""
         with self.assertRaises(grpc.RpcError) as ctx:
             self.channel.unary_unary(
                 "/vanpilot.v1.SyncService/NonExistent",

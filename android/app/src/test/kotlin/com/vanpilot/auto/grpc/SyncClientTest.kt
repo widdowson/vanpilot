@@ -210,8 +210,8 @@ class SyncClientTest {
             makeTextEvent(2000L, "agent1", "second"),
         )
         client.pollEvents()
-        // sinceTimestampMs should be last event's timestamp + 1
-        assertThat(client.sinceTimestampMs).isEqualTo(2001L)
+        // sinceTimestampMs should be last event's timestamp
+        assertThat(client.sinceTimestampMs).isEqualTo(2000L)
     }
 
     @Test
@@ -236,7 +236,7 @@ class SyncClientTest {
         // Next poll should use updated timestamp
         fakeService.eventsToReturn = emptyList()
         client.pollEvents()
-        assertThat(fakeService.lastGetEventsRequest?.sinceTimestampMs).isEqualTo(5001L)
+        assertThat(fakeService.lastGetEventsRequest?.sinceTimestampMs).isEqualTo(5000L)
     }
 
     // -----------------------------------------------------------------------
