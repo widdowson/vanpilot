@@ -4,6 +4,13 @@ The BitmapCacheTracker stores all bitmaps submitted via the MCP and tracks
 which cache keys have been sent to each connected Android app client.
 On reconnection, it supports cache reconciliation so the client can learn
 what it's missing without full retransmission.
+
+NOTE: BitmapCacheTracker and BitmapStore (in mcp_bridge.py) have similar
+sent-tracking logic. BitmapCacheTracker is a standalone, proto-free tracker
+for use outside of the gRPC service layer. BitmapStore is tightly coupled
+to mcp_bridge and is what sync_service.py actually uses.
+TODO: Consolidate by having BitmapStore delegate sent-tracking to
+BitmapCacheTracker via composition.
 """
 
 from __future__ import annotations

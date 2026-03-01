@@ -45,6 +45,8 @@ class EventProcessor(
             event.hasDisplayCommand() -> {
                 val key = event.displayCommand.cacheKey
                 // Auto-request missing bitmap from supervisor (AC-7.2)
+                // TODO: fetchBitmap is synchronous — should be async for large bitmaps
+                //  to avoid blocking the event processing loop.
                 if (!cache.contains(key) && fetcher != null) {
                     val data = fetcher.fetchBitmap(key)
                     if (data != null) {
