@@ -1,0 +1,72 @@
+load("@rules_python//python:defs.bzl", "py_library", "py_binary", "py_test")
+
+package(default_visibility = ["//visibility:public"])
+
+# ============================================================================
+# Libraries
+# ============================================================================
+
+py_library(
+    name = "tools",
+    srcs = ["src/tools.py"],
+    imports = [".."],
+)
+
+py_library(
+    name = "handlers",
+    srcs = ["src/handlers.py"],
+    imports = [".."],
+)
+
+py_library(
+    name = "server_lib",
+    srcs = ["src/server.py"],
+    imports = [".."],
+    deps = [
+        ":tools",
+        ":handlers",
+    ],
+)
+
+# ============================================================================
+# Binary
+# ============================================================================
+
+py_binary(
+    name = "server",
+    srcs = ["src/server.py"],
+    main = "src/server.py",
+    imports = [".."],
+    deps = [
+        ":tools",
+        ":handlers",
+    ],
+)
+
+# ============================================================================
+# Tests — fine-grained, one per test module
+# ============================================================================
+
+py_test(
+    name = "tools_test",
+    srcs = ["tests/test_tools.py"],
+    main = "tests/test_tools.py",
+    imports = [".."],
+    deps = [":tools"],
+)
+
+py_test(
+    name = "handlers_test",
+    srcs = ["tests/test_handlers.py"],
+    main = "tests/test_handlers.py",
+    imports = [".."],
+    deps = [":handlers"],
+)
+
+py_test(
+    name = "server_test",
+    srcs = ["tests/test_server.py"],
+    main = "tests/test_server.py",
+    imports = [".."],
+    deps = [":server_lib"],
+)
