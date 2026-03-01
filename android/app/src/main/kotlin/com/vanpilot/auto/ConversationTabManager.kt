@@ -12,8 +12,12 @@ class ConversationTabManager {
     companion object {
         const val LEAD_AGENT_TAB_ID = "lead_agent"
         const val MAX_SUB_AGENT_TABS = 2
+        const val MAX_MESSAGES_PER_TAB = 100
+        private const val SUB_AGENT_PREFIX = "sub_agent_"
 
-        fun subAgentTabId(agentId: String): String = "sub_agent_$agentId"
+        fun subAgentTabId(agentId: String): String = "$SUB_AGENT_PREFIX$agentId"
+
+        fun agentIdFromTabId(tabId: String): String = tabId.removePrefix(SUB_AGENT_PREFIX)
 
         /**
          * Creates a ConversationTabManager pre-populated with mock data

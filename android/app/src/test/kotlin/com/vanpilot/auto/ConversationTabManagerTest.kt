@@ -180,6 +180,18 @@ class ConversationTabManagerTest {
     }
 
     @Test
+    fun agentIdFromTabId_roundTrips() {
+        val agentId = "researcher"
+        val tabId = ConversationTabManager.subAgentTabId(agentId)
+        assertThat(ConversationTabManager.agentIdFromTabId(tabId)).isEqualTo(agentId)
+    }
+
+    @Test
+    fun maxMessagesPerTab_isOneHundred() {
+        assertThat(ConversationTabManager.MAX_MESSAGES_PER_TAB).isEqualTo(100)
+    }
+
+    @Test
     fun allTabIds_withNoSubAgents() {
         assertThat(manager.getAllConversationTabIds())
             .containsExactly(ConversationTabManager.LEAD_AGENT_TAB_ID)

@@ -100,7 +100,7 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
                 ).build()
             }
             else -> {
-                val agentId = activeTabId.removePrefix("sub_agent_")
+                val agentId = ConversationTabManager.agentIdFromTabId(activeTabId)
                 val messages = tabManager.getSubAgentMessages(agentId)
                 TabContents.Builder(buildMessageList(messages, agentId)).build()
             }
@@ -130,7 +130,7 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
                     .build()
             )
         } else {
-            val displayMessages = messages.takeLast(100)
+            val displayMessages = messages.takeLast(ConversationTabManager.MAX_MESSAGES_PER_TAB)
             for (msg in displayMessages) {
                 listBuilder.addItem(
                     Row.Builder()
