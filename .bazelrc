@@ -1,0 +1,15 @@
+# Java language level for Android compatibility
+build --java_language_version=11
+build --java_runtime_version=11
+
+# Proto toolchain resolution
+build --incompatible_enable_proto_toolchain_resolution
+
+# Test output settings
+test --test_output=errors
+
+# Disk cache for local builds
+build --disk_cache=~/.cache/bazel-disk
+
+# Verbose failures for debugging
+build --verbose_failures

@@ -1,0 +1,100 @@
+module(
+    name = "vanpilot",
+    version = "0.0.1",
+)
+
+# ============================================================================
+# Core rule sets
+# ============================================================================
+
+bazel_dep(name = "bazel_skylib", version = "1.8.2")
+bazel_dep(name = "rules_java", version = "9.3.0")
+bazel_dep(name = "rules_android", version = "0.7.1")
+bazel_dep(name = "rules_kotlin", version = "2.3.0")
+bazel_dep(name = "rules_jvm_external", version = "6.10")
+
+# ============================================================================
+# Proto / gRPC
+# ============================================================================
+
+bazel_dep(name = "rules_proto", version = "7.1.0")
+bazel_dep(name = "protobuf", version = "33.4")
+bazel_dep(name = "grpc-java", version = "1.78.0")
+bazel_dep(name = "rules_proto_grpc_python", version = "5.8.0")
+
+# ============================================================================
+# Python (supervisor process, MCP server)
+# ============================================================================
+
+bazel_dep(name = "rules_python", version = "1.8.4")
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(
+    python_version = "3.12",
+    is_default = True,
+)
+
+# ============================================================================
+# Testing
+# ============================================================================
+
+bazel_dep(name = "rules_robolectric", version = "4.14.1.2", repo_name = "robolectric")
+
+# ============================================================================
+# Android SDK (requires ANDROID_HOME to be set)
+# ============================================================================
+
+remote_android_extensions = use_extension(
+    "@rules_android//bzlmod_extensions:android_extensions.bzl",
+    "remote_android_tools_extensions",
+)
+use_repo(remote_android_extensions, "android_tools")
+
+android_sdk_repository_extension = use_extension(
+    "@rules_android//rules/android_sdk_repository:rule.bzl",
+    "android_sdk_repository_extension",
+)
+use_repo(android_sdk_repository_extension, "androidsdk")
+
+register_toolchains(
+    "@androidsdk//:sdk-toolchain",
+    "@androidsdk//:all",
+)
+
+# ============================================================================
+# Maven dependencies (3rd-party JARs/AARs)
+# ============================================================================
+
+maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+maven.install(
+    artifacts = [
+        # Car App Library (Android Auto)
+        "androidx.car.app:app:1.7.0",
+        "androidx.car.app:app-projected:1.7.0",
+        "androidx.car.app:app-testing:1.7.0",
+
+        # gRPC for Android (use -lite variants for Android)
+        "io.grpc:grpc-okhttp:1.79.0",
+        "io.grpc:grpc-stub:1.79.0",
+        "io.grpc:grpc-protobuf-lite:1.79.0",
+        "io.grpc:grpc-android:1.79.0",
+
+        # Kotlin coroutines
+        "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0",
+        "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0",
+
+        # Testing
+        "junit:junit:4.13.2",
+        "com.google.truth:truth:1.4.4",
+        "androidx.test:core:1.6.1",
+        "androidx.test.ext:junit:1.2.1",
+    ],
+    repositories = [
+        "https://maven.google.com",
+        "https://repo1.maven.org/maven2",
+    ],
+    aar_import_bzl_label = "@rules_android//rules:rules.bzl",
+    use_starlark_android_rules = True,
+    lock_file = "//:maven_install.json",
+)
+use_repo(maven, "maven")

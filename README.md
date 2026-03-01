@@ -75,8 +75,10 @@ vanpilot/
 ├── DESIGN.md
 ├── ACCEPTANCE_CRITERIA.md
 ├── CLAUDE.md
-├── BUILD
-├── WORKSPACE
+├── BUILD.bazel
+├── MODULE.bazel
+├── .bazelversion
+├── .bazelrc
 ├── proto/
 │   └── vanpilot/
 │       └── v1/
