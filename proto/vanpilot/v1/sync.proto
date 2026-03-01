@@ -16,6 +16,9 @@ service SyncService {
 
   // Request a bitmap that is not in the local cache.
   rpc GetBitmap(GetBitmapRequest) returns (GetBitmapResponse);
+
+  // Report the current theme (dark/light) to the supervisor for agent rendering context.
+  rpc ReportTheme(ReportThemeRequest) returns (ReportThemeResponse);
 }
 
 message GetEventsRequest {
@@ -110,4 +113,19 @@ message GetBitmapRequest {
 
 message GetBitmapResponse {
   BitmapPayload bitmap = 1;
+}
+
+// The current display theme on the Android Auto head unit.
+enum ThemeMode {
+  THEME_MODE_UNSPECIFIED = 0;
+  THEME_MODE_LIGHT = 1;
+  THEME_MODE_DARK = 2;
+}
+
+message ReportThemeRequest {
+  ThemeMode theme = 1;
+}
+
+message ReportThemeResponse {
+  bool acknowledged = 1;
 }

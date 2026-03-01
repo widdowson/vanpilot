@@ -23,6 +23,16 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
 
     val surfaceCallback = VanPilotSurfaceCallback()
 
+    /** Tracks the current dark mode state. */
+    var currentIsDarkMode: Boolean = false
+        private set
+
+    /** Updates the theme based on dark mode state and propagates to surface callback. */
+    fun updateTheme(isDarkMode: Boolean) {
+        currentIsDarkMode = isDarkMode
+        surfaceCallback.setTheme(DarkModeTheme.forDarkMode(isDarkMode))
+    }
+
     companion object {
         const val VISUAL_TAB_ID = "visual_card"
         const val STATUS_TAB_ID = "status_card"
