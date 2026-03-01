@@ -6,9 +6,13 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
-    runs-on: macos-latest  # macOS for Android emulator support
+    runs-on: macos-latest  # macOS for Android SDK + Robolectric
     timeout-minutes: 30
 
     steps:
@@ -31,17 +35,22 @@ jobs:
       - name: Run all tests
         run: bazel test //... --test_output=errors
 
-      - name: Upload golden diffs (on failure)
+      - name: Upload test outputs (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: golden-diffs
-          path: bazel-testlogs/**/test.outputs/
+          name: test-outputs
+          path: |
+            bazel-testlogs/**/test.outputs/
+            bazel-testlogs/**/test.log
+          if-no-files-found: ignore
           retention-days: 7
 
       - name: Upload golden images (for review)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: golden-images
           path: goldens/
+          if-no-files-found: warn
           retention-days: 30
