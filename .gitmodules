@@ -1,0 +1,3 @@
+[submodule "sandbox/claude-sandbox"]
+	path = sandbox/claude-sandbox
+	url = https://github.com/widdowson/claude-sandbox.git
