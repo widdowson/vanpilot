@@ -1,6 +1,7 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+load("@grpc-java//:java_grpc_library.bzl", "java_grpc_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -51,4 +52,37 @@ py_test(
         ":display_py_proto",
         ":screenshot_py_proto",
     ],
+)
+
+java_proto_library(
+    name = "sync_java_proto",
+    deps = [":sync_proto"],
+)
+
+java_proto_library(
+    name = "display_java_proto",
+    deps = [":display_proto"],
+)
+
+java_proto_library(
+    name = "screenshot_java_proto",
+    deps = [":screenshot_proto"],
+)
+
+java_grpc_library(
+    name = "sync_java_grpc",
+    srcs = [":sync_proto"],
+    deps = [":sync_java_proto"],
+)
+
+java_grpc_library(
+    name = "display_java_grpc",
+    srcs = [":display_proto"],
+    deps = [":display_java_proto"],
+)
+
+java_grpc_library(
+    name = "screenshot_java_grpc",
+    srcs = [":screenshot_proto"],
+    deps = [":screenshot_java_proto"],
 )
