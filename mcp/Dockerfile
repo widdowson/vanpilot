@@ -7,11 +7,11 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Copy MCP source
-COPY mcp/src/__init__.py mcp/src/__init__.py
-COPY mcp/src/server.py mcp/src/server.py
-COPY mcp/src/handlers.py mcp/src/handlers.py
-COPY mcp/src/tools.py mcp/src/tools.py
+# Copy MCP source (context is mcp/, dest preserves module path)
+COPY src/__init__.py mcp/src/__init__.py
+COPY src/server.py mcp/src/server.py
+COPY src/handlers.py mcp/src/handlers.py
+COPY src/tools.py mcp/src/tools.py
 
 ENV PYTHONPATH=/app
 
