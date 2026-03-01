@@ -1,0 +1,87 @@
+# VanPilot local development docker-compose.
+#
+# Services:
+#   supervisor — gRPC server on port 50051, manages agent sessions
+#   mcp        — MCP display-control server (stdio), used by agents
+#   agent      — tmux session for Claude Code agents
+#
+# Resource limits per DESIGN.md section 9.3: Docker resource limits
+# are the blast radius control for sandboxed agents.
+
+services:
+  supervisor:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.supervisor
+      args:
+        PROXY_CA_CERT: "${PROXY_CA_CERT:-}"
+    ports:
+      - "50051:50051"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+        "import grpc; ch = grpc.insecure_channel('localhost:50051'); grpc.channel_ready_future(ch).result(timeout=5)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - vanpilot
+
+  mcp:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mcp
+    # MCP server uses stdio — no ports exposed.
+    # In production, Claude Code spawns this process directly.
+    # Here we keep it as a buildable service for verification.
+    stdin_open: true
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+    networks:
+      - vanpilot
+
+  agent:
+    image: python:3.12-slim
+    command: >
+      bash -c "
+        apt-get update && apt-get install -y --no-install-recommends tmux &&
+        rm -rf /var/lib/apt/lists/* &&
+        tmux new-session -d -s vanpilot-lead 'echo Agent session ready; exec bash' &&
+        echo 'Agent tmux session started' &&
+        tail -f /dev/null
+      "
+    volumes:
+      - ./.mcp.json:/workspace/.mcp.json:ro
+    working_dir: /workspace
+    depends_on:
+      supervisor:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 4G
+        reservations:
+          cpus: "1.0"
+          memory: 512M
+    networks:
+      - vanpilot
+
+networks:
+  vanpilot:
+    driver: bridge
