@@ -8,10 +8,12 @@ import grpc
 
 from proto.vanpilot.v1 import sync_pb2
 from supervisor.src.event_store import EventStore
-try:
-    from supervisor.src.input_injector import InputInjector
-except ImportError:
-    InputInjector = None  # type: ignore[assignment,misc]
+from supervisor.src.input_injector import InputInjector
+from supervisor.src.mcp_bridge import BitmapStore
+
+# Single-client MVP: all connected Android apps share one client ID.
+# When multi-client support is added, derive this from the gRPC peer.
+_DEFAULT_CLIENT_ID = "default"
 
 
 class SyncServiceServicer:
@@ -20,9 +22,11 @@ class SyncServiceServicer:
     def __init__(
         self,
         store: EventStore,
+        bitmap_store: BitmapStore | None = None,
         input_injector: Optional[InputInjector] = None,
     ) -> None:
         self._store = store
+        self._bitmap_store = bitmap_store or BitmapStore()
         self._input_injector = input_injector
 
     def GetEvents(
@@ -53,20 +57,39 @@ class SyncServiceServicer:
         request: sync_pb2.GetBitmapRequest,
         context: grpc.ServicerContext,
     ) -> sync_pb2.GetBitmapResponse:
-        # Stub: return empty response
-        return sync_pb2.GetBitmapResponse()
+        data = self._bitmap_store.get(request.cache_key)
+        if data is None:
+            return sync_pb2.GetBitmapResponse()
+        self._bitmap_store.mark_sent(_DEFAULT_CLIENT_ID, request.cache_key)
+        return sync_pb2.GetBitmapResponse(
+            bitmap=sync_pb2.BitmapPayload(
+                cache_key=request.cache_key,
+                image_data=data,
+            ),
+        )
+
+    def ReconcileCache(
+        self,
+        request: sync_pb2.ReconcileCacheRequest,
+        context: grpc.ServicerContext,
+    ) -> sync_pb2.ReconcileCacheResponse:
+        missing = self._bitmap_store.reconcile(
+            _DEFAULT_CLIENT_ID, set(request.present_keys)
+        )
+        return sync_pb2.ReconcileCacheResponse(missing_keys=list(missing))
 
 
 def add_sync_service_to_server(
     server: grpc.Server,
     store: EventStore,
+    bitmap_store: BitmapStore | None = None,
     input_injector: Optional[InputInjector] = None,
 ) -> None:
     """Register SyncService handlers on a gRPC server.
 
     Uses manual method handlers since we don't have generated _pb2_grpc stubs.
     """
-    servicer = SyncServiceServicer(store, input_injector)
+    servicer = SyncServiceServicer(store, bitmap_store, input_injector)
 
     handler = _SyncServiceGenericHandler(servicer)
     server.add_generic_rpc_handlers([handler])
@@ -91,6 +114,11 @@ class _SyncServiceGenericHandler(grpc.GenericRpcHandler):
                 servicer.GetBitmap,
                 request_deserializer=sync_pb2.GetBitmapRequest.FromString,
                 response_serializer=sync_pb2.GetBitmapResponse.SerializeToString,
+            ),
+            "/vanpilot.v1.SyncService/ReconcileCache": grpc.unary_unary_rpc_method_handler(
+                servicer.ReconcileCache,
+                request_deserializer=sync_pb2.ReconcileCacheRequest.FromString,
+                response_serializer=sync_pb2.ReconcileCacheResponse.SerializeToString,
             ),
         }
 

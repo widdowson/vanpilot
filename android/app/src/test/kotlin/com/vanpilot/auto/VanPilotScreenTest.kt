@@ -42,9 +42,10 @@ class VanPilotScreenTest {
     }
 
     @Test
-    fun onGetTemplate_hasTwoTabs() {
+    fun onGetTemplate_hasFourTabs() {
         val template = screen.onGetTemplate()
-        assertThat(template.tabs).hasSize(2)
+        // Visual + Lead Agent + 2 sub-agents from mock data
+        assertThat(template.tabs).hasSize(4)
     }
 
     @Test
@@ -54,9 +55,9 @@ class VanPilotScreenTest {
     }
 
     @Test
-    fun onGetTemplate_secondTabTitleIsStatus() {
+    fun onGetTemplate_secondTabTitleIsLeadAgent() {
         val template = screen.onGetTemplate()
-        assertThat(template.tabs[1].title.toString()).isEqualTo("Status")
+        assertThat(template.tabs[1].title.toString()).isEqualTo("Lead Agent")
     }
 
     @Test
@@ -66,9 +67,9 @@ class VanPilotScreenTest {
     }
 
     @Test
-    fun onGetTemplate_statusTabContentIdMatchesConstant() {
+    fun onGetTemplate_leadAgentTabContentIdMatchesConstant() {
         val template = screen.onGetTemplate()
-        assertThat(template.tabs[1].contentId).isEqualTo(VanPilotScreen.STATUS_TAB_ID)
+        assertThat(template.tabs[1].contentId).isEqualTo(VanPilotScreen.LEAD_AGENT_TAB_ID)
     }
 
     @Test
@@ -97,7 +98,7 @@ class VanPilotScreenTest {
     }
 
     @Test
-    fun statusTabIdConstant_isCorrect() {
-        assertThat(VanPilotScreen.STATUS_TAB_ID).isEqualTo("status_card")
+    fun leadAgentTabIdConstant_isCorrect() {
+        assertThat(VanPilotScreen.LEAD_AGENT_TAB_ID).isEqualTo("lead_agent")
     }
 }

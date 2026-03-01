@@ -93,8 +93,8 @@ class VanPilotSurfaceCallbackTest {
     // =========================================================================
 
     @Test
-    fun fillColor_isVanPilotTeal() {
-        assertThat(VanPilotSurfaceCallback.FILL_COLOR).isEqualTo(0xFF1A8A7D.toInt())
+    fun defaultTheme_surfaceColor_isVanPilotTeal() {
+        assertThat(callback.currentTheme.surfaceColor).isEqualTo(0xFF1A8A7D.toInt())
     }
 
     @Test
@@ -141,7 +141,7 @@ class VanPilotSurfaceCallbackTest {
         callback.drawToCanvas(canvas, GOLDEN_WIDTH, GOLDEN_HEIGHT)
 
         val event = shadowCanvas.getDrawnRect(0)
-        assertThat(event.paint.color).isEqualTo(VanPilotSurfaceCallback.FILL_COLOR)
+        assertThat(event.paint.color).isEqualTo(DarkModeTheme.light().surfaceColor)
     }
 
     @Test
@@ -169,18 +169,19 @@ class VanPilotSurfaceCallbackTest {
         // Render using java.awt (works on all JDK architectures)
         val image = BufferedImage(GOLDEN_WIDTH, GOLDEN_HEIGHT, BufferedImage.TYPE_INT_ARGB)
         val g = image.createGraphics()
+        val lightSurfaceColor = DarkModeTheme.light().surfaceColor
         val tealColor = java.awt.Color(
-            (VanPilotSurfaceCallback.FILL_COLOR shr 16) and 0xFF,  // R
-            (VanPilotSurfaceCallback.FILL_COLOR shr 8) and 0xFF,   // G
-            VanPilotSurfaceCallback.FILL_COLOR and 0xFF,            // B
-            (VanPilotSurfaceCallback.FILL_COLOR ushr 24) and 0xFF   // A
+            (lightSurfaceColor shr 16) and 0xFF,  // R
+            (lightSurfaceColor shr 8) and 0xFF,   // G
+            lightSurfaceColor and 0xFF,            // B
+            (lightSurfaceColor ushr 24) and 0xFF   // A
         )
         g.color = tealColor
         g.fillRect(0, 0, GOLDEN_WIDTH, GOLDEN_HEIGHT)
         g.dispose()
 
         // Verify the rendered pixels match the expected color
-        val expectedArgb = VanPilotSurfaceCallback.FILL_COLOR
+        val expectedArgb = lightSurfaceColor
         val centerPixel = image.getRGB(GOLDEN_WIDTH / 2, GOLDEN_HEIGHT / 2)
         assertThat(centerPixel).isEqualTo(expectedArgb)
 
