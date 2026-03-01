@@ -1,0 +1,95 @@
+load("@pip//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+
+package(default_visibility = ["//visibility:public"])
+
+# ============================================================================
+# Libraries
+# ============================================================================
+
+py_library(
+    name = "event_store",
+    srcs = ["src/event_store.py"],
+    imports = [".."],
+    deps = [
+        "//proto/vanpilot/v1:sync_py_proto",
+    ],
+)
+
+py_library(
+    name = "sync_service",
+    srcs = ["src/sync_service.py"],
+    imports = [".."],
+    deps = [
+        ":event_store",
+        "//proto/vanpilot/v1:sync_py_proto",
+        requirement("grpcio"),
+    ],
+)
+
+py_library(
+    name = "tmux_launcher",
+    srcs = ["src/tmux_launcher.py"],
+    imports = [".."],
+)
+
+py_library(
+    name = "server",
+    srcs = ["src/server.py"],
+    imports = [".."],
+    deps = [
+        ":event_store",
+        ":sync_service",
+        requirement("grpcio"),
+    ],
+)
+
+# ============================================================================
+# Tests (fine-grained: one target per test module)
+# ============================================================================
+
+py_test(
+    name = "event_store_test",
+    srcs = ["tests/test_event_store.py"],
+    main = "tests/test_event_store.py",
+    imports = [".."],
+    deps = [
+        ":event_store",
+        "//proto/vanpilot/v1:sync_py_proto",
+    ],
+)
+
+py_test(
+    name = "sync_service_test",
+    srcs = ["tests/test_sync_service.py"],
+    main = "tests/test_sync_service.py",
+    imports = [".."],
+    deps = [
+        ":event_store",
+        ":sync_service",
+        "//proto/vanpilot/v1:sync_py_proto",
+        requirement("grpcio"),
+    ],
+)
+
+py_test(
+    name = "tmux_launcher_test",
+    srcs = ["tests/test_tmux_launcher.py"],
+    main = "tests/test_tmux_launcher.py",
+    imports = [".."],
+    deps = [
+        ":tmux_launcher",
+    ],
+)
+
+py_test(
+    name = "server_test",
+    srcs = ["tests/test_server.py"],
+    main = "tests/test_server.py",
+    imports = [".."],
+    deps = [
+        ":server",
+        "//proto/vanpilot/v1:sync_py_proto",
+        requirement("grpcio"),
+    ],
+)
