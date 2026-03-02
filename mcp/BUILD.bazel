@@ -90,3 +90,11 @@ py_test(
     imports = [".."],
     deps = [":handlers"],
 )
+
+py_test(
+    name = "server_stdio_test",
+    srcs = ["tests/test_server_stdio.py"],
+    main = "tests/test_server_stdio.py",
+    imports = [".."],
+    deps = [":server_lib"],
+)
