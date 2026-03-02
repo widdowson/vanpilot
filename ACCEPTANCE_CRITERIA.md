@@ -36,7 +36,7 @@ This document defines the acceptance criteria for VanPilot development. All feat
 - [x] **AC-5.1**: All communication between the Android app and the Mac Studio supervisor is defined in `.proto` files under `proto/vanpilot/v1/`.
 - [x] **AC-5.2**: The `GetEvents` RPC implements timestamp-based pagination as described in DESIGN.md. It is idempotent — the same request always returns at least the same data.
 - [x] **AC-5.3**: Event payloads use `oneof` to distinguish between `TextMessage`, `DisplayCommand`, `BitmapPayload`, `WatchdogTimeout`, and `InputDeliveryFailure`.
-- [ ] **AC-5.4**: Bidirectional gRPC is implemented: the Android app can call the supervisor, and the supervisor can call the Android app.
+- [x] **AC-5.4**: Bidirectional gRPC is implemented: the Android app can call the supervisor, and the supervisor can call the Android app.
 - [x] **AC-5.5**: Adaptive batching is implemented: `max_count` adjusts based on connection health.
 
 ## AC-6: Display MCP
