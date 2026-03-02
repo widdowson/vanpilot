@@ -67,10 +67,21 @@ py_library(
 )
 
 py_library(
+    name = "android_app_client",
+    srcs = ["src/android_app_client.py"],
+    imports = [".."],
+    deps = [
+        "//proto/vanpilot/v1:screenshot_py_proto",
+        requirement("grpcio"),
+    ],
+)
+
+py_library(
     name = "server",
     srcs = ["src/server.py"],
     imports = [".."],
     deps = [
+        ":android_app_client",
         ":event_store",
         ":mcp_bridge",
         ":sync_service",
@@ -145,11 +156,24 @@ py_test(
 )
 
 py_test(
+    name = "android_app_client_test",
+    srcs = ["tests/test_android_app_client.py"],
+    main = "tests/test_android_app_client.py",
+    imports = [".."],
+    deps = [
+        ":android_app_client",
+        "//proto/vanpilot/v1:screenshot_py_proto",
+        requirement("grpcio"),
+    ],
+)
+
+py_test(
     name = "server_test",
     srcs = ["tests/test_server.py"],
     main = "tests/test_server.py",
     imports = [".."],
     deps = [
+        ":android_app_client",
         ":mcp_bridge",
         ":server",
         "//proto/vanpilot/v1:sync_py_proto",
