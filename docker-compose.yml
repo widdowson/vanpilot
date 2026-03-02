@@ -19,6 +19,7 @@ services:
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
+      - NUM_TEAMMATES=${NUM_TEAMMATES:-0}
     volumes:
       # Mount the project repo so Claude Code agents can read/write code
       - .:/workspace

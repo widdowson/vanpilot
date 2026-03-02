@@ -5,13 +5,19 @@
 #   1. tmux server
 #   2. Supervisor gRPC server (in a tmux session)
 #   3. Claude Code lead agent (in a tmux session)
+#   4. Claude Code teammate agents (NUM_TEAMMATES sessions, default 0)
 #
 # The MCP server is NOT started here — Claude Code spawns it on demand
 # via the .mcp.json config (stdio transport).
+#
+# Environment variables:
+#   NUM_TEAMMATES  Number of teammate agent sessions to launch (default: 0)
 
 set -euo pipefail
 
-echo "[entrypoint] Starting VanPilot agent container..."
+NUM_TEAMMATES="${NUM_TEAMMATES:-0}"
+
+echo "[entrypoint] Starting VanPilot agent container (NUM_TEAMMATES=${NUM_TEAMMATES})..."
 
 # Start tmux server
 tmux start-server
@@ -39,6 +45,15 @@ tmux new-session -d -s lead-agent bash -c '
   claude --accept-all
 '
 echo "[entrypoint] Claude Code lead agent started in tmux session 'lead-agent'"
+
+for i in $(seq 1 "${NUM_TEAMMATES}"); do
+  tmux new-session -d -s "teammate-${i}" bash -c "
+    echo \"[teammate-${i}] Starting Claude Code teammate ${i}...\"
+    cd /workspace
+    claude --accept-all
+  "
+  echo "[entrypoint] Claude Code teammate ${i} started in tmux session 'teammate-${i}'"
+done
 
 echo "[entrypoint] All services started."
 

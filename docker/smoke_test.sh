@@ -23,8 +23,8 @@ cd "$(dirname "$0")/.."
 echo "[smoke] Building container..."
 docker compose -f "$COMPOSE_FILE" build "$SERVICE"
 
-echo "[smoke] Starting container..."
-docker compose -f "$COMPOSE_FILE" up -d "$SERVICE"
+echo "[smoke] Starting container (NUM_TEAMMATES=2 to verify configurable teammates)..."
+NUM_TEAMMATES=2 docker compose -f "$COMPOSE_FILE" up -d "$SERVICE"
 
 echo "[smoke] Waiting for healthcheck (up to ${TIMEOUT}s)..."
 elapsed=0
@@ -57,6 +57,22 @@ else
   exit 1
 fi
 
+if echo "$sessions" | grep -q "lead-agent"; then
+  echo "[smoke] PASS: lead-agent tmux session is running"
+else
+  echo "[smoke] FAIL: lead-agent tmux session not found"
+  echo "[smoke] Sessions: $sessions"
+  exit 1
+fi
+
+if echo "$sessions" | grep -q "teammate-1" && echo "$sessions" | grep -q "teammate-2"; then
+  echo "[smoke] PASS: teammate tmux sessions are running (teammate-1, teammate-2)"
+else
+  echo "[smoke] FAIL: expected teammate-1 and teammate-2 sessions not found"
+  echo "[smoke] Sessions: $sessions"
+  exit 1
+fi
+
 # Verify Claude Code CLI is installed
 echo "[smoke] Checking Claude Code CLI..."
 claude_version=$(docker compose -f "$COMPOSE_FILE" exec "$SERVICE" claude --version 2>/dev/null || echo "")
@@ -75,6 +91,37 @@ if [ "$mcp_check" = "ok" ]; then
   echo "[smoke] PASS: MCP server module importable"
 else
   echo "[smoke] FAIL: MCP server module not importable"
+  exit 1
+fi
+
+# Verify MCP tools are callable from inside the container
+echo "[smoke] Checking MCP tools invocation..."
+mcp_tools_check=$(docker compose -f "$COMPOSE_FILE" exec "$SERVICE" python -c "
+import base64, json
+from mcp.src import handlers
+from mcp.src.server import handle_request
+handlers.reset()
+# submit_bitmap
+req = {'jsonrpc':'2.0','id':1,'method':'tools/call','params':{'name':'submit_bitmap','arguments':{'image_data':base64.b64encode(b'fake').decode()}}}
+resp = handle_request(req)
+data = json.loads(resp['result']['content'][0]['text'])
+key = data['cache_key']
+# display_bitmap
+req2 = {'jsonrpc':'2.0','id':2,'method':'tools/call','params':{'name':'display_bitmap','arguments':{'cache_key':key,'blocking':False}}}
+resp2 = handle_request(req2)
+data2 = json.loads(resp2['result']['content'][0]['text'])
+assert data2['success'], 'display_bitmap failed'
+# get_screenshot
+req3 = {'jsonrpc':'2.0','id':3,'method':'tools/call','params':{'name':'get_screenshot','arguments':{}}}
+resp3 = handle_request(req3)
+data3 = json.loads(resp3['result']['content'][0]['text'])
+assert 'screenshot' in data3, 'get_screenshot missing screenshot'
+print('ok')
+" 2>/dev/null || echo "")
+if [ "$mcp_tools_check" = "ok" ]; then
+  echo "[smoke] PASS: MCP tools (submit_bitmap, display_bitmap, get_screenshot) work inside container"
+else
+  echo "[smoke] FAIL: MCP tools invocation failed"
   exit 1
 fi
 
