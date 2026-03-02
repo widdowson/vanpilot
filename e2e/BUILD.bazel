@@ -1,0 +1,91 @@
+load("@pip//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+
+package(default_visibility = ["//visibility:public"])
+
+# ============================================================================
+# Libraries
+# ============================================================================
+
+py_library(
+    name = "smoke_test_runner",
+    srcs = ["smoke_test_runner.py"],
+    imports = [".."],
+    deps = [
+        "//goldens:golden_test_harness",
+        "//mcp:handlers",
+        "//mcp:png_util",
+        "//proto/vanpilot/v1:instance_manager_py_proto",
+        "//proto/vanpilot/v1:sync_py_proto",
+        "//supervisor:event_store",
+        "//supervisor:mcp_bridge",
+        "//supervisor:sync_service",
+        requirement("grpcio"),
+    ],
+)
+
+# ============================================================================
+# Unit tests (run without instance manager or emulator)
+# ============================================================================
+
+py_test(
+    name = "smoke_pipeline_test",
+    srcs = ["test_smoke_unit.py"],
+    main = "test_smoke_unit.py",
+    imports = [".."],
+    args = ["SupervisorPipelineTest"],
+    deps = [
+        "//mcp:handlers",
+        "//mcp:png_util",
+        "//proto/vanpilot/v1:sync_py_proto",
+        "//supervisor:event_store",
+        "//supervisor:mcp_bridge",
+        "//supervisor:sync_service",
+        requirement("grpcio"),
+    ],
+)
+
+py_test(
+    name = "smoke_bitmap_generation_test",
+    srcs = ["test_smoke_unit.py"],
+    main = "test_smoke_unit.py",
+    imports = [".."],
+    args = ["TestBitmapGenerationTest"],
+    deps = [
+        "//mcp:handlers",
+        "//mcp:png_util",
+        "//proto/vanpilot/v1:sync_py_proto",
+        "//supervisor:event_store",
+        "//supervisor:mcp_bridge",
+        "//supervisor:sync_service",
+        requirement("grpcio"),
+    ],
+)
+
+# ============================================================================
+# Full-stack integration test (requires instance manager + emulator)
+# Tagged "manual" so it does NOT run during bazel test //...
+# Tagged "exclusive" — emulator resources are not sharable.
+#
+# Usage:
+#   bazel test //e2e:smoke_integration_test \
+#     --test_env=INSTANCE_MANAGER_ADDR=localhost:50061 \
+#     --test_env=VANPILOT_APK=bazel-bin/android/vanpilot.apk
+# ============================================================================
+
+py_test(
+    name = "smoke_integration_test",
+    srcs = ["test_smoke_integration.py"],
+    main = "test_smoke_integration.py",
+    imports = [".."],
+    deps = [
+        ":smoke_test_runner",
+        requirement("grpcio"),
+    ],
+    size = "enormous",
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+    timeout = "eternal",
+)
