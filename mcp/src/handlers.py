@@ -6,6 +6,7 @@ or display commands are issued, enabling gRPC forwarding to the Android app.
 """
 
 import base64
+import time
 from typing import Callable, Optional
 
 from mcp.src.png_util import png_cache_key, make_teal_display
@@ -22,6 +23,16 @@ _default_teal: bytes | None = None
 # Optional callback: called with (event_type, cache_key, image_data_or_none)
 _event_callback: Optional[Callable] = None
 
+# Optional confirmer: called with no args, returns the cache key currently
+# displayed on the Android app (or "" if unknown). Used by blocking=true.
+_display_confirmer: Optional[Callable[[], str]] = None
+
+# Default timeout for blocking display confirmation (seconds)
+DEFAULT_BLOCKING_TIMEOUT = 30.0
+
+# Poll interval for blocking display confirmation (seconds)
+_POLL_INTERVAL = 0.25
+
 
 def set_event_callback(callback: Optional[Callable]) -> None:
     """Register a callback for MCP tool events.
@@ -33,20 +44,50 @@ def set_event_callback(callback: Optional[Callable]) -> None:
     _event_callback = callback
 
 
+def set_display_confirmer(confirmer: Optional[Callable[[], str]]) -> None:
+    """Register a callable that returns the currently displayed cache key.
+
+    Used by blocking=true to poll until the Android app confirms display.
+    The confirmer takes no arguments and returns the cache key string
+    currently being displayed, or "" if nothing is confirmed.
+    """
+    global _display_confirmer
+    _display_confirmer = confirmer
+
+
 def reset() -> None:
     """Reset all handler state. Call from test setUp for isolation."""
-    global _current_display_key, _default_teal, _event_callback
+    global _current_display_key, _default_teal, _event_callback, _display_confirmer
     _cache.clear()
     _current_display_key = None
     _default_teal = None
     _event_callback = None
+    _display_confirmer = None
 
 
-def handle_display_bitmap(cache_key: str, blocking: bool = False) -> dict:
+def get_display_confirmer() -> Optional[Callable[[], str]]:
+    """Return the currently registered display confirmer, or None."""
+    return _display_confirmer
+
+
+def handle_display_bitmap(
+    cache_key: str,
+    blocking: bool = False,
+    timeout_seconds: float = DEFAULT_BLOCKING_TIMEOUT,
+) -> dict:
     """Handle the display_bitmap tool call.
 
     Looks up cache_key in the bitmap cache. If found, sets it as the
     current display. If not found, returns an error.
+
+    When blocking=true, polls the display confirmer until the Android app
+    confirms it is displaying the requested cache key, or returns a timeout
+    error.
+
+    Note: timeout_seconds is intentionally not exposed in the MCP tool
+    schema. It is an internal system-level parameter — agents should not
+    set arbitrary timeouts. The 30s default is tuned for typical Android
+    app display latency. Tests may override it for speed.
     """
     global _current_display_key
 
@@ -54,18 +95,53 @@ def handle_display_bitmap(cache_key: str, blocking: bool = False) -> dict:
         return {"success": False, "error": f"Unknown cache key: {cache_key}"}
 
     _current_display_key = cache_key
-    result = {
-        "success": True,
-        "cache_key": cache_key,
-        "blocking": blocking,
-    }
-    if blocking:
-        result["confirmed_cache_key"] = cache_key
 
     if _event_callback is not None:
         _event_callback("display_requested", cache_key, None)
 
-    return result
+    if blocking:
+        if _display_confirmer is None:
+            return {
+                "success": False,
+                "error": "blocking=true requires a display confirmer (no Android app client configured)",
+            }
+        confirmed_key = _poll_for_confirmation(cache_key, timeout_seconds)
+        if confirmed_key is None:
+            return {
+                "success": False,
+                "error": f"Timeout after {timeout_seconds}s waiting for app to display {cache_key}",
+            }
+        return {
+            "success": True,
+            "cache_key": cache_key,
+            "blocking": True,
+            "confirmed_cache_key": confirmed_key,
+        }
+
+    return {
+        "success": True,
+        "cache_key": cache_key,
+        "blocking": False,
+    }
+
+
+def _poll_for_confirmation(
+    cache_key: str, timeout_seconds: float
+) -> str | None:
+    """Poll the display confirmer until it returns the expected cache key.
+
+    Returns the confirmed cache key on success, or None on timeout.
+    """
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        try:
+            current = _display_confirmer()
+        except Exception:
+            current = ""
+        if current == cache_key:
+            return current
+        time.sleep(_POLL_INTERVAL)
+    return None
 
 
 def handle_submit_bitmap(image_data: str) -> dict:

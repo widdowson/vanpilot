@@ -290,3 +290,14 @@ py_test(
         requirement("grpcio"),
     ],
 )
+
+py_test(
+    name = "mcp_bridge_blocking_test",
+    srcs = ["tests/test_mcp_bridge_blocking.py"],
+    main = "tests/test_mcp_bridge_blocking.py",
+    imports = [".."],
+    deps = [
+        ":mcp_bridge",
+        "//mcp:handlers",
+    ],
+)

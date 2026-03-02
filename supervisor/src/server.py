@@ -17,8 +17,16 @@ _DEFAULT_APP_PORT = 50052
 _MAX_WORKERS = 4
 
 
-def create_server(port: int = _DEFAULT_PORT) -> tuple:
+def create_server(
+    port: int = _DEFAULT_PORT,
+    app_client: Optional[AndroidAppClient] = None,
+) -> tuple:
     """Create and configure the supervisor gRPC server.
+
+    Args:
+        port: Port to listen on.
+        app_client: Optional AndroidAppClient for reverse-path calls.
+            When provided, enables blocking=true for display_bitmap (AC-6.3).
 
     Returns:
         A tuple of (grpc.Server, actual_port, McpBridge).
@@ -26,7 +34,7 @@ def create_server(port: int = _DEFAULT_PORT) -> tuple:
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=_MAX_WORKERS))
     store = EventStore()
     bitmap_store = BitmapStore()
-    bridge = McpBridge(store, bitmap_store)
+    bridge = McpBridge(store, bitmap_store, app_client=app_client)
     add_sync_service_to_server(server, store, bitmap_store)
     actual_port = server.add_insecure_port(f"[::]:{port}")
     return server, actual_port, bridge

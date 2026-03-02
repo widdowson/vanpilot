@@ -5,11 +5,17 @@ the bridge translates those into gRPC events (BitmapPayload, DisplayCommand)
 and adds them to the EventStore for the Android app to pull via GetEvents.
 """
 
+from __future__ import annotations
+
 import threading
 import time
+from typing import TYPE_CHECKING
 
 from supervisor.src.event_store import EventStore
 from proto.vanpilot.v1 import sync_pb2
+
+if TYPE_CHECKING:
+    from supervisor.src.android_app_client import AndroidAppClient
 
 
 class BitmapStore:
@@ -85,11 +91,32 @@ class McpBridge:
 
     Call on_bitmap_submitted when the MCP handles submit_bitmap.
     Call on_display_requested when the MCP handles display_bitmap.
+
+    When constructed with an optional app_client, registers a display
+    confirmer with the MCP handlers so that blocking=true can poll the
+    Android app's current display state (AC-6.3).
     """
 
-    def __init__(self, event_store: EventStore, bitmap_store: BitmapStore) -> None:
+    def __init__(
+        self,
+        event_store: EventStore,
+        bitmap_store: BitmapStore,
+        app_client: AndroidAppClient | None = None,
+    ) -> None:
         self._event_store = event_store
         self._bitmap_store = bitmap_store
+        self._app_client = app_client
+
+        if app_client is not None:
+            from mcp.src.handlers import set_display_confirmer
+
+            def _confirmer() -> str:
+                try:
+                    return app_client.get_current_display()
+                except Exception:
+                    return ""
+
+            set_display_confirmer(_confirmer)
 
     def on_bitmap_submitted(self, cache_key: str, image_data: bytes) -> None:
         """A new bitmap was submitted via the MCP. Create a BitmapPayload event."""
