@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from concurrent import futures
 from typing import Optional
 
@@ -9,11 +10,13 @@ import grpc
 
 from supervisor.src.android_app_client import AndroidAppClient
 from supervisor.src.event_store import EventStore
+from supervisor.src.log_tailer import LogTailer
 from supervisor.src.mcp_bridge import BitmapStore, McpBridge
 from supervisor.src.sync_service import add_sync_service_to_server
 
 _DEFAULT_PORT = 50051
 _DEFAULT_APP_PORT = 50052
+_DEFAULT_LOG_DIR = "/tmp/vanpilot/logs"
 _MAX_WORKERS = 4
 
 
@@ -29,15 +32,17 @@ def create_server(
             When provided, enables blocking=true for display_bitmap (AC-6.3).
 
     Returns:
-        A tuple of (grpc.Server, actual_port, McpBridge).
+        A tuple of (grpc.Server, actual_port, McpBridge, LogTailer).
     """
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=_MAX_WORKERS))
     store = EventStore()
     bitmap_store = BitmapStore()
     bridge = McpBridge(store, bitmap_store, app_client=app_client)
     add_sync_service_to_server(server, store, bitmap_store)
+    log_dir = os.environ.get("AGENT_LOG_DIR", _DEFAULT_LOG_DIR)
+    tailer = LogTailer(store, log_dir=log_dir)
     actual_port = server.add_insecure_port(f"[::]:{port}")
-    return server, actual_port, bridge
+    return server, actual_port, bridge, tailer
 
 
 def create_android_app_client(
