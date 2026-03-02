@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.vanpilot.auto">
+    package="com.vanpilot.auto"
+    android:versionCode="1"
+    android:versionName="0.1.0">
 
     <!-- Required for NavigationTemplate usage -->
     <uses-permission android:name="androidx.car.app.NAVIGATION_TEMPLATES" />
@@ -10,17 +12,24 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
+        android:icon="@mipmap/ic_launcher"
         android:label="VanPilot"
         android:supportsRtl="true">
 
         <service
             android:name=".VanPilotCarAppService"
-            android:exported="true">
+            android:exported="true"
+            android:label="VanPilot"
+            android:icon="@mipmap/ic_launcher">
             <intent-filter>
                 <action android:name="androidx.car.app.CarAppService" />
                 <category android:name="androidx.car.app.category.NAVIGATION" />
             </intent-filter>
         </service>
+
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
 
         <meta-data
             android:name="androidx.car.app.minCarApiLevel"
