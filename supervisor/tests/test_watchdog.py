@@ -9,6 +9,19 @@ from supervisor.src.event_store import EventStore
 from supervisor.src.watchdog import Watchdog
 
 
+class FakeClock:
+    """Deterministic clock for testing; avoids timing-sensitive sleeps."""
+
+    def __init__(self, start: float = 0.0) -> None:
+        self._now = start
+
+    def __call__(self) -> float:
+        return self._now
+
+    def advance(self, seconds: float) -> None:
+        self._now += seconds
+
+
 class WatchdogRegistrationTest(unittest.TestCase):
     """Tests for session registration and unregistration."""
 
@@ -46,7 +59,7 @@ class WatchdogRegistrationTest(unittest.TestCase):
 class WatchdogCheckTest(unittest.TestCase):
     """Tests for the check cycle that detects silent sessions."""
 
-    def _make_watchdog(self, timeout_seconds=5, capture_fn=None):
+    def _make_watchdog(self, timeout_seconds=5, capture_fn=None, clock=None):
         """Helper to create a Watchdog with a mock capture function.
 
         Returns the watchdog, store, and the baseline count of
@@ -61,6 +74,7 @@ class WatchdogCheckTest(unittest.TestCase):
             event_store=store,
             timeout_seconds=timeout_seconds,
             capture_pane_fn=capture_fn,
+            clock=clock,
         )
         return wd, store, baseline
 
@@ -91,16 +105,18 @@ class WatchdogCheckTest(unittest.TestCase):
 
     def test_timeout_emitted_when_output_stale(self):
         """WatchdogTimeout should be emitted when output hasn't changed past timeout."""
+        clock = FakeClock()
         wd, store, baseline = self._make_watchdog(
-            timeout_seconds=0,  # Immediate timeout for testing
+            timeout_seconds=5,
             capture_fn=lambda session: "static output",
+            clock=clock,
         )
         wd.register_session("lead", "vanpilot-lead")
 
         # First check sets baseline
         wd.check_sessions()
-        # Give time to exceed the zero-second timeout
-        time.sleep(0.01)
+        # Advance past the timeout
+        clock.advance(6)
         # Second check detects stale output
         wd.check_sessions()
 
@@ -113,33 +129,38 @@ class WatchdogCheckTest(unittest.TestCase):
 
     def test_timeout_event_contains_silent_duration(self):
         """The WatchdogTimeout event should report how long the agent was silent."""
+        clock = FakeClock()
         wd, store, baseline = self._make_watchdog(
-            timeout_seconds=0,
+            timeout_seconds=5,
             capture_fn=lambda session: "static output",
+            clock=clock,
         )
         wd.register_session("lead", "vanpilot-lead")
 
         wd.check_sessions()
-        time.sleep(0.01)
+        clock.advance(7)
         wd.check_sessions()
 
         events = store.get_events(since_timestamp_ms=0, max_count=1000)
         watchdog_events = [
             e for e in events if e.WhichOneof("payload") == "watchdog_timeout"
         ]
-        self.assertGreater(
-            watchdog_events[-1].watchdog_timeout.silent_duration_ms, 0
+        self.assertEqual(
+            watchdog_events[-1].watchdog_timeout.silent_duration_ms, 7000
         )
 
     def test_no_timeout_before_threshold(self):
         """No timeout should be emitted if silence hasn't exceeded the threshold."""
+        clock = FakeClock()
         wd, store, baseline = self._make_watchdog(
-            timeout_seconds=9999,  # Very long timeout
+            timeout_seconds=10,
             capture_fn=lambda session: "static output",
+            clock=clock,
         )
         wd.register_session("lead", "vanpilot-lead")
 
         wd.check_sessions()
+        clock.advance(3)
         wd.check_sessions()
 
         events = store.get_events(since_timestamp_ms=0, max_count=1000)
@@ -159,7 +180,10 @@ class WatchdogCheckTest(unittest.TestCase):
             else:
                 return "researcher static"
 
-        wd, store, baseline = self._make_watchdog(timeout_seconds=0, capture_fn=capture)
+        clock = FakeClock()
+        wd, store, baseline = self._make_watchdog(
+            timeout_seconds=5, capture_fn=capture, clock=clock,
+        )
         wd.register_session("lead", "vanpilot-lead")
         wd.register_session("researcher", "vanpilot-researcher")
 
@@ -168,7 +192,7 @@ class WatchdogCheckTest(unittest.TestCase):
         before_ms = int(_time.time() * 1000) - 1
 
         wd.check_sessions()
-        time.sleep(0.01)
+        clock.advance(6)
         wd.check_sessions()
 
         # Only look at events created by the watchdog (after our timestamp)
@@ -187,12 +211,15 @@ class WatchdogCheckTest(unittest.TestCase):
         def capture(session_name):
             return outputs["lead"]
 
-        wd, store, baseline = self._make_watchdog(timeout_seconds=0, capture_fn=capture)
+        clock = FakeClock()
+        wd, store, baseline = self._make_watchdog(
+            timeout_seconds=5, capture_fn=capture, clock=clock,
+        )
         wd.register_session("lead", "vanpilot-lead")
 
         # Baseline check
         wd.check_sessions()
-        time.sleep(0.01)
+        clock.advance(6)
 
         # Output changes — should reset timer, no new timeout
         outputs["lead"] = "new output"
@@ -205,7 +232,7 @@ class WatchdogCheckTest(unittest.TestCase):
         self.assertEqual(mid_wd_count, baseline)
 
         # Now output goes stale again
-        time.sleep(0.01)
+        clock.advance(6)
         wd.check_sessions()
 
         events = store.get_events(since_timestamp_ms=0, max_count=1000)
@@ -221,8 +248,9 @@ class WatchdogCheckTest(unittest.TestCase):
         def failing_capture(session_name):
             raise RuntimeError("tmux not available")
 
+        clock = FakeClock()
         wd, store, _ = self._make_watchdog(
-            timeout_seconds=0, capture_fn=failing_capture
+            timeout_seconds=5, capture_fn=failing_capture, clock=clock,
         )
         wd.register_session("lead", "vanpilot-lead")
 
