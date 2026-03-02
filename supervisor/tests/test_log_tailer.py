@@ -302,6 +302,27 @@ class LogTailerTailTest(unittest.TestCase):
         self.assertEqual(len(self.events), count_first + 1)
 
 
+    def test_tail_recursive_subdirectory(self):
+        """Should discover JSONL files in subdirectories (per-project dirs)."""
+        tailer = self._make_tailer()
+
+        # Create a subdirectory mimicking Claude Code's per-project structure
+        subdir = os.path.join(self.tmpdir, "project-abc123")
+        os.makedirs(subdir)
+        path = os.path.join(subdir, "lead.jsonl")
+        with open(path, "w") as f:
+            f.write(json.dumps({
+                "type": "assistant",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": "From subdirectory"}],
+                },
+            }) + "\n")
+
+        tailer.poll_once()
+        self.assertEqual(len(self.events), 1)
+
+
 class LogTailerBackgroundTest(unittest.TestCase):
     """Tests for the background tailing thread."""
 

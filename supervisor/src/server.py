@@ -16,7 +16,7 @@ from supervisor.src.sync_service import add_sync_service_to_server
 
 _DEFAULT_PORT = 50051
 _DEFAULT_APP_PORT = 50052
-_DEFAULT_LOG_DIR = "/tmp/vanpilot/logs"
+_DEFAULT_LOG_DIR = os.path.expanduser("~/.claude/projects")
 _MAX_WORKERS = 4
 
 

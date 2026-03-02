@@ -20,12 +20,13 @@ class ServerLogTailerTest(unittest.TestCase):
             server.stop(grace=0)
 
     def test_log_tailer_uses_default_log_dir(self):
-        """LogTailer should default to /tmp/vanpilot/logs."""
+        """LogTailer should default to ~/.claude/projects."""
         with mock.patch.dict(os.environ, {}, clear=False):
             os.environ.pop("AGENT_LOG_DIR", None)
             server, port, bridge, tailer = create_server(port=0)
             try:
-                self.assertEqual(tailer._log_dir, "/tmp/vanpilot/logs")
+                expected = os.path.expanduser("~/.claude/projects")
+                self.assertEqual(tailer.log_dir, expected)
             finally:
                 server.stop(grace=0)
 
@@ -34,7 +35,7 @@ class ServerLogTailerTest(unittest.TestCase):
         with mock.patch.dict(os.environ, {"AGENT_LOG_DIR": "/custom/logs"}):
             server, port, bridge, tailer = create_server(port=0)
             try:
-                self.assertEqual(tailer._log_dir, "/custom/logs")
+                self.assertEqual(tailer.log_dir, "/custom/logs")
             finally:
                 server.stop(grace=0)
 
@@ -43,7 +44,7 @@ class ServerLogTailerTest(unittest.TestCase):
         server, port, bridge, tailer = create_server(port=0)
         try:
             # The bridge and tailer should reference the same EventStore
-            self.assertIs(tailer._event_store, bridge._event_store)
+            self.assertIs(tailer.event_store, bridge._event_store)
         finally:
             server.stop(grace=0)
 
