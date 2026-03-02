@@ -30,7 +30,7 @@ echo "[smoke] Waiting for healthcheck (up to ${TIMEOUT}s)..."
 elapsed=0
 while [ "$elapsed" -lt "$TIMEOUT" ]; do
   status=$(docker compose -f "$COMPOSE_FILE" ps --format json "$SERVICE" 2>/dev/null \
-    | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('Health',''))" 2>/dev/null || echo "")
+    | python3 -c "import sys,json; lines=[l for l in sys.stdin if l.strip()]; d=json.loads(lines[0]) if lines else {}; print(d.get('Health',''))" 2>/dev/null || echo "")
   if [ "$status" = "healthy" ]; then
     echo "[smoke] PASS: container is healthy"
     break
@@ -102,7 +102,8 @@ from mcp.src import handlers
 from mcp.src.server import handle_request
 handlers.reset()
 # submit_bitmap
-req = {'jsonrpc':'2.0','id':1,'method':'tools/call','params':{'name':'submit_bitmap','arguments':{'image_data':base64.b64encode(b'fake').decode()}}}
+data = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwADhQGAWjR9awAAAABJRU5ErkJggg==')
+req = {'jsonrpc':'2.0','id':1,'method':'tools/call','params':{'name':'submit_bitmap','arguments':{'image_data':base64.b64encode(data).decode()}}}
 resp = handle_request(req)
 data = json.loads(resp['result']['content'][0]['text'])
 key = data['cache_key']
