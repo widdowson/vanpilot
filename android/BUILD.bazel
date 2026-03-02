@@ -188,6 +188,18 @@ kt_jvm_library(
 )
 
 kt_jvm_library(
+    name = "surface_callback_bitmap_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/VanPilotSurfaceCallbackBitmapTest.kt"],
+    deps = [
+        ":vanpilot_lib",
+        "@maven//:androidx_car_app_app",
+        "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_robolectric_robolectric",
+    ],
+)
+
+kt_jvm_library(
     name = "screen_dark_mode_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/VanPilotScreenDarkModeTest.kt"],
     deps = [
@@ -486,6 +498,16 @@ android_local_test(
     test_class = "com.vanpilot.auto.VanPilotSurfaceCallbackDarkModeTest",
     deps = [
         ":surface_callback_dark_mode_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_local_test(
+    name = "surface_callback_bitmap_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    test_class = "com.vanpilot.auto.VanPilotSurfaceCallbackBitmapTest",
+    deps = [
+        ":surface_callback_bitmap_test_lib",
         "@robolectric//bazel:android-all",
     ],
 )
