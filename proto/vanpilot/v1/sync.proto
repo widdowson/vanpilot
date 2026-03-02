@@ -114,6 +114,11 @@ message SendUserInputResponse {
 
 message GetBitmapRequest {
   string cache_key = 1;
+
+  // How long to wait (in milliseconds) for the bitmap to become available.
+  // 0 (default) = return immediately even if not cached.
+  // >0 = poll until the bitmap appears or the deadline expires.
+  int32 wait_ms = 2;
 }
 
 message GetBitmapResponse {

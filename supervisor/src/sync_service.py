@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import Optional
 
 import grpc
@@ -14,6 +15,9 @@ from supervisor.src.mcp_bridge import BitmapStore
 # Single-client MVP: all connected Android apps share one client ID.
 # When multi-client support is added, derive this from the gRPC peer.
 _DEFAULT_CLIENT_ID = "default"
+
+# Poll interval for blocking GetBitmap requests.
+_POLL_INTERVAL_S = 0.05
 
 
 class SyncServiceServicer:
@@ -57,16 +61,28 @@ class SyncServiceServicer:
         request: sync_pb2.GetBitmapRequest,
         context: grpc.ServicerContext,
     ) -> sync_pb2.GetBitmapResponse:
-        data = self._bitmap_store.get(request.cache_key)
-        if data is None:
-            return sync_pb2.GetBitmapResponse()
-        self._bitmap_store.mark_sent(_DEFAULT_CLIENT_ID, request.cache_key)
-        return sync_pb2.GetBitmapResponse(
-            bitmap=sync_pb2.BitmapPayload(
-                cache_key=request.cache_key,
-                image_data=data,
-            ),
-        )
+        wait_ms = request.wait_ms
+        deadline = time.monotonic() + wait_ms / 1000.0 if wait_ms > 0 else 0
+
+        # TODO(#57): Each blocking GetBitmap call holds a ThreadPoolExecutor
+        # thread. With _MAX_WORKERS=4, 4 concurrent blocking calls exhaust the
+        # pool. Fix: switch to async gRPC or increase pool size.
+        while True:
+            data = self._bitmap_store.get(request.cache_key)
+            if data is not None:
+                self._bitmap_store.mark_sent(_DEFAULT_CLIENT_ID, request.cache_key)
+                return sync_pb2.GetBitmapResponse(
+                    bitmap=sync_pb2.BitmapPayload(
+                        cache_key=request.cache_key,
+                        image_data=data,
+                    ),
+                )
+            if wait_ms <= 0 or time.monotonic() >= deadline:
+                return sync_pb2.GetBitmapResponse()
+            # Exit cleanly if the client disconnects mid-poll.
+            if context is not None and not context.is_active():
+                return sync_pb2.GetBitmapResponse()
+            time.sleep(_POLL_INTERVAL_S)
 
     def ReconcileCache(
         self,
