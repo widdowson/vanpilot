@@ -78,7 +78,7 @@ _http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "h
 
 _http_archive(
     name = "com_android_dex",
-    url = "https://github.com/widdowson/vanpilot/releases/download/bazel-mirrors/dalvik-5a81c499a569731e2395f7c8d13c0e0d4e17a2b6.tar.gz",
+    url = "https://mirror.bazel.build/android.googlesource.com/platform/dalvik/+archive/5a81c499a569731e2395f7c8d13c0e0d4e17a2b6.tar.gz",
     integrity = "sha256-P/LZM7xVSP3HFmc1+NbrUP4vTHofHc4pBTmwxZpnj2s=",
     build_file = "@rules_android//bzlmod_extensions:com_android_dex.BUILD",
 )
