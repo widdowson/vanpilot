@@ -17,6 +17,9 @@ Usage:
 
   # Native emulator (auto-detect)
   bazel test //goldens:emulator_golden_test
+
+  # With video capture (AC-4.2)
+  bazel test //goldens:emulator_golden_test --test_arg=--record-video
 """
 
 import os
@@ -29,6 +32,7 @@ import unittest
 sys.path.insert(0, os.path.join(os.environ.get("TEST_SRCDIR", ""), os.environ.get("TEST_WORKSPACE", "")))
 
 from goldens.golden_diff import compare_golden, read_png_pixels
+from goldens.video_capture import VideoCaptureConfig, VideoCapture
 
 
 EMU_HOST = os.environ.get("EMU_HOST", "")
@@ -41,6 +45,11 @@ GOLDEN_DIR = os.path.join(
     "goldens",
     "phase9",
 )
+
+# Video capture config parsed from test args (AC-4.1, AC-4.2).
+# Enabled via: bazel test //goldens:emulator_golden_test --test_arg=--record-video
+VIDEO_CONFIG = VideoCaptureConfig.from_args(sys.argv[1:])
+VIDEO_CAPTURE = VideoCapture(VIDEO_CONFIG)
 
 
 def _find_emulator_serial() -> str | None:
@@ -117,6 +126,14 @@ def _capture_screenshot(output_path: str) -> None:
 )
 class EmulatorGoldenTest(unittest.TestCase):
     """Compare live emulator screenshots against committed goldens."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        VIDEO_CAPTURE.start()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        VIDEO_CAPTURE.stop("emulator_golden")
 
     def _save_undeclared(self, name: str, data: bytes) -> str | None:
         """Save data to TEST_UNDECLARED_OUTPUTS_DIR for CI artifacts."""
