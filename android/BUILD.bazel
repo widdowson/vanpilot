@@ -128,7 +128,7 @@ genrule(
     outs = ["vanpilot-release.apk"],
     cmd = "$(location //android/keystores:sign_release) $< $@",
     tools = ["//android/keystores:sign_release"],
-    tags = ["no-cache"],
+    tags = ["no-cache", "manual"],
 )
 
 # ============================================================================
