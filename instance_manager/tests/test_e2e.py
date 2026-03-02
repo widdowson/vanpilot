@@ -1,0 +1,147 @@
+"""End-to-end test: full gRPC server with mocked SubprocessRunner."""
+
+import os
+import unittest
+from concurrent import futures
+from unittest.mock import MagicMock
+
+import grpc
+
+from proto.vanpilot.v1 import instance_manager_pb2
+
+from instance_manager.src.emulator_lifecycle import SubprocessRunner
+from instance_manager.src.instance_store import RUNNING
+from instance_manager.src.server import create_server
+
+_FAKE_PNG = b"\x89PNG-fake-screenshot"
+
+
+class FakeRunner(SubprocessRunner):
+    """Subprocess runner that simulates successful emulator lifecycle."""
+
+    def run(self, args, **kwargs):
+        result = MagicMock()
+        result.returncode = 0
+        result.stdout = ""
+        result.stderr = ""
+        if "getprop" in args and "sys.boot_completed" in args:
+            result.stdout = "1"
+
+        # When screenshot command is echoed into the pipe, create the file.
+        if args and args[0] == "bash" and len(args) > 2:
+            cmd_str = args[-1]
+            if "screenshot" in cmd_str and ">" in cmd_str:
+                # Parse: echo "screenshot /tmp/dhu_X_screenshot.png" > pipe
+                parts = cmd_str.split("screenshot ", 1)
+                if len(parts) == 2:
+                    path = parts[1].split('"')[0].strip()
+                    os.makedirs(os.path.dirname(path) or "/tmp", exist_ok=True)
+                    with open(path, "wb") as f:
+                        f.write(_FAKE_PNG)
+
+        return result
+
+    def popen(self, args, **kwargs):
+        proc = MagicMock()
+        proc.pid = 99999
+
+        # When DHU is launched, create the log file with "connected".
+        if args and args[0] == "bash" and len(args) > 2:
+            cmd_str = args[-1]
+            if "desktop-head-unit" in cmd_str:
+                # Extract log path from "... > /tmp/dhu_X.log 2>&1"
+                parts = cmd_str.split("> ")
+                if len(parts) >= 2:
+                    log_path = parts[-1].replace("2>&1", "").strip()
+                    os.makedirs(os.path.dirname(log_path) or "/tmp", exist_ok=True)
+                    with open(log_path, "w") as f:
+                        f.write("DHU connected\n")
+
+        return proc
+
+
+class E2ETest(unittest.TestCase):
+
+    def setUp(self):
+        self.grpc_server, self.http_thread, self.store = create_server(
+            grpc_port=0, http_port=0, max_slots=4, runner=FakeRunner(),
+        )
+        port = self.grpc_server.add_insecure_port("[::]:0")
+        self.grpc_server.start()
+        self.channel = grpc.insecure_channel(f"localhost:{port}")
+
+    def tearDown(self):
+        self.channel.close()
+        self.grpc_server.stop(0)
+        # Clean up temp files created by FakeRunner
+        import glob
+        for pattern in ["/tmp/dhu_*"]:
+            for path in glob.glob(pattern):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+
+    def _call(self, method, request):
+        service = "vanpilot.v1.InstanceManagerService"
+        resp_map = {
+            "CreateInstance": instance_manager_pb2.CreateInstanceResponse,
+            "DestroyInstance": instance_manager_pb2.DestroyInstanceResponse,
+            "ListInstances": instance_manager_pb2.ListInstancesResponse,
+            "GetInstance": instance_manager_pb2.GetInstanceResponse,
+            "ScreenshotInstance": instance_manager_pb2.ScreenshotInstanceResponse,
+        }
+        resp_type = resp_map[method]
+        return self.channel.unary_unary(
+            f"/{service}/{method}",
+            request_serializer=type(request).SerializeToString,
+            response_deserializer=resp_type.FromString,
+        )(request)
+
+    def test_create_list_destroy_cycle(self):
+        # Create
+        resp = self._call(
+            "CreateInstance",
+            instance_manager_pb2.CreateInstanceRequest(name="e2e-test"),
+        )
+        self.assertEqual(resp.instance.name, "e2e-test")
+
+        # List
+        list_resp = self._call(
+            "ListInstances",
+            instance_manager_pb2.ListInstancesRequest(),
+        )
+        self.assertEqual(len(list_resp.instances), 1)
+
+        # Destroy
+        self._call(
+            "DestroyInstance",
+            instance_manager_pb2.DestroyInstanceRequest(name="e2e-test"),
+        )
+
+        # Verify empty
+        list_resp = self._call(
+            "ListInstances",
+            instance_manager_pb2.ListInstancesRequest(),
+        )
+        self.assertEqual(len(list_resp.instances), 0)
+
+    def test_create_destroy_reuse_name(self):
+        self._call(
+            "CreateInstance",
+            instance_manager_pb2.CreateInstanceRequest(name="reuse"),
+        )
+        self._call(
+            "DestroyInstance",
+            instance_manager_pb2.DestroyInstanceRequest(name="reuse"),
+        )
+        # Should succeed — name is available again
+        resp = self._call(
+            "CreateInstance",
+            instance_manager_pb2.CreateInstanceRequest(name="reuse"),
+        )
+        self.assertEqual(resp.instance.name, "reuse")
+
+
+if __name__ == "__main__":
+    unittest.main()

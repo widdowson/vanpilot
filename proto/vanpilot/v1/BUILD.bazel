@@ -89,3 +89,14 @@ java_grpc_library(
     deps = [":screenshot_java_proto"],
     flavor = "lite",
 )
+
+# Instance manager proto (Python-only — no Java/gRPC targets needed)
+proto_library(
+    name = "instance_manager_proto",
+    srcs = ["instance_manager.proto"],
+)
+
+py_proto_library(
+    name = "instance_manager_py_proto",
+    deps = [":instance_manager_proto"],
+)
