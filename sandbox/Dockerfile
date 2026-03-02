@@ -14,7 +14,7 @@ RUN curl -fsSL -o /usr/local/bin/bazelisk \
     && chmod +x /usr/local/bin/bazelisk \
     && ln -sf /usr/local/bin/bazelisk /usr/local/bin/bazel
 
-# Android SDK (command-line tools, platform-tools, API 34)
+# Android SDK
 ENV ANDROID_HOME=/opt/android-sdk
 ENV PATH=${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${PATH}
 
@@ -31,7 +31,8 @@ RUN mkdir -p ${ANDROID_HOME}/licenses \
     && echo -e "\nd975f751698a77e662f1cd25de68a5e9b2075571" >> ${ANDROID_HOME}/licenses/android-sdk-license \
     && echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > ${ANDROID_HOME}/licenses/android-sdk-preview-license
 
-RUN sdkmanager "platform-tools" "platforms;android-34"
+# Keep API level in sync with CI runner (rules_android auto-detects from installed SDK).
+RUN sdkmanager "platform-tools" "platforms;android-36"
 
 RUN chown -R agent:agent ${ANDROID_HOME}
 
