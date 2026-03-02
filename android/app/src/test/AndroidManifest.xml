@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Minimal manifest for Robolectric tests. Does not reference resources
+     (mipmap icons, xml descriptors) that android_local_test cannot resolve. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.vanpilot.auto">
+
+    <uses-permission android:name="androidx.car.app.NAVIGATION_TEMPLATES" />
+    <uses-permission android:name="androidx.car.app.ACCESS_SURFACE" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <application
+        android:label="VanPilot"
+        android:supportsRtl="true">
+
+        <service
+            android:name=".VanPilotCarAppService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.car.app.CarAppService" />
+                <category android:name="androidx.car.app.category.NAVIGATION" />
+            </intent-filter>
+        </service>
+
+        <meta-data
+            android:name="androidx.car.app.minCarApiLevel"
+            android:value="7" />
+    </application>
+</manifest>
