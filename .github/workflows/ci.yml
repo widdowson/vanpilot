@@ -25,26 +25,57 @@ jobs:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}
           repository-cache: true
+          external-cache: true
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
       - name: Build all targets
-        run: bazel build //...
+        run: |
+          REMOTE_CACHE_FLAG=""
+          if [ -n "$BAZEL_REMOTE_CACHE_URL" ]; then
+            REMOTE_CACHE_FLAG="--remote_cache=$BAZEL_REMOTE_CACHE_URL"
+          fi
+          bazel build //... --config=ci $REMOTE_CACHE_FLAG
+        env:
+          BAZEL_REMOTE_CACHE_URL: ${{ secrets.BAZEL_REMOTE_CACHE_URL }}
 
       - name: Run all tests
-        run: bazel test //... --test_output=errors
+        run: |
+          REMOTE_CACHE_FLAG=""
+          if [ -n "$BAZEL_REMOTE_CACHE_URL" ]; then
+            REMOTE_CACHE_FLAG="--remote_cache=$BAZEL_REMOTE_CACHE_URL"
+          fi
+          bazel test //... --test_output=errors --config=ci $REMOTE_CACHE_FLAG
+        env:
+          BAZEL_REMOTE_CACHE_URL: ${{ secrets.BAZEL_REMOTE_CACHE_URL }}
 
-      - name: Upload test outputs (on failure)
+      - name: Upload test logs (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-outputs
-          path: |
-            bazel-testlogs/**/test.outputs/
-            bazel-testlogs/**/test.log
+          name: test-logs
+          path: bazel-testlogs/**/test.log
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Upload golden diffs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-diffs
+          path: bazel-testlogs/**/test.outputs/*diff*
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Upload golden test outputs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-test-outputs
+          path: bazel-testlogs/**/test.outputs/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Upload golden images (for review)
         if: always()

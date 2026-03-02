@@ -8,7 +8,7 @@ This document defines the acceptance criteria for VanPilot development. All feat
 - [x] **AC-1.2**: Bazel's native Android rules are used for building, testing, and packaging the Android app. Hermeticity and parallelism are non-negotiable.
 - [x] **AC-1.3**: Individual test targets are fine-grained. There must be no single monolithic test target that delegates to another testing framework. Each logical test case or test suite should be its own Bazel test target.
 - [x] **AC-1.4**: `bazel test //...` runs all tests. `bazel build //...` builds all artifacts.
-- [ ] **AC-1.5**: Bazel remote caching is configured where beneficial.
+- [x] **AC-1.5**: Bazel remote caching is configured where beneficial.
 
 ## AC-2: Test-Driven Development
 
@@ -89,8 +89,8 @@ This document defines the acceptance criteria for VanPilot development. All feat
 ## AC-12: CI/CD
 
 - [x] **AC-12.1**: GitHub Actions runs `bazel test //...` on every pull request.
-- [ ] **AC-12.2**: The `main` branch has branch protection enabled: status checks must pass, code review is required, force pushes are blocked, and stale reviews are dismissed on new commits.
-- [ ] **AC-12.3**: Golden image diffs are visible in PR artifacts.
+- [x] **AC-12.2**: The `main` branch has branch protection enabled: status checks must pass, code review is required, force pushes are blocked, and stale reviews are dismissed on new commits.
+- [x] **AC-12.3**: Golden image diffs are visible in PR artifacts.
 - [x] **AC-12.4**: CI must pass before any PR can merge to main.
 
 ## AC-13: Input Injection

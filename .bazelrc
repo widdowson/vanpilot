@@ -17,3 +17,11 @@ build --verbose_failures
 # Disable C++ module checks that fail with Xcode SDK (bazelbuild/bazel#24556)
 build --features=-layering_check
 build --host_features=-layering_check
+
+# CI remote cache — activated by --config=ci
+# setup-bazel disk-cache + repository-cache + external-cache already persist
+# across GHA runs. For a full Bazel remote cache, add a BAZEL_REMOTE_CACHE_URL
+# repo secret (e.g. https://storage.googleapis.com/<bucket> or
+# grpcs://remote.buildbuddy.io) and CI will pass --remote_cache automatically.
+build:ci --remote_accept_cached
+build:ci --remote_upload_local_results
