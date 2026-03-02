@@ -66,4 +66,10 @@ class TtsManagerTest {
         assertThat(getter).isNotNull()
         assertThat(getter.returnType).isEqualTo(Float::class.java)
     }
+
+    @Test
+    fun isSpeakingBackingField_isVolatile() {
+        val field = TtsManager::class.java.getDeclaredField("_isSpeaking")
+        assertThat(java.lang.reflect.Modifier.isVolatile(field.modifiers)).isTrue()
+    }
 }

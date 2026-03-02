@@ -22,34 +22,48 @@ class VoiceUiStateTest {
     }
 
     @Test
-    fun listeningState() {
-        val state = VoiceUiState(
-            currentState = VoiceState.LISTENING,
-            isListening = true
-        )
-        assertThat(state.currentState).isEqualTo(VoiceState.LISTENING)
+    fun isListening_derivedFromCurrentState() {
+        val state = VoiceUiState(currentState = VoiceState.LISTENING)
         assertThat(state.isListening).isTrue()
         assertThat(state.isSpeaking).isFalse()
     }
 
     @Test
-    fun speakingState() {
-        val state = VoiceUiState(
-            currentState = VoiceState.SPEAKING,
-            isSpeaking = true
-        )
+    fun isSpeaking_derivedFromCurrentState() {
+        val state = VoiceUiState(currentState = VoiceState.SPEAKING)
         assertThat(state.isSpeaking).isTrue()
         assertThat(state.isListening).isFalse()
+    }
+
+    @Test
+    fun idle_neitherListeningNorSpeaking() {
+        val state = VoiceUiState(currentState = VoiceState.IDLE)
+        assertThat(state.isListening).isFalse()
+        assertThat(state.isSpeaking).isFalse()
+    }
+
+    @Test
+    fun processing_neitherListeningNorSpeaking() {
+        val state = VoiceUiState(currentState = VoiceState.PROCESSING)
+        assertThat(state.isListening).isFalse()
+        assertThat(state.isSpeaking).isFalse()
+    }
+
+    @Test
+    fun disabled_neitherListeningNorSpeaking() {
+        val state = VoiceUiState(currentState = VoiceState.DISABLED)
+        assertThat(state.isListening).isFalse()
+        assertThat(state.isSpeaking).isFalse()
     }
 
     @Test
     fun withPartialTranscript() {
         val state = VoiceUiState(
             currentState = VoiceState.LISTENING,
-            partialTranscript = "hello wor",
-            isListening = true
+            partialTranscript = "hello wor"
         )
         assertThat(state.partialTranscript).isEqualTo("hello wor")
+        assertThat(state.isListening).isTrue()
     }
 
     @Test
@@ -62,8 +76,7 @@ class VoiceUiStateTest {
     fun copy_preservesOtherFields() {
         val original = VoiceUiState(
             currentState = VoiceState.LISTENING,
-            partialTranscript = "hello",
-            isListening = true
+            partialTranscript = "hello"
         )
         val updated = original.copy(partialTranscript = "hello world")
         assertThat(updated.currentState).isEqualTo(VoiceState.LISTENING)
