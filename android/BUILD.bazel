@@ -417,8 +417,8 @@ kt_jvm_library(
 )
 
 kt_jvm_library(
-    name = "conversation_tab_manager_concurrent_test_lib",
-    srcs = ["app/src/test/kotlin/com/vanpilot/auto/ConversationTabManagerConcurrentTest.kt"],
+    name = "conversation_tab_manager_concurrency_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/ConversationTabManagerConcurrencyTest.kt"],
     deps = [
         ":vanpilot_lib",
         "@maven//:junit_junit",
@@ -803,11 +803,11 @@ android_local_test(
 )
 
 android_local_test(
-    name = "conversation_tab_manager_concurrent_test",
+    name = "conversation_tab_manager_concurrency_test",
     manifest = "app/src/main/AndroidManifest.xml",
-    test_class = "com.vanpilot.auto.ConversationTabManagerConcurrentTest",
+    test_class = "com.vanpilot.auto.ConversationTabManagerConcurrencyTest",
     deps = [
-        ":conversation_tab_manager_concurrent_test_lib",
+        ":conversation_tab_manager_concurrency_test_lib",
         "@robolectric//bazel:android-all",
     ],
 )

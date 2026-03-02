@@ -6,6 +6,10 @@ package com.vanpilot.auto
  * Holds messages per agent and provides methods to build tab content.
  * TabTemplate supports a maximum of 4 tabs total: 1 Visual + 1 Lead Agent + up to 2 sub-agents.
  * MAX_SUB_AGENT_TABS enforces this limit so a registered sub-agent is never silently invisible.
+ *
+ * Thread-safe: all mutable state is guarded by [lock]. gRPC polling may
+ * deliver messages on a background thread while the Car App UI thread
+ * reads tab state, so every public accessor synchronizes on the same lock.
  */
 class ConversationTabManager {
 
@@ -59,47 +63,69 @@ class ConversationTabManager {
         }
     }
 
+    private val lock = Any()
     private val leadAgentMessages = mutableListOf<ConversationMessage>()
     private val subAgentOrder = mutableListOf<String>()
     private val subAgentMessages = mutableMapOf<String, MutableList<ConversationMessage>>()
 
     /** Currently active conversation tab ID, or null if no conversation tab is active. */
-    var activeConversationTabId: String? = null
+    var activeConversationTabId: String?
+        get() = synchronized(lock) { _activeConversationTabId }
+        set(value) = synchronized(lock) { _activeConversationTabId = value }
+    private var _activeConversationTabId: String? = null
 
     // =========================================================================
     // Lead agent
     // =========================================================================
 
-    fun getLeadAgentMessages(): List<ConversationMessage> = leadAgentMessages.toList()
+    fun getLeadAgentMessages(): List<ConversationMessage> {
+        synchronized(lock) {
+            return leadAgentMessages.toList()
+        }
+    }
 
     fun addLeadAgentMessage(message: ConversationMessage) {
-        leadAgentMessages.add(message)
+        synchronized(lock) {
+            leadAgentMessages.add(message)
+        }
     }
 
     // =========================================================================
     // Sub-agents
     // =========================================================================
 
-    fun getSubAgentIds(): List<String> = subAgentOrder.toList()
+    fun getSubAgentIds(): List<String> {
+        synchronized(lock) {
+            return subAgentOrder.toList()
+        }
+    }
 
     fun addSubAgent(agentId: String) {
-        if (agentId in subAgentOrder) return
-        if (subAgentOrder.size >= MAX_SUB_AGENT_TABS) return
-        subAgentOrder.add(agentId)
-        subAgentMessages[agentId] = mutableListOf()
+        synchronized(lock) {
+            if (agentId in subAgentOrder) return
+            if (subAgentOrder.size >= MAX_SUB_AGENT_TABS) return
+            subAgentOrder.add(agentId)
+            subAgentMessages[agentId] = mutableListOf()
+        }
     }
 
     fun removeSubAgent(agentId: String) {
-        subAgentOrder.remove(agentId)
-        subAgentMessages.remove(agentId)
+        synchronized(lock) {
+            subAgentOrder.remove(agentId)
+            subAgentMessages.remove(agentId)
+        }
     }
 
     fun getSubAgentMessages(agentId: String): List<ConversationMessage> {
-        return subAgentMessages[agentId]?.toList() ?: emptyList()
+        synchronized(lock) {
+            return subAgentMessages[agentId]?.toList() ?: emptyList()
+        }
     }
 
     fun addSubAgentMessage(agentId: String, message: ConversationMessage) {
-        subAgentMessages[agentId]?.add(message)
+        synchronized(lock) {
+            subAgentMessages[agentId]?.add(message)
+        }
     }
 
     // =========================================================================
@@ -107,10 +133,12 @@ class ConversationTabManager {
     // =========================================================================
 
     fun getAllConversationTabIds(): List<String> {
-        return buildList {
-            add(LEAD_AGENT_TAB_ID)
-            for (agentId in subAgentOrder) {
-                add(subAgentTabId(agentId))
+        synchronized(lock) {
+            return buildList {
+                add(LEAD_AGENT_TAB_ID)
+                for (agentId in subAgentOrder) {
+                    add(subAgentTabId(agentId))
+                }
             }
         }
     }
