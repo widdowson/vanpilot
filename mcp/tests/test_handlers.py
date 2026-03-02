@@ -9,6 +9,7 @@ from mcp.src.handlers import (
     handle_submit_bitmap,
     handle_get_screenshot,
     set_event_callback,
+    set_display_confirmer,
 )
 
 
@@ -38,12 +39,14 @@ class DisplayBitmapHandlerTest(unittest.TestCase):
 
     def test_blocking_mode(self):
         key = self._submit("s4")
+        set_display_confirmer(lambda: key)
         result = handle_display_bitmap(cache_key=key, blocking=True)
         self.assertTrue(result["blocking"])
         self.assertIn("confirmed_cache_key", result)
 
     def test_blocking_confirms_same_key(self):
         key = self._submit("s5")
+        set_display_confirmer(lambda: key)
         result = handle_display_bitmap(cache_key=key, blocking=True)
         self.assertEqual(result["confirmed_cache_key"], key)
 
