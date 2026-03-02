@@ -1,0 +1,3 @@
+# Sandbox-specific: proxy CA trust for Bazel's JVM
+startup --host_jvm_args=-Djavax.net.ssl.trustStore=/home/agent/.bazel-ssl/cacerts
+startup --host_jvm_args=-Djavax.net.ssl.trustStorePassword=changeit

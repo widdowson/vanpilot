@@ -4,11 +4,18 @@
 /bazel-testlogs
 /bazel-vanpilot
 
-# Git worktrees
-/.worktrees/
+# Git worktrees (see PARALLEL_STRATEGY.md)
+/worktrees/
+
+# Python bytecode
+__pycache__/
 
 # Sandbox proxy CA cert (build-time only, not committed)
 supervisor/proxy-ca.crt
 
 # Video captures from golden tests (AC-4.3: never committed)
 *.mp4
+
+# Docker sandbox runtime data
+sandbox/sandbox.env
+.sandbox/
