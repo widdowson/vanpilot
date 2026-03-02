@@ -460,15 +460,12 @@ kt_jvm_library(
 # Using android_local_test with Robolectric for full Android framework
 # emulation. @ConscryptMode(OFF) on each test class avoids the aarch64
 # Conscrypt native library requirement.
-#
-# Tests use a minimal manifest that omits resource references (mipmap icons,
-# xml descriptors) which android_local_test cannot resolve without explicit
-# resource_files. The production manifest is app/src/main/AndroidManifest.xml.
 # ============================================================================
 
 android_local_test(
     name = "car_app_service_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.VanPilotCarAppServiceTest",
     deps = [
         ":car_app_service_test_lib",
@@ -478,7 +475,8 @@ android_local_test(
 
 android_local_test(
     name = "session_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.VanPilotSessionTest",
     deps = [
         ":session_test_lib",
@@ -488,7 +486,8 @@ android_local_test(
 
 android_local_test(
     name = "screen_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.VanPilotScreenTest",
     deps = [
         ":screen_test_lib",
@@ -499,7 +498,8 @@ android_local_test(
 android_local_test(
     name = "surface_callback_test",
     data = ["//goldens/phase3:golden_images"],
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.VanPilotSurfaceCallbackTest",
     deps = [
         ":surface_callback_test_lib",
@@ -511,7 +511,8 @@ android_local_test(
 
 android_local_test(
     name = "dark_mode_theme_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.DarkModeThemeTest",
     deps = [
         ":dark_mode_theme_test_lib",
@@ -522,7 +523,8 @@ android_local_test(
 android_local_test(
     name = "surface_callback_dark_mode_test",
     data = ["//goldens/phase3:golden_images"],
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.VanPilotSurfaceCallbackDarkModeTest",
     deps = [
         ":surface_callback_dark_mode_test_lib",
@@ -532,7 +534,8 @@ android_local_test(
 
 android_local_test(
     name = "surface_callback_bitmap_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.VanPilotSurfaceCallbackBitmapTest",
     deps = [
         ":surface_callback_bitmap_test_lib",
@@ -542,7 +545,8 @@ android_local_test(
 
 android_local_test(
     name = "screen_dark_mode_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.VanPilotScreenDarkModeTest",
     deps = [
         ":screen_dark_mode_test_lib",
@@ -552,7 +556,8 @@ android_local_test(
 
 android_local_test(
     name = "sync_client_report_theme_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.grpc.SyncServiceClientReportThemeTest",
     deps = [
         ":sync_client_report_theme_test_lib",
@@ -564,7 +569,8 @@ android_local_test(
 
 android_local_test(
     name = "bitmap_cache_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.cache.BitmapCacheTest",
     deps = [
         ":bitmap_cache_test_lib",
@@ -574,7 +580,8 @@ android_local_test(
 
 android_local_test(
     name = "event_processor_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.sync.EventProcessorTest",
     deps = [
         ":event_processor_test_lib",
@@ -584,7 +591,8 @@ android_local_test(
 
 android_local_test(
     name = "sync_service_client_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.grpc.SyncServiceClientTest",
     deps = [
         ":sync_service_client_test_lib",
@@ -594,7 +602,8 @@ android_local_test(
 
 android_local_test(
     name = "android_app_service_impl_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.grpc.AndroidAppServiceImplTest",
     deps = [
         ":android_app_service_impl_test_lib",
@@ -604,7 +613,8 @@ android_local_test(
 
 android_local_test(
     name = "sync_client_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.grpc.SyncClientTest",
     deps = [
         ":sync_client_test_lib",
@@ -662,7 +672,8 @@ kt_jvm_library(
 
 android_local_test(
     name = "event_processor_unknown_event_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.sync.EventProcessorUnknownEventTest",
     deps = [
         ":event_processor_unknown_event_test_lib",
@@ -672,7 +683,8 @@ android_local_test(
 
 android_local_test(
     name = "bitmap_cache_byte_budget_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.cache.BitmapCacheByteBudgetTest",
     deps = [
         ":bitmap_cache_byte_budget_test_lib",
@@ -682,7 +694,8 @@ android_local_test(
 
 android_local_test(
     name = "event_processor_bitmap_fetch_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.sync.EventProcessorBitmapFetchTest",
     deps = [
         ":event_processor_bitmap_fetch_test_lib",
@@ -692,7 +705,8 @@ android_local_test(
 
 android_local_test(
     name = "sync_service_client_reconcile_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.grpc.SyncServiceClientReconcileTest",
     deps = [
         ":sync_service_client_reconcile_test_lib",
@@ -704,7 +718,8 @@ android_local_test(
 
 android_local_test(
     name = "connection_state_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.connectivity.ConnectionStateTest",
     deps = [
         ":connection_state_test_lib",
@@ -714,7 +729,8 @@ android_local_test(
 
 android_local_test(
     name = "connection_monitor_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.connectivity.ConnectionMonitorTest",
     deps = [
         ":connection_monitor_test_lib",
@@ -724,7 +740,8 @@ android_local_test(
 
 android_local_test(
     name = "adaptive_batch_config_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.connectivity.AdaptiveBatchConfigTest",
     deps = [
         ":adaptive_batch_config_test_lib",
@@ -734,7 +751,8 @@ android_local_test(
 
 android_local_test(
     name = "sync_manager_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.connectivity.SyncManagerTest",
     deps = [
         ":sync_manager_test_lib",
@@ -746,7 +764,8 @@ android_local_test(
 
 android_local_test(
     name = "voice_state_machine_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.voice.VoiceStateMachineTest",
     deps = [
         ":voice_state_machine_test_lib",
@@ -756,7 +775,8 @@ android_local_test(
 
 android_local_test(
     name = "voice_ui_state_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.voice.VoiceUiStateTest",
     deps = [
         ":voice_ui_state_test_lib",
@@ -766,7 +786,8 @@ android_local_test(
 
 android_local_test(
     name = "stt_manager_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.voice.SttManagerTest",
     deps = [
         ":stt_manager_test_lib",
@@ -776,7 +797,8 @@ android_local_test(
 
 android_local_test(
     name = "tts_manager_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.voice.TtsManagerTest",
     deps = [
         ":tts_manager_test_lib",
@@ -788,7 +810,8 @@ android_local_test(
 
 android_local_test(
     name = "conversation_message_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.ConversationMessageTest",
     deps = [
         ":conversation_message_test_lib",
@@ -798,7 +821,8 @@ android_local_test(
 
 android_local_test(
     name = "conversation_tab_manager_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.ConversationTabManagerTest",
     deps = [
         ":conversation_tab_manager_test_lib",
@@ -808,7 +832,8 @@ android_local_test(
 
 android_local_test(
     name = "conversation_tab_manager_concurrency_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.ConversationTabManagerConcurrencyTest",
     deps = [
         ":conversation_tab_manager_concurrency_test_lib",
@@ -818,7 +843,8 @@ android_local_test(
 
 android_local_test(
     name = "screen_tabs_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.VanPilotScreenTabsTest",
     deps = [
         ":screen_tabs_test_lib",
@@ -828,7 +854,8 @@ android_local_test(
 
 android_local_test(
     name = "screen_tab_edge_case_test",
-    manifest = "app/src/test/AndroidManifest.xml",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.auto.VanPilotScreenTabEdgeCaseTest",
     deps = [
         ":screen_tab_edge_case_test_lib",
