@@ -1,5 +1,5 @@
 # Mirror unreliable upstream deps (android.googlesource.com 403s on CI)
-build --experimental_downloader_config=.bazel/downloader_config.cfg
+build --downloader_config=.bazel/downloader_config.cfg
 
 # Java language level for Android compatibility
 build --java_language_version=11
