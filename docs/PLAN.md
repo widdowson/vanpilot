@@ -42,7 +42,32 @@ This document describes the build-out plan: what needs to be done, what depends 
       │ gRPC wiring  │ │ I/O     │ │ test infra  │
       │ (app↔super↔  │ │ (STT/   │ │ (emulator + │
       │  MCP)        │ │  TTS)   │ │  DHU auto)  │
-      └──────────────┘ └─────────┘ └─────────────┘
+      └──────┬───────┘ └─────────┘ └─────────────┘
+             │
+    ─────────┼───────────────────────────────
+    Post-skeleton phases (10+)
+    ─────────┼───────────────────────────────
+             │
+        ┌────┴─────────────────┐
+        ▼                      ▼
+ ┌──────────────┐    ┌──────────────────┐
+ │ 10. Log      │    │ 11. Configurable │
+ │ tailer       │    │ gRPC endpoint +  │
+ │ (supervisor) │    │ Tailscale        │
+ └──────┬───────┘    └────────┬─────────┘
+        │                     │
+        ▼                     ▼
+ ┌──────────────────────────────────────────┐
+ │ 12. Production Docker (agent container   │
+ │     with Claude Code CLI + MCP inside)   │
+ └──────────────────────┬───────────────────┘
+                        │
+           ┌────────────┼────────────┐
+           ▼            ▼            ▼
+    ┌────────────┐ ┌──────────┐ ┌──────────────┐
+    │ 13. E2E    │ │ 14. APK  │ │ 15. Ops      │
+    │ smoke test │ │ signing  │ │ runbook      │
+    └────────────┘ └──────────┘ └──────────────┘
 ```
 
 ## Parallelism Summary
@@ -54,16 +79,21 @@ This document describes the build-out plan: what needs to be done, what depends 
 | **3** | Supervisor skeleton, MCP server skeleton, Android app skeleton | All three parallel |
 | **4** | Docker setup | Single track — integrates phases 2-3 |
 | **5** | End-to-end gRPC wiring, Voice I/O, Golden test infra | All three parallel |
+| **6** | Log tailer, Configurable gRPC + Tailscale | Both parallel (supervisor vs Android) |
+| **7** | Production Docker setup | Single track — integrates 10 + 11 |
+| **8** | E2E smoke test, APK signing, Ops runbook | All three parallel |
 
 ## Critical Path
 
 The longest dependency chain is:
 
-**1 → 2b/2c → 3 → 6 → 7**
+**1 → 2b/2c → 3 → 6 → 7 → 10 → 12 → 13**
 
-Bazel bootstrap → Kotlin proto codegen + 3rd-party deps → Android app skeleton → Docker setup → end-to-end gRPC wiring.
+Bazel bootstrap → Kotlin proto codegen + 3rd-party deps → Android app skeleton → Docker setup → end-to-end gRPC wiring → log tailer → production Docker → E2E smoke test.
 
 The Android app skeleton (step 3) is the **highest-risk item** because it depends on the Car App Library's `SurfaceCallback` behaving as documented. Proving this early de-risks the entire project.
+
+The **log tailer** (Phase 10) is the critical missing piece for a working system — without it, agent output never reaches the Android app.
 
 ## Phase Details
 
@@ -167,3 +197,102 @@ Upgrades the manual golden screenshots (committed since Phase 3) into automated 
 - Diff image generation on failure
 - Optional video capture via `--test_arg=--record-video`
 - Reusable golden tooling may be extracted from `apwphotos-appv2` as a shared submodule
+
+---
+
+## Post-Skeleton Phases
+
+Phases 1–9 build all individual components. Phases 10–15 close the gaps required for a working end-to-end system.
+
+### Phase 10: Log Tailer (#62)
+
+**Depends on:** Phase 4 (supervisor skeleton), Phase 7 (end-to-end gRPC wiring)
+
+DESIGN.md §2.1 says the supervisor "Tails the JSON conversation logs of all Claude Code TUI instances to extract new agent output." This component is missing. Without it, agent `TextMessage` output never populates the `EventStore`, so the Android app's conversation tabs remain empty.
+
+The `InputInjector` monitors log file growth (size-based) for delivery verification, but does not parse log content.
+
+- Implement `LogTailer` class in `supervisor/src/log_tailer.py`
+- Tail JSONL conversation logs for all active tmux sessions
+- Parse log entries and create `TextMessage` events in the `EventStore`
+- Handle log rotation and agent restarts gracefully
+- Bazel test targets for log parsing and event generation
+- Integration test: injected prompt → agent log output → `TextMessage` event in store
+
+### Phase 11: Configurable gRPC Endpoint + Tailscale (#65)
+
+**Depends on:** Phase 3 (Android app skeleton), Phase 7 (end-to-end gRPC wiring)
+
+**Parallel with:** Phase 10 (log tailer — different codebase: Android vs supervisor)
+
+AC-11.2 requires all gRPC traffic tunneled through Tailscale. DESIGN.md §3.1 specifies stable Tailscale hostnames (e.g., `mac-studio.tailnet:50051`) with configurable endpoints.
+
+Currently, `SyncClient` and `SyncManager` accept an injected `ManagedChannel` (good design), but no production code constructs one. `VanPilotSession.onCreateScreen()` creates `VanPilotScreen` without a gRPC channel. There is no configuration mechanism for the supervisor address.
+
+- Add configurable gRPC endpoint to the Android app (SharedPreferences or BuildConfig)
+- Default to Tailscale hostname convention (`mac-studio.tailnet:50051`)
+- Wire `VanPilotSession` to create a `ManagedChannel` and pass it to `SyncManager`
+- Configure TLS for Tailscale tunnel (or document why plaintext is acceptable within Tailscale)
+- Ensure supervisor listens on `0.0.0.0:50051` (not just localhost) for Tailscale access
+- Document Tailscale setup steps for both Mac Studio and Pixel
+
+### Phase 12: Production Docker Setup (#63, #64)
+
+**Depends on:** Phase 10 (log tailer), Phase 11 (configurable gRPC endpoint)
+
+Two gaps combine here:
+
+**Gap A: MCP code not in agent container (#63).** The `.mcp.json` config tells Claude Code to spawn the MCP via `python3 -m mcp.src.server` over stdio. The standalone `mcp` service in `docker-compose.yml` is for build verification only. The `agent` container does not have MCP source code, so Claude Code cannot spawn the MCP server.
+
+**Gap B: Agent container is a placeholder (#64).** The `agent` service uses `python:3.12-slim` with a bare tmux session. It lacks Claude Code CLI, `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, the project repo, and startup scripts.
+
+- Install Claude Code CLI in the agent container
+- Set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`
+- Mount or copy the project repo into the container
+- Mount or copy MCP source into the agent container so `.mcp.json` works
+- Create startup script: launch team lead + configurable teammates in tmux panes with `--accept-all`
+- Verify agents can call `display_bitmap` / `submit_bitmap` via MCP
+- Maintain resource limits per DESIGN.md §9.3 (4 CPUs, 4GB RAM for agent container)
+- Integration test: agent container starts, MCP spawns successfully, display tool call round-trips
+
+### Phase 13: End-to-End Smoke Test (#67)
+
+**Depends on:** Phase 12 (production Docker setup)
+
+Existing tests cover individual components in isolation (`test_e2e_grpc.py`, `test_e2e_reverse_path.py`, Android unit tests with `InProcessChannelBuilder`). No test exercises the full chain.
+
+- Smoke test script or Bazel test target that starts supervisor + MCP in Docker
+- Simulates event flow through the supervisor (mock agent output or scripted tmux input)
+- Android emulator connects via gRPC and receives events
+- Verifies `TextMessage` appears in conversation tab and/or bitmap renders on surface
+- Tagged `manual` (requires emulator + Docker)
+- Intended to run in CI using the emulator instance manager (Phase 9 / issue #54)
+
+### Phase 14: APK Signing (#66)
+
+**Depends on:** Phase 3 (Android app skeleton) — can be done any time after Phase 3
+
+**Parallel with:** Phases 10–13
+
+No signing configuration exists for release builds. Only debug builds are possible. To deploy to the Pixel 10 Pro, a signed APK is required.
+
+- Bazel build target for a signed release APK
+- Keystore file management (gitignored, documented)
+- Signing config uses environment variables or a local properties file (no secrets in repo)
+- Document the signing setup for new developers
+
+### Phase 15: Operational Runbook (#68)
+
+**Depends on:** Phases 10–12 (system must be startable to document how to start it)
+
+**Parallel with:** Phase 13 (smoke test), Phase 14 (APK signing)
+
+No documentation exists for how to actually start and operate VanPilot end-to-end.
+
+- `docs/runbook.md` with step-by-step startup instructions
+- Pre-flight checklist (Tailscale connected, Docker running, etc.)
+- `docker-compose up` workflow
+- Android app installation and first-run instructions
+- Verification steps (how to confirm each component is healthy)
+- Troubleshooting section for common failures
+- Shutdown procedure
