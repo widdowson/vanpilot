@@ -46,8 +46,10 @@ else
   echo "[entrypoint] Set ANTHROPIC_API_KEY to enable the agent"
 fi
 
-echo "[entrypoint] All services started. Tailing tmux sessions..."
+echo "[entrypoint] All services started."
 
-# Keep container alive by waiting on tmux server
-# If the supervisor session exits, the container exits
-exec tmux wait-for supervisor-exit
+# Block forever to keep the container alive. The container's lifecycle
+# is managed by docker-compose healthcheck + restart policy, not by
+# individual session exits. The healthcheck probes the gRPC port and
+# docker-compose restarts the container if it becomes unhealthy.
+exec tail -f /dev/null
