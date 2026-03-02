@@ -70,6 +70,25 @@ register_toolchains(
 )
 
 # ============================================================================
+# Override com_android_dex to use GitHub Releases mirror
+# android.googlesource.com is blocked by anti-DoS on GitHub Actions IP ranges
+# ============================================================================
+
+_http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+_http_archive(
+    name = "com_android_dex",
+    url = "https://github.com/widdowson/vanpilot/releases/download/bazel-mirrors/dalvik-5a81c499a569731e2395f7c8d13c0e0d4e17a2b6.tar.gz",
+    build_file = Label("@rules_android//bzlmod_extensions:com_android_dex.BUILD"),
+)
+
+_com_android_dex_ext = use_extension(
+    "@rules_android//bzlmod_extensions:com_android_dex.bzl",
+    "com_android_dex_extension",
+)
+override_repo(_com_android_dex_ext, "com_android_dex")
+
+# ============================================================================
 # Maven dependencies (3rd-party JARs/AARs)
 # ============================================================================
 
