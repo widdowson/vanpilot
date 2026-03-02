@@ -611,6 +611,27 @@ android_local_test(
 # ---- Bitmap cache / fetch test targets ----
 
 kt_jvm_library(
+    name = "event_processor_unknown_event_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/sync/EventProcessorUnknownEventTest.kt"],
+    deps = [
+        ":grpc_lib",
+        "//proto/vanpilot/v1:sync_java_proto",
+        "@maven//:junit_junit",
+        "@maven//:com_google_truth_truth",
+    ],
+)
+
+kt_jvm_library(
+    name = "bitmap_cache_byte_budget_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/cache/BitmapCacheByteBudgetTest.kt"],
+    deps = [
+        ":grpc_lib",
+        "@maven//:junit_junit",
+        "@maven//:com_google_truth_truth",
+    ],
+)
+
+kt_jvm_library(
     name = "event_processor_bitmap_fetch_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/sync/EventProcessorBitmapFetchTest.kt"],
     deps = [
@@ -632,6 +653,26 @@ kt_jvm_library(
         "@maven//:io_grpc_grpc_inprocess",
         "@maven//:junit_junit",
         "@maven//:com_google_truth_truth",
+    ],
+)
+
+android_local_test(
+    name = "event_processor_unknown_event_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    test_class = "com.vanpilot.auto.sync.EventProcessorUnknownEventTest",
+    deps = [
+        ":event_processor_unknown_event_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_local_test(
+    name = "bitmap_cache_byte_budget_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    test_class = "com.vanpilot.auto.cache.BitmapCacheByteBudgetTest",
+    deps = [
+        ":bitmap_cache_byte_budget_test_lib",
+        "@robolectric//bazel:android-all",
     ],
 )
 

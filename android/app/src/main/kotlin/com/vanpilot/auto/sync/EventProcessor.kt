@@ -3,6 +3,7 @@ package com.vanpilot.auto.sync
 import com.vanpilot.auto.cache.BitmapCache
 import com.vanpilot.auto.cache.BitmapFetcher
 import com.vanpilot.proto.v1.Event
+import java.util.logging.Logger
 
 /**
  * Processes Event objects received from GetEventsResponse.
@@ -17,6 +18,8 @@ class EventProcessor(
     private val fetcher: BitmapFetcher? = null
 ) {
 
+    private val logger = Logger.getLogger(EventProcessor::class.java.name)
+
     private val _textMessages = mutableListOf<ProcessedTextMessage>()
     val textMessages: List<ProcessedTextMessage> get() = _textMessages.toList()
 
@@ -28,6 +31,10 @@ class EventProcessor(
 
     /** Count of auto-fetched bitmaps (for testing). */
     var fetchCount: Int = 0
+        private set
+
+    /** Count of unknown/unhandled event types (for testing). */
+    var unknownEventCount: Int = 0
         private set
 
     fun processEvent(event: Event) {
@@ -75,6 +82,10 @@ class EventProcessor(
                         event.timestampMs
                     )
                 )
+            }
+            else -> {
+                unknownEventCount++
+                logger.warning("Unknown event type at timestampMs=${event.timestampMs}")
             }
         }
     }
