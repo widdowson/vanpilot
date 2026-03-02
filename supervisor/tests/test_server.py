@@ -3,7 +3,8 @@
 import unittest
 import grpc
 
-from supervisor.src.server import create_server
+from supervisor.src.android_app_client import AndroidAppClient
+from supervisor.src.server import create_server, create_android_app_client
 from supervisor.src.mcp_bridge import McpBridge
 from proto.vanpilot.v1 import sync_pb2
 
@@ -39,6 +40,22 @@ class ServerTest(unittest.TestCase):
         server, port, _bridge = create_server(port=0)
         self.assertGreater(port, 0)
         server.stop(grace=0)
+
+
+class CreateAndroidAppClientTest(unittest.TestCase):
+
+    def test_returns_client_and_channel(self):
+        """create_android_app_client returns an AndroidAppClient and channel."""
+        client, channel = create_android_app_client("localhost:9999")
+        self.assertIsInstance(client, AndroidAppClient)
+        self.assertIsNotNone(channel)
+        channel.close()
+
+    def test_default_target(self):
+        """create_android_app_client with no args uses localhost:50052."""
+        client, channel = create_android_app_client()
+        self.assertIsInstance(client, AndroidAppClient)
+        channel.close()
 
 
 if __name__ == "__main__":
