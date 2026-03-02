@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import json
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -35,27 +36,29 @@ class DashboardHandler(BaseHTTPRequestHandler):
         for inst in instances:
             state_name = _STATE_NAMES.get(inst.state, "UNKNOWN")
             color = _STATE_COLORS.get(inst.state, "#999")
+            safe_name = html.escape(inst.name)
+            safe_avd = html.escape(inst.avd_name or "")
             screenshot_html = ""
             if inst.last_screenshot_png:
                 screenshot_html = (
-                    f'<a href="/instances/{inst.name}/screenshot">'
-                    f'<img src="/instances/{inst.name}/screenshot" '
+                    f'<a href="/instances/{safe_name}/screenshot">'
+                    f'<img src="/instances/{safe_name}/screenshot" '
                     f'width="160" alt="screenshot"></a>'
                 )
             rows += (
                 f"<tr>"
-                f"<td>{inst.name}</td>"
+                f"<td>{safe_name}</td>"
                 f'<td style="color:{color};font-weight:bold">{state_name}</td>'
                 f"<td>{inst.emulator_console_port}</td>"
                 f"<td>{inst.adb_port}</td>"
                 f"<td>{inst.aa_forward_port}</td>"
                 f"<td>{'yes' if inst.headful else 'no'}</td>"
-                f"<td>{inst.avd_name}</td>"
+                f"<td>{safe_avd}</td>"
                 f"<td>{screenshot_html}</td>"
                 f"</tr>\n"
             )
 
-        html = (
+        page = (
             "<!DOCTYPE html><html><head>"
             '<meta charset="utf-8">'
             '<meta http-equiv="refresh" content="5">'
@@ -75,7 +78,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.end_headers()
-        self.wfile.write(html.encode())
+        self.wfile.write(page.encode())
 
     def _serve_screenshot(self, name: str):
         if not self.store:
