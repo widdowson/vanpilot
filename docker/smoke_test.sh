@@ -2,7 +2,7 @@
 # Smoke test for the consolidated VanPilot agent container.
 #
 # Verifies that the container builds and key services start correctly.
-# Does NOT require ANTHROPIC_API_KEY (agent start is skipped without it).
+# Does NOT require ANTHROPIC_API_KEY.
 #
 # Usage: ./docker/smoke_test.sh
 

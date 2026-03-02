@@ -4,7 +4,7 @@
 # Starts all co-located services:
 #   1. tmux server
 #   2. Supervisor gRPC server (in a tmux session)
-#   3. Claude Code lead agent (in a tmux session, if ANTHROPIC_API_KEY is set)
+#   3. Claude Code lead agent (in a tmux session)
 #
 # The MCP server is NOT started here — Claude Code spawns it on demand
 # via the .mcp.json config (stdio transport).
@@ -33,18 +33,12 @@ server.wait_for_termination()
 
 echo "[entrypoint] Supervisor started in tmux session 'supervisor'"
 
-# Start the Claude Code lead agent if API key is available
-if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
-  tmux new-session -d -s lead-agent bash -c '
-    echo "[lead-agent] Starting Claude Code lead agent..."
-    cd /workspace
-    claude --accept-all
-  '
-  echo "[entrypoint] Claude Code lead agent started in tmux session 'lead-agent'"
-else
-  echo "[entrypoint] ANTHROPIC_API_KEY not set — skipping Claude Code lead agent"
-  echo "[entrypoint] Set ANTHROPIC_API_KEY to enable the agent"
-fi
+tmux new-session -d -s lead-agent bash -c '
+  echo "[lead-agent] Starting Claude Code lead agent..."
+  cd /workspace
+  claude --accept-all
+'
+echo "[entrypoint] Claude Code lead agent started in tmux session 'lead-agent'"
 
 echo "[entrypoint] All services started."
 
