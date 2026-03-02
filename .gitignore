@@ -15,3 +15,7 @@ supervisor/proxy-ca.crt
 
 # Video captures from golden tests (AC-4.3: never committed)
 *.mp4
+
+# Docker sandbox runtime data
+sandbox/sandbox.env
+.sandbox/
