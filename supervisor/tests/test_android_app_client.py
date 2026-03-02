@@ -67,8 +67,8 @@ class _FakeAndroidAppGenericHandler(grpc.GenericRpcHandler):
         return self._handlers.get(handler_call_details.method)
 
 
-class AndroidAppClientGetCurrentDisplayTest(unittest.TestCase):
-    """Tests for AndroidAppClient.get_current_display()."""
+class _AndroidAppClientTestBase(unittest.TestCase):
+    """Base class that stands up a fake AndroidAppService gRPC server."""
 
     def setUp(self):
         self.servicer = _FakeAndroidAppServicer()
@@ -84,6 +84,10 @@ class AndroidAppClientGetCurrentDisplayTest(unittest.TestCase):
     def tearDown(self):
         self.channel.close()
         self.server.stop(grace=0)
+
+
+class AndroidAppClientGetCurrentDisplayTest(_AndroidAppClientTestBase):
+    """Tests for AndroidAppClient.get_current_display()."""
 
     def test_returns_empty_when_nothing_displayed(self):
         self.servicer.current_cache_key = ""
@@ -96,23 +100,8 @@ class AndroidAppClientGetCurrentDisplayTest(unittest.TestCase):
         self.assertEqual(result, "0xDEADBEEF")
 
 
-class AndroidAppClientRequestScreenshotTest(unittest.TestCase):
+class AndroidAppClientRequestScreenshotTest(_AndroidAppClientTestBase):
     """Tests for AndroidAppClient.request_screenshot()."""
-
-    def setUp(self):
-        self.servicer = _FakeAndroidAppServicer()
-        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=2))
-        self.server.add_generic_rpc_handlers(
-            [_FakeAndroidAppGenericHandler(self.servicer)]
-        )
-        self.port = self.server.add_insecure_port("[::]:0")
-        self.server.start()
-        self.channel = grpc.insecure_channel(f"localhost:{self.port}")
-        self.client = AndroidAppClient(self.channel)
-
-    def tearDown(self):
-        self.channel.close()
-        self.server.stop(grace=0)
 
     def test_returns_empty_bytes_when_no_screenshot(self):
         self.servicer.screenshot_data = b""
@@ -132,23 +121,8 @@ class AndroidAppClientRequestScreenshotTest(unittest.TestCase):
         self.assertEqual(result, large_data)
 
 
-class AndroidAppClientQueryCacheTest(unittest.TestCase):
+class AndroidAppClientQueryCacheTest(_AndroidAppClientTestBase):
     """Tests for AndroidAppClient.query_cache()."""
-
-    def setUp(self):
-        self.servicer = _FakeAndroidAppServicer()
-        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=2))
-        self.server.add_generic_rpc_handlers(
-            [_FakeAndroidAppGenericHandler(self.servicer)]
-        )
-        self.port = self.server.add_insecure_port("[::]:0")
-        self.server.start()
-        self.channel = grpc.insecure_channel(f"localhost:{self.port}")
-        self.client = AndroidAppClient(self.channel)
-
-    def tearDown(self):
-        self.channel.close()
-        self.server.stop(grace=0)
 
     def test_returns_all_keys_when_no_query(self):
         self.servicer.cache_keys = {"a", "b", "c"}
