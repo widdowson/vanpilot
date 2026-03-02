@@ -94,15 +94,32 @@ kt_android_library(
 
 # ============================================================================
 # App binary (APK)
+#
+# Debug-signed by default using the committed debug keystore.
+# For release builds, use the :vanpilot_release_apk genrule.
 # ============================================================================
 
 android_binary(
     name = "vanpilot",
     custom_package = "com.vanpilot.auto",
+    debug_key = "//android/keystores:debug.keystore",
     manifest = "app/src/main/AndroidManifest.xml",
     multidex = "native",
     deps = [":vanpilot_lib"],
 )
+
+# ============================================================================
+# Release signing
+#
+# Signs the APK with a release keystore provided via environment variables.
+# Required env vars (set in your shell, NOT committed):
+#   VANPILOT_RELEASE_KEYSTORE      — path to release .keystore file
+#   VANPILOT_RELEASE_KEYSTORE_PASS — keystore password
+#   VANPILOT_RELEASE_KEY_ALIAS     — key alias
+#   VANPILOT_RELEASE_KEY_PASS      — key password
+#
+# Usage: bazel run //android/keystores:sign_release -- <unsigned.apk> <output.apk>
+# ============================================================================
 
 # ============================================================================
 # Test libraries (Kotlin sources compiled for test targets)

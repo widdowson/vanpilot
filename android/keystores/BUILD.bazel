@@ -1,0 +1,27 @@
+# Keystore files for APK signing.
+#
+# debug.keystore — committed, used for local/emulator testing.
+# release.keystore — NOT committed, provided via environment variable.
+
+exports_files(
+    ["debug.keystore"],
+    visibility = ["//android:__pkg__"],
+)
+
+sh_binary(
+    name = "sign_release",
+    srcs = ["sign_release.sh"],
+    visibility = ["//android:__pkg__"],
+)
+
+sh_test(
+    name = "debug_keystore_test",
+    srcs = ["debug_keystore_test.sh"],
+    data = ["debug.keystore"],
+)
+
+sh_test(
+    name = "sign_release_test",
+    srcs = ["sign_release_test.sh"],
+    data = ["sign_release.sh"],
+)
