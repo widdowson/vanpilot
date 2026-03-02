@@ -3,7 +3,6 @@ package com.vanpilot.auto.sync
 import com.google.common.truth.Truth.assertThat
 import com.google.protobuf.ByteString
 import com.vanpilot.auto.cache.BitmapCache
-import com.vanpilot.auto.cache.BitmapFetcher
 import com.vanpilot.proto.v1.BitmapPayload
 import com.vanpilot.proto.v1.DisplayCommand
 import com.vanpilot.proto.v1.Event
@@ -13,7 +12,7 @@ import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
 
 /**
- * Tests for async bitmap fetching via BitmapFetcher (AC-7.2, #57).
+ * Tests for async bitmap fetching in EventProcessor (AC-7.2, #57).
  *
  * When a DisplayCommand references a missing cache key, the processor
  * queues a pending fetch. The caller retrieves the data asynchronously
@@ -23,22 +22,12 @@ import org.junit.runners.JUnit4
 class EventProcessorBitmapFetchTest {
 
     private lateinit var cache: BitmapCache
-    private val fetchedKeys = mutableListOf<String>()
-    private val fetchResponses = mutableMapOf<String, ByteArray?>()
-
-    private val fakeFetcher = BitmapFetcher { cacheKey ->
-        fetchedKeys.add(cacheKey)
-        fetchResponses[cacheKey]
-    }
-
     private lateinit var processor: EventProcessor
 
     @Before
     fun setUp() {
         cache = BitmapCache(maxSize = 16)
-        fetchedKeys.clear()
-        fetchResponses.clear()
-        processor = EventProcessor(cache, fakeFetcher)
+        processor = EventProcessor(cache, fetchEnabled = true)
     }
 
     @Test
@@ -56,7 +45,6 @@ class EventProcessorBitmapFetchTest {
 
         // Fetch is queued, not executed synchronously
         assertThat(processor.pendingFetches).containsExactly("0xMISSING")
-        assertThat(fetchedKeys).isEmpty()
         assertThat(processor.currentDisplayKey).isEqualTo("0xMISSING")
 
         // Simulate async fetch completion
@@ -107,8 +95,8 @@ class EventProcessorBitmapFetchTest {
     }
 
     @Test
-    fun displayCommand_noFetcher_doesNotCrash() {
-        val processorNoFetcher = EventProcessor(cache)
+    fun displayCommand_fetchDisabled_doesNotQueue() {
+        val processorNoFetch = EventProcessor(cache)
 
         val event = Event.newBuilder()
             .setTimestampMs(1000)
@@ -117,10 +105,10 @@ class EventProcessorBitmapFetchTest {
             )
             .build()
 
-        processorNoFetcher.processEvent(event)
+        processorNoFetch.processEvent(event)
 
-        assertThat(processorNoFetcher.currentDisplayKey).isEqualTo("0xNOFETCH")
-        assertThat(processorNoFetcher.pendingFetches).isEmpty()
+        assertThat(processorNoFetch.currentDisplayKey).isEqualTo("0xNOFETCH")
+        assertThat(processorNoFetch.pendingFetches).isEmpty()
         assertThat(cache.contains("0xNOFETCH")).isFalse()
     }
 

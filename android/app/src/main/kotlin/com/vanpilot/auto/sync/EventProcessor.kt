@@ -1,8 +1,8 @@
 package com.vanpilot.auto.sync
 
 import com.vanpilot.auto.cache.BitmapCache
-import com.vanpilot.auto.cache.BitmapFetcher
 import com.vanpilot.proto.v1.Event
+import java.util.concurrent.ConcurrentHashMap
 import java.util.logging.Logger
 
 /**
@@ -10,13 +10,13 @@ import java.util.logging.Logger
  *
  * Stores processed results internally for consumption by the UI layer.
  * When a DisplayCommand references a cache key not in BitmapCache and
- * a [BitmapFetcher] is configured, the missing key is added to
- * [pendingFetches] for the caller to fetch asynchronously (#57).
+ * [fetchEnabled] is true, the missing key is added to [pendingFetches]
+ * for the caller to fetch asynchronously (#57).
  * Call [completeFetch] when the bitmap data is available.
  */
 class EventProcessor(
     private val cache: BitmapCache,
-    private val fetcher: BitmapFetcher? = null
+    private val fetchEnabled: Boolean = false
 ) {
 
     private val logger = Logger.getLogger(EventProcessor::class.java.name)
@@ -27,7 +27,7 @@ class EventProcessor(
     private val _alerts = mutableListOf<ProcessedAlert>()
     val alerts: List<ProcessedAlert> get() = _alerts.toList()
 
-    private val _pendingFetches = mutableSetOf<String>()
+    private val _pendingFetches: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     /** Cache keys that need to be fetched asynchronously. */
     val pendingFetches: Set<String> get() = _pendingFetches.toSet()
@@ -58,7 +58,7 @@ class EventProcessor(
             event.hasDisplayCommand() -> {
                 val key = event.displayCommand.cacheKey
                 // Queue missing bitmap for async fetch (AC-7.2, #57)
-                if (!cache.contains(key) && fetcher != null) {
+                if (!cache.contains(key) && fetchEnabled) {
                     _pendingFetches.add(key)
                 }
                 currentDisplayKey = key

@@ -3,7 +3,6 @@ package com.vanpilot.auto.sync
 import com.google.common.truth.Truth.assertThat
 import com.google.protobuf.ByteString
 import com.vanpilot.auto.cache.BitmapCache
-import com.vanpilot.auto.cache.BitmapFetcher
 import com.vanpilot.proto.v1.BitmapPayload
 import com.vanpilot.proto.v1.DisplayCommand
 import com.vanpilot.proto.v1.Event
@@ -23,22 +22,12 @@ import org.junit.runners.JUnit4
 class EventProcessorAsyncFetchTest {
 
     private lateinit var cache: BitmapCache
-    private val fetchedKeys = mutableListOf<String>()
-    private val fetchResponses = mutableMapOf<String, ByteArray?>()
-
-    private val fakeFetcher = BitmapFetcher { cacheKey ->
-        fetchedKeys.add(cacheKey)
-        fetchResponses[cacheKey]
-    }
-
     private lateinit var processor: EventProcessor
 
     @Before
     fun setUp() {
         cache = BitmapCache(maxSize = 16)
-        fetchedKeys.clear()
-        fetchResponses.clear()
-        processor = EventProcessor(cache, fakeFetcher)
+        processor = EventProcessor(cache, fetchEnabled = true)
     }
 
     private fun displayEvent(key: String, ts: Long = 1000): Event =
@@ -52,14 +41,6 @@ class EventProcessorAsyncFetchTest {
         processor.processEvent(displayEvent("0xMISSING"))
 
         assertThat(processor.pendingFetches).containsExactly("0xMISSING")
-    }
-
-    @Test
-    fun missingBitmap_doesNotCallFetcherSynchronously() {
-        processor.processEvent(displayEvent("0xMISSING"))
-
-        // The fetcher should NOT have been called during processEvent
-        assertThat(fetchedKeys).isEmpty()
     }
 
     @Test
@@ -138,13 +119,13 @@ class EventProcessorAsyncFetchTest {
     }
 
     @Test
-    fun noFetcher_noPendingFetch() {
-        val processorNoFetcher = EventProcessor(cache)
+    fun fetchDisabled_noPendingFetch() {
+        val processorNoFetch = EventProcessor(cache, fetchEnabled = false)
 
-        processorNoFetcher.processEvent(displayEvent("0xNOFETCH"))
+        processorNoFetch.processEvent(displayEvent("0xNOFETCH"))
 
-        assertThat(processorNoFetcher.pendingFetches).isEmpty()
-        assertThat(processorNoFetcher.currentDisplayKey).isEqualTo("0xNOFETCH")
+        assertThat(processorNoFetch.pendingFetches).isEmpty()
+        assertThat(processorNoFetch.currentDisplayKey).isEqualTo("0xNOFETCH")
     }
 
     @Test
