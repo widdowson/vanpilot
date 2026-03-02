@@ -16,6 +16,19 @@ filegroup(
 # ============================================================================
 
 py_library(
+    name = "golden_diff",
+    srcs = ["golden_diff.py"],
+    imports = [".."],
+    deps = ["//mcp:png_util"],
+)
+
+py_library(
+    name = "capture_emulator_lib",
+    srcs = ["capture_emulator.py"],
+    imports = [".."],
+)
+
+py_library(
     name = "video_capture",
     srcs = ["video_capture.py"],
     imports = [".."],
@@ -33,6 +46,13 @@ py_binary(
     deps = ["//mcp:png_util"],
 )
 
+py_binary(
+    name = "capture_golden",
+    srcs = ["capture_emulator.py"],
+    main = "capture_emulator.py",
+    imports = [".."],
+)
+
 # ============================================================================
 # Tests — fine-grained, one per test module
 # ============================================================================
@@ -44,6 +64,42 @@ py_test(
     imports = [".."],
     data = [":phase3_goldens"],
     deps = ["//mcp:png_util"],
+)
+
+py_test(
+    name = "golden_diff_test",
+    srcs = ["test_golden_diff.py"],
+    main = "test_golden_diff.py",
+    imports = [".."],
+    deps = [
+        ":golden_diff",
+        "//mcp:png_util",
+    ],
+)
+
+# Emulator-based golden test — requires a running emulator.
+# Tagged "manual" so it does NOT run during bazel test //...
+# Tagged "exclusive" so only one runs at a time (emulator is resource-heavy).
+#
+# Usage:
+#   bazel test //goldens:emulator_golden_test \
+#     --test_env=EMU_HOST=localhost --test_env=EMU_PORT=5555
+py_test(
+    name = "emulator_golden_test",
+    srcs = ["test_emulator_golden.py"],
+    main = "test_emulator_golden.py",
+    imports = [".."],
+    data = glob(
+        ["phase9/*.png"],
+        allow_empty = True,
+    ),
+    deps = [":golden_diff"],
+    size = "large",
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+    timeout = "long",
 )
 
 py_test(
