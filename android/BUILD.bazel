@@ -118,8 +118,18 @@ android_binary(
 #   VANPILOT_RELEASE_KEY_ALIAS     — key alias
 #   VANPILOT_RELEASE_KEY_PASS      — key password
 #
-# Usage: bazel run //android/keystores:sign_release -- <unsigned.apk> <output.apk>
+# Build: bazel build //android:vanpilot_release_apk
+#   (env vars above must be set; pass via --action_env or your shell)
 # ============================================================================
+
+genrule(
+    name = "vanpilot_release_apk",
+    srcs = [":vanpilot.apk"],
+    outs = ["vanpilot-release.apk"],
+    cmd = "$(location //android/keystores:sign_release) $< $@",
+    tools = ["//android/keystores:sign_release"],
+    tags = ["no-cache"],
+)
 
 # ============================================================================
 # Test libraries (Kotlin sources compiled for test targets)
