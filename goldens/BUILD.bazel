@@ -1,3 +1,4 @@
+load("@pip//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
 package(default_visibility = ["//visibility:public"])
@@ -32,6 +33,17 @@ py_library(
     name = "video_capture",
     srcs = ["video_capture.py"],
     imports = [".."],
+)
+
+py_library(
+    name = "golden_test_harness",
+    srcs = ["golden_test_harness.py"],
+    imports = [".."],
+    deps = [
+        ":golden_diff",
+        "//proto/vanpilot/v1:instance_manager_py_proto",
+        requirement("grpcio"),
+    ],
 )
 
 # ============================================================================
@@ -172,4 +184,92 @@ py_test(
     imports = [".."],
     args = ["VideoCaptureConfigCustomDurationTest"],
     deps = [":video_capture"],
+)
+
+# ============================================================================
+# Golden test harness (unit tests — run without instance manager)
+# ============================================================================
+
+py_test(
+    name = "golden_test_harness_client_test",
+    srcs = ["test_golden_test_harness.py"],
+    main = "test_golden_test_harness.py",
+    imports = [".."],
+    args = ["InstanceManagerClientTest"],
+    deps = [
+        ":golden_test_harness",
+        requirement("grpcio"),
+    ],
+)
+
+py_test(
+    name = "golden_test_harness_output_test",
+    srcs = ["test_golden_test_harness.py"],
+    main = "test_golden_test_harness.py",
+    imports = [".."],
+    args = ["SaveTestOutputTest"],
+    deps = [
+        ":golden_test_harness",
+        requirement("grpcio"),
+    ],
+)
+
+py_test(
+    name = "golden_test_harness_assertion_test",
+    srcs = ["test_golden_test_harness.py"],
+    main = "test_golden_test_harness.py",
+    imports = [".."],
+    args = ["AssertMatchesGoldenTest"],
+    deps = [
+        ":golden_test_harness",
+        requirement("grpcio"),
+    ],
+)
+
+# ============================================================================
+# Instance-manager-based golden tests (AC-3.4, AC-10.7)
+# Require a running instance manager; tagged "manual" and "exclusive".
+#
+# Usage:
+#   bazel test //goldens:instance_golden_dhu_test \
+#     --test_env=INSTANCE_MANAGER_ADDR=localhost:50061 \
+#     --test_env=VANPILOT_APK=bazel-bin/android/vanpilot.apk
+# ============================================================================
+
+py_test(
+    name = "instance_golden_dhu_test",
+    srcs = ["test_instance_golden.py"],
+    main = "test_instance_golden.py",
+    imports = [".."],
+    args = ["DHUScreenshotGoldenTest"],
+    data = glob(
+        ["phase9/*.png"],
+        allow_empty = True,
+    ),
+    deps = [":golden_test_harness"],
+    size = "enormous",
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+    timeout = "eternal",
+)
+
+py_test(
+    name = "instance_golden_emulator_test",
+    srcs = ["test_instance_golden.py"],
+    main = "test_instance_golden.py",
+    imports = [".."],
+    args = ["EmulatorScreenshotGoldenTest"],
+    data = glob(
+        ["phase9/*.png"],
+        allow_empty = True,
+    ),
+    deps = [":golden_test_harness"],
+    size = "enormous",
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+    timeout = "eternal",
 )

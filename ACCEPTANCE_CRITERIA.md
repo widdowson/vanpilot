@@ -21,7 +21,7 @@ This document defines the acceptance criteria for VanPilot development. All feat
 - [x] **AC-3.1**: All UI states rendered on the Android Auto head unit have corresponding golden screenshot images committed to the `goldens/` directory.
 - [x] **AC-3.2**: When a feature changes the visual output, the golden images are updated in the same PR. The diff of golden images (before/after) is the primary visual review mechanism.
 - [x] **AC-3.3**: When a new UI mode or visual feature is added, new golden images are added in the same PR. The PR reviewer (human) can compare the golden against the stated requirements.
-- [ ] **AC-3.4**: Golden tests run as Bazel test targets. They launch the Android emulator + Android Auto DHU, render the UI in the specified state, capture a screenshot, and compare against the committed golden. Pixel differences beyond a configurable tolerance fail the test.
+- [x] **AC-3.4**: Golden tests run as Bazel test targets. They launch the Android emulator + Android Auto DHU, render the UI in the specified state, capture a screenshot, and compare against the committed golden. Pixel differences beyond a configurable tolerance fail the test.
 - [x] **AC-3.5**: Golden tests produce clear diff images (highlighting changed pixels) when they fail, stored as test outputs.
 
 ## AC-4: Video Capture (Optional Diagnostic)
@@ -78,7 +78,7 @@ This document defines the acceptance criteria for VanPilot development. All feat
 - [x] **AC-10.4**: The Visual Card tab uses a `NavigationTemplate` with a `SurfaceCallback` to blit cached PNG bitmaps onto the `Surface`. Visual card history is browsable via action strip buttons.
 - [x] **AC-10.5**: Conversation tabs (lead agent, sub-agents) use `ListTemplate` to display text message feeds.
 - [x] **AC-10.6**: The app supports dark mode via `carContext.isDarkMode()` and forwards the theme to the supervisor for agent rendering context.
-- [ ] **AC-10.7**: The app can be fully tested using Android Studio's emulator + Android Auto DHU without physical hardware.
+- [x] **AC-10.7**: The app can be fully tested using Android Studio's emulator + Android Auto DHU without physical hardware.
 
 ## AC-11: Security
 
