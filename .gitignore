@@ -6,6 +6,10 @@
 
 # Git worktrees
 /.worktrees/
+/worktrees/
+
+# Python bytecode
+__pycache__/
 
 # Sandbox proxy CA cert (build-time only, not committed)
 supervisor/proxy-ca.crt
