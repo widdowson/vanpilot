@@ -15,11 +15,18 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     ports:
-      - "50051:50051"
+      - "${GRPC_PORT:-50051}:${GRPC_PORT:-50051}"
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
       - NUM_TEAMMATES=${NUM_TEAMMATES:-0}
+      # Configurable gRPC endpoints for Tailscale wiring (issue #65).
+      # GRPC_HOST: bind address (default: [::] = all interfaces)
+      # GRPC_PORT: listen port (default: 50051)
+      # GRPC_APP_TARGET: Android app reverse-service address (default: localhost:50052)
+      - GRPC_HOST=${GRPC_HOST:-[::]}
+      - GRPC_PORT=${GRPC_PORT:-50051}
+      - GRPC_APP_TARGET=${GRPC_APP_TARGET:-localhost:50052}
     volumes:
       # Mount the project repo so Claude Code agents can read/write code
       - .:/workspace
@@ -35,7 +42,7 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c",
-        "import grpc; ch = grpc.insecure_channel('localhost:50051'); grpc.channel_ready_future(ch).result(timeout=5)"]
+        "import grpc, os; port = os.environ.get('GRPC_PORT', '50051'); ch = grpc.insecure_channel(f'localhost:{port}'); grpc.channel_ready_future(ch).result(timeout=5)"]
       interval: 10s
       timeout: 5s
       retries: 3
