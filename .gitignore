@@ -4,8 +4,7 @@
 /bazel-testlogs
 /bazel-vanpilot
 
-# Git worktrees
-/.worktrees/
+# Git worktrees (see PARALLEL_STRATEGY.md)
 /worktrees/
 
 # Python bytecode
