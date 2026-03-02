@@ -13,7 +13,11 @@ import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
 
 /**
- * Tests for auto-fetching missing bitmaps via BitmapFetcher (AC-7.2).
+ * Tests for async bitmap fetching via BitmapFetcher (AC-7.2, #57).
+ *
+ * When a DisplayCommand references a missing cache key, the processor
+ * queues a pending fetch. The caller retrieves the data asynchronously
+ * and calls completeFetch() when it arrives.
  */
 @RunWith(JUnit4::class)
 class EventProcessorBitmapFetchTest {
@@ -38,9 +42,8 @@ class EventProcessorBitmapFetchTest {
     }
 
     @Test
-    fun displayCommand_missingKey_triggersFetch() {
+    fun displayCommand_missingKey_queuesFetchAndCachesOnComplete() {
         val pngData = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47)
-        fetchResponses["0xMISSING"] = pngData
 
         val event = Event.newBuilder()
             .setTimestampMs(1000)
@@ -51,10 +54,17 @@ class EventProcessorBitmapFetchTest {
 
         processor.processEvent(event)
 
-        assertThat(fetchedKeys).containsExactly("0xMISSING")
+        // Fetch is queued, not executed synchronously
+        assertThat(processor.pendingFetches).containsExactly("0xMISSING")
+        assertThat(fetchedKeys).isEmpty()
+        assertThat(processor.currentDisplayKey).isEqualTo("0xMISSING")
+
+        // Simulate async fetch completion
+        processor.completeFetch("0xMISSING", pngData)
+
         assertThat(cache.contains("0xMISSING")).isTrue()
         assertThat(cache.get("0xMISSING")).isEqualTo(pngData)
-        assertThat(processor.currentDisplayKey).isEqualTo("0xMISSING")
+        assertThat(processor.pendingFetches).isEmpty()
     }
 
     @Test
@@ -70,14 +80,12 @@ class EventProcessorBitmapFetchTest {
 
         processor.processEvent(event)
 
-        assertThat(fetchedKeys).isEmpty()
+        assertThat(processor.pendingFetches).isEmpty()
         assertThat(processor.currentDisplayKey).isEqualTo("0xEXISTS")
     }
 
     @Test
     fun displayCommand_fetchReturnsNull_keyStillSet() {
-        fetchResponses["0xGONE"] = null
-
         val event = Event.newBuilder()
             .setTimestampMs(1000)
             .setDisplayCommand(
@@ -87,10 +95,15 @@ class EventProcessorBitmapFetchTest {
 
         processor.processEvent(event)
 
-        assertThat(fetchedKeys).containsExactly("0xGONE")
-        assertThat(cache.contains("0xGONE")).isFalse()
-        // Display key is still set even if fetch failed
+        assertThat(processor.pendingFetches).containsExactly("0xGONE")
+        // Display key is set immediately even before fetch completes
         assertThat(processor.currentDisplayKey).isEqualTo("0xGONE")
+
+        // Simulate async fetch returning null (failure)
+        processor.completeFetch("0xGONE", null)
+
+        assertThat(cache.contains("0xGONE")).isFalse()
+        assertThat(processor.pendingFetches).isEmpty()
     }
 
     @Test
@@ -107,14 +120,12 @@ class EventProcessorBitmapFetchTest {
         processorNoFetcher.processEvent(event)
 
         assertThat(processorNoFetcher.currentDisplayKey).isEqualTo("0xNOFETCH")
+        assertThat(processorNoFetcher.pendingFetches).isEmpty()
         assertThat(cache.contains("0xNOFETCH")).isFalse()
     }
 
     @Test
-    fun fetchCount_tracksAutoFetches() {
-        fetchResponses["0xA"] = byteArrayOf(1)
-        fetchResponses["0xB"] = byteArrayOf(2)
-
+    fun fetchCount_tracksCompletedFetches() {
         processor.processEvent(
             Event.newBuilder()
                 .setTimestampMs(1000)
@@ -127,6 +138,12 @@ class EventProcessorBitmapFetchTest {
                 .setDisplayCommand(DisplayCommand.newBuilder().setCacheKey("0xB"))
                 .build()
         )
+
+        assertThat(processor.pendingFetches).containsExactly("0xA", "0xB")
+
+        // Complete both fetches
+        processor.completeFetch("0xA", byteArrayOf(1))
+        processor.completeFetch("0xB", byteArrayOf(2))
 
         assertThat(processor.fetchCount).isEqualTo(2)
     }
@@ -157,7 +174,7 @@ class EventProcessorBitmapFetchTest {
                 .build()
         )
 
-        assertThat(fetchedKeys).isEmpty()
+        assertThat(processor.pendingFetches).isEmpty()
         assertThat(processor.fetchCount).isEqualTo(0)
         assertThat(processor.currentDisplayKey).isEqualTo("0xPRELOAD")
     }
