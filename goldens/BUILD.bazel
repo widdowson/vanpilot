@@ -103,6 +103,42 @@ py_test(
 )
 
 py_test(
+    name = "generate_goldens_output_dir_test",
+    srcs = ["test_generate_goldens.py"],
+    main = "test_generate_goldens.py",
+    imports = [".."],
+    args = ["GenerateGoldensOutputDirTest"],
+    deps = [
+        ":generate_goldens",
+        "//mcp:png_util",
+    ],
+)
+
+py_test(
+    name = "generate_goldens_workspace_resolution_test",
+    srcs = ["test_generate_goldens.py"],
+    main = "test_generate_goldens.py",
+    imports = [".."],
+    args = ["GenerateGoldensWorkspaceResolutionTest"],
+    deps = [
+        ":generate_goldens",
+        "//mcp:png_util",
+    ],
+)
+
+py_test(
+    name = "generate_goldens_file_write_test",
+    srcs = ["test_generate_goldens.py"],
+    main = "test_generate_goldens.py",
+    imports = [".."],
+    args = ["GenerateGoldensFileWriteTest"],
+    deps = [
+        ":generate_goldens",
+        "//mcp:png_util",
+    ],
+)
+
+py_test(
     name = "video_capture_config_test",
     srcs = ["test_video_capture.py"],
     main = "test_video_capture.py",
