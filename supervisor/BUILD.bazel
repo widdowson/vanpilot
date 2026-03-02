@@ -261,6 +261,20 @@ py_test(
 )
 
 py_test(
+    name = "get_bitmap_async_test",
+    srcs = ["tests/test_get_bitmap_async.py"],
+    main = "tests/test_get_bitmap_async.py",
+    imports = [".."],
+    deps = [
+        ":event_store",
+        ":mcp_bridge",
+        ":sync_service",
+        "//proto/vanpilot/v1:sync_py_proto",
+        requirement("grpcio"),
+    ],
+)
+
+py_test(
     name = "input_injector_integration_test",
     srcs = ["tests/test_input_injector_integration.py"],
     main = "tests/test_input_injector_integration.py",
