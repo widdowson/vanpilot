@@ -12,6 +12,20 @@ import io.grpc.ManagedChannel
 import io.grpc.StatusRuntimeException
 
 /**
+ * Abstraction for decoding raw image bytes into a Bitmap.
+ * Allows test doubles to control decode success/failure.
+ */
+fun interface BitmapDecoder {
+    fun decode(data: ByteArray): Bitmap?
+}
+
+/** Production implementation delegating to Android's BitmapFactory. */
+class DefaultBitmapDecoder : BitmapDecoder {
+    override fun decode(data: ByteArray): Bitmap? =
+        BitmapFactory.decodeByteArray(data, 0, data.size)
+}
+
+/**
  * gRPC client that polls the supervisor's SyncService for events.
  *
  * Handles three event types:
@@ -27,6 +41,7 @@ class SyncClient(
     private val bitmapCache: BitmapCache,
     private val onDisplayCommand: (String) -> Unit,
     private val onTextMessage: (String, String) -> Unit = { _, _ -> },
+    private val bitmapDecoder: BitmapDecoder = DefaultBitmapDecoder(),
 ) {
     companion object {
         const val TAG = "SyncClient"
@@ -87,7 +102,7 @@ class SyncClient(
             val response = stub.getBitmap(request)
             if (response.hasBitmap()) {
                 val bytes = response.bitmap.imageData.toByteArray()
-                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                val bitmap = bitmapDecoder.decode(bytes)
                 if (bitmap != null) {
                     bitmapCache.put(cacheKey, bitmap)
                 }
@@ -114,7 +129,7 @@ class SyncClient(
             Event.PayloadCase.BITMAP_PAYLOAD -> {
                 val payload = event.bitmapPayload
                 val bytes = payload.imageData.toByteArray()
-                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                val bitmap = bitmapDecoder.decode(bytes)
                 if (bitmap != null) {
                     bitmapCache.put(payload.cacheKey, bitmap)
                     Log.d(TAG, "Cached bitmap ${payload.cacheKey}")
