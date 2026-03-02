@@ -9,7 +9,7 @@ NOTE: BitmapCacheTracker and BitmapStore (in mcp_bridge.py) have similar
 sent-tracking logic. BitmapCacheTracker is a standalone, proto-free tracker
 for use outside of the gRPC service layer. BitmapStore is tightly coupled
 to mcp_bridge and is what sync_service.py actually uses.
-TODO: Consolidate by having BitmapStore delegate sent-tracking to
+TODO(#59): Consolidate by having BitmapStore delegate sent-tracking to
 BitmapCacheTracker via composition.
 """
 
