@@ -12,6 +12,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import mcp.src.handlers as handlers
+from mcp.src.handlers import get_display_confirmer
 
 
 class McpBridgeDisplayConfirmerTest(unittest.TestCase):
@@ -42,19 +43,19 @@ class McpBridgeDisplayConfirmerTest(unittest.TestCase):
         mock_client = MagicMock()
         mock_client.get_current_display.return_value = "0xABCD"
         self._make_bridge(app_client=mock_client)
-        self.assertIsNotNone(handlers._display_confirmer)
+        self.assertIsNotNone(get_display_confirmer())
 
     def test_bridge_without_app_client_no_confirmer(self):
         """Without an app_client, no confirmer should be set."""
         self._make_bridge()
-        self.assertIsNone(handlers._display_confirmer)
+        self.assertIsNone(get_display_confirmer())
 
     def test_confirmer_delegates_to_app_client(self):
         """The confirmer should call app_client.get_current_display."""
         mock_client = MagicMock()
         mock_client.get_current_display.return_value = "0xBEEF"
         self._make_bridge(app_client=mock_client)
-        result = handlers._display_confirmer()
+        result = get_display_confirmer()()
         self.assertEqual(result, "0xBEEF")
         mock_client.get_current_display.assert_called_once()
 
@@ -63,7 +64,7 @@ class McpBridgeDisplayConfirmerTest(unittest.TestCase):
         mock_client = MagicMock()
         mock_client.get_current_display.side_effect = Exception("gRPC error")
         self._make_bridge(app_client=mock_client)
-        result = handlers._display_confirmer()
+        result = get_display_confirmer()()
         self.assertEqual(result, "")
 
 

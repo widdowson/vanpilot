@@ -65,6 +65,11 @@ def reset() -> None:
     _display_confirmer = None
 
 
+def get_display_confirmer() -> Optional[Callable[[], str]]:
+    """Return the currently registered display confirmer, or None."""
+    return _display_confirmer
+
+
 def handle_display_bitmap(
     cache_key: str,
     blocking: bool = False,
@@ -78,6 +83,11 @@ def handle_display_bitmap(
     When blocking=true, polls the display confirmer until the Android app
     confirms it is displaying the requested cache key, or returns a timeout
     error.
+
+    Note: timeout_seconds is intentionally not exposed in the MCP tool
+    schema. It is an internal system-level parameter — agents should not
+    set arbitrary timeouts. The 30s default is tuned for typical Android
+    app display latency. Tests may override it for speed.
     """
     global _current_display_key
 
