@@ -5,6 +5,7 @@ from __future__ import annotations
 import html
 import json
 import threading
+import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Optional
 
@@ -32,12 +33,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _serve_dashboard(self):
         instances = self.store.list_all() if self.store else []
+        now_ms = int(time.time() * 1000)
         rows = ""
         for inst in instances:
             state_name = _STATE_NAMES.get(inst.state, "UNKNOWN")
             color = _STATE_COLORS.get(inst.state, "#999")
             safe_name = html.escape(inst.name)
             safe_avd = html.escape(inst.avd_name or "")
+            elapsed_s = (now_ms - inst.created_at_ms) // 1000
+            uptime = f"{elapsed_s // 3600}h {(elapsed_s % 3600) // 60}m {elapsed_s % 60}s"
             screenshot_html = ""
             if inst.last_screenshot_png:
                 screenshot_html = (
@@ -52,6 +56,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 f"<td>{inst.emulator_console_port}</td>"
                 f"<td>{inst.adb_port}</td>"
                 f"<td>{inst.aa_forward_port}</td>"
+                f"<td>{uptime}</td>"
                 f"<td>{'yes' if inst.headful else 'no'}</td>"
                 f"<td>{safe_avd}</td>"
                 f"<td>{screenshot_html}</td>"
@@ -71,7 +76,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "<h1>VanPilot Instance Manager</h1>"
             "<table><tr><th>Name</th><th>State</th>"
             "<th>Console</th><th>ADB</th><th>AA Fwd</th>"
-            "<th>Headful</th><th>AVD</th><th>Screenshot</th></tr>"
+            "<th>Uptime</th><th>Headful</th><th>AVD</th><th>Screenshot</th></tr>"
             f"{rows}</table></body></html>"
         )
 

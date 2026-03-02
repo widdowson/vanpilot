@@ -26,6 +26,8 @@ build_test(
         ":sync_proto",
         ":display_proto",
         ":screenshot_proto",
+        ":instance_manager_proto",
+        ":instance_manager_py_proto",
     ],
 )
 

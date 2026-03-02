@@ -2,7 +2,6 @@
 
 import os
 import unittest
-from concurrent import futures
 from unittest.mock import MagicMock
 
 import grpc
@@ -63,12 +62,17 @@ class FakeRunner(SubprocessRunner):
 class E2ETest(unittest.TestCase):
 
     def setUp(self):
+        import socket
+        sock = socket.socket()
+        sock.bind(("", 0))
+        free_port = sock.getsockname()[1]
+        sock.close()
+
         self.grpc_server, self.http_thread, self.store = create_server(
-            grpc_port=0, http_port=0, max_slots=4, runner=FakeRunner(),
+            grpc_port=free_port, http_port=0, max_slots=4, runner=FakeRunner(),
         )
-        port = self.grpc_server.add_insecure_port("[::]:0")
         self.grpc_server.start()
-        self.channel = grpc.insecure_channel(f"localhost:{port}")
+        self.channel = grpc.insecure_channel(f"localhost:{free_port}")
 
     def tearDown(self):
         self.channel.close()
@@ -98,7 +102,7 @@ class E2ETest(unittest.TestCase):
             response_deserializer=resp_type.FromString,
         )(request)
 
-    def test_create_list_destroy_cycle(self):
+    def test_create_list_screenshot_destroy_cycle(self):
         # Create
         resp = self._call(
             "CreateInstance",
@@ -112,6 +116,14 @@ class E2ETest(unittest.TestCase):
             instance_manager_pb2.ListInstancesRequest(),
         )
         self.assertEqual(len(list_resp.instances), 1)
+
+        # Screenshot
+        snap_resp = self._call(
+            "ScreenshotInstance",
+            instance_manager_pb2.ScreenshotInstanceRequest(name="e2e-test"),
+        )
+        self.assertEqual(snap_resp.screenshot_png, _FAKE_PNG)
+        self.assertGreater(snap_resp.captured_at_ms, 0)
 
         # Destroy
         self._call(
