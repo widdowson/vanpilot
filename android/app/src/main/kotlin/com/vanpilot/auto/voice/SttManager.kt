@@ -15,7 +15,7 @@ import java.util.Locale
 class SttManager(private val context: Context) : SttEngine {
 
     private var recognizer: SpeechRecognizer? = null
-    private var _isListening = false
+    @Volatile private var _isListening = false
 
     override val isListening: Boolean get() = _isListening
 

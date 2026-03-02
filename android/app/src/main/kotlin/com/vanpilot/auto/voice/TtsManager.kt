@@ -14,7 +14,7 @@ class TtsManager(context: Context) : TtsEngine {
 
     private var tts: TextToSpeech? = null
     private var initialized = false
-    private var _isSpeaking = false
+    @Volatile private var _isSpeaking = false
     private var onUtteranceCompleted: (() -> Unit)? = null
 
     /** Speech rate multiplier (1.0 = normal). */
