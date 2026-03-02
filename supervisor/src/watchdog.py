@@ -36,10 +36,10 @@ class _SessionState:
 
     __slots__ = ("session_name", "last_output", "last_activity_time")
 
-    def __init__(self, session_name: str) -> None:
+    def __init__(self, session_name: str, now: float) -> None:
         self.session_name = session_name
         self.last_output: Optional[str] = None
-        self.last_activity_time: float = time.monotonic()
+        self.last_activity_time: float = now
 
 
 class Watchdog:
@@ -51,11 +51,13 @@ class Watchdog:
         timeout_seconds: float = 60.0,
         check_interval_seconds: float = 5.0,
         capture_pane_fn: Optional[Callable[[str], str]] = None,
+        clock: Optional[Callable[[], float]] = None,
     ) -> None:
         self._event_store = event_store
         self._timeout_seconds = timeout_seconds
         self._check_interval = check_interval_seconds
         self._capture_pane = capture_pane_fn or _default_capture_pane
+        self._clock = clock or time.monotonic
         self._sessions: Dict[str, _SessionState] = {}
         self._lock = threading.Lock()
         self._stop_event = threading.Event()
@@ -75,7 +77,7 @@ class Watchdog:
     def register_session(self, agent_id: str, session_name: str) -> None:
         """Start monitoring a tmux session for the given agent."""
         with self._lock:
-            self._sessions[agent_id] = _SessionState(session_name)
+            self._sessions[agent_id] = _SessionState(session_name, self._clock())
 
     def unregister_session(self, agent_id: str) -> None:
         """Stop monitoring the given agent's session."""
@@ -93,7 +95,7 @@ class Watchdog:
         with self._lock:
             sessions_snapshot = dict(self._sessions)
 
-        now = time.monotonic()
+        now = self._clock()
 
         for agent_id, state in sessions_snapshot.items():
             try:

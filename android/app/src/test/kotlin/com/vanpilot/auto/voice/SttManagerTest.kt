@@ -44,4 +44,10 @@ class SttManagerTest {
         assertThat(method).isNotNull()
         assertThat(method.returnType).isEqualTo(Boolean::class.java)
     }
+
+    @Test
+    fun isListeningBackingField_isVolatile() {
+        val field = SttManager::class.java.getDeclaredField("_isListening")
+        assertThat(java.lang.reflect.Modifier.isVolatile(field.modifiers)).isTrue()
+    }
 }

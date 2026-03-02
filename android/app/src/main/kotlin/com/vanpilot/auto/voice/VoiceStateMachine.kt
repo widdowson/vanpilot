@@ -145,9 +145,7 @@ class VoiceStateMachine(
         _uiState.value = VoiceUiState(
             currentState = newState,
             partialTranscript = partialTranscript,
-            lastError = lastError,
-            isListening = newState == VoiceState.LISTENING,
-            isSpeaking = newState == VoiceState.SPEAKING
+            lastError = lastError
         )
     }
 }

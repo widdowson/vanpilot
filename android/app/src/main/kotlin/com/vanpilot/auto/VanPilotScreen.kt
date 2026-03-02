@@ -91,18 +91,24 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
         builder.addTab(leadTab)
 
         // Sub-Agent tabs (dynamic, capped by ConversationTabManager.MAX_SUB_AGENT_TABS)
+        val validTabIds = mutableSetOf(VISUAL_TAB_ID, LEAD_AGENT_TAB_ID)
         for ((index, agentId) in tabManager.getSubAgentIds().withIndex()) {
             if (index >= ConversationTabManager.MAX_SUB_AGENT_TABS) break
+            val tabId = ConversationTabManager.subAgentTabId(agentId)
+            validTabIds.add(tabId)
             val subTab = Tab.Builder()
                 .setTitle(agentId.replaceFirstChar { it.uppercase() })
-                .setContentId(ConversationTabManager.subAgentTabId(agentId))
+                .setContentId(tabId)
                 .setIcon(appIcon)
                 .build()
             builder.addTab(subTab)
         }
 
+        // Fall back to visual tab if activeTabId is stale or unrecognized
+        val effectiveTabId = if (activeTabId in validTabIds) activeTabId else VISUAL_TAB_ID
+
         // Set active tab content
-        val tabContents = when (activeTabId) {
+        val tabContents = when (effectiveTabId) {
             VISUAL_TAB_ID -> {
                 val navTemplate = NavigationTemplate.Builder()
                     .setActionStrip(ActionStrip.Builder().addAction(Action.PAN).build())
@@ -115,14 +121,14 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
                 ).build()
             }
             else -> {
-                val agentId = ConversationTabManager.agentIdFromTabId(activeTabId)
+                val agentId = ConversationTabManager.agentIdFromTabId(effectiveTabId)
                 val messages = tabManager.getSubAgentMessages(agentId)
                 TabContents.Builder(buildMessageList(messages, agentId)).build()
             }
         }
 
         builder.setTabContents(tabContents)
-        builder.setActiveTabContentId(activeTabId)
+        builder.setActiveTabContentId(effectiveTabId)
         builder.setHeaderAction(Action.APP_ICON)
 
         return builder.build()

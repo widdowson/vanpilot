@@ -11,6 +11,7 @@ import com.vanpilot.proto.v1.SyncServiceGrpc
 import com.vanpilot.proto.v1.TextMessage
 import com.vanpilot.proto.v1.DisplayCommand
 import com.vanpilot.proto.v1.BitmapPayload
+import com.google.protobuf.ByteString
 import io.grpc.ManagedChannel
 import io.grpc.Server
 import io.grpc.inprocess.InProcessChannelBuilder
@@ -67,10 +68,25 @@ class FakeSyncService : SyncServiceGrpc.SyncServiceImplBase() {
 }
 
 /**
+ * Test double for BitmapDecoder. Returns results in order from the [results] queue.
+ * Returns null when the queue is exhausted.
+ */
+class FakeBitmapDecoder : BitmapDecoder {
+    val results: MutableList<android.graphics.Bitmap?> = mutableListOf()
+    var callCount = 0
+        private set
+
+    override fun decode(data: ByteArray): android.graphics.Bitmap? {
+        callCount++
+        return results.removeFirstOrNull()
+    }
+}
+
+/**
  * Behavioral tests for SyncClient using an in-process gRPC server.
  *
  * Tests adaptive batching (max_count adjustment on success/error),
- * event dispatching (TextMessage, DisplayCommand), and sync state.
+ * event dispatching (TextMessage, DisplayCommand, BitmapPayload), and sync state.
  *
  * Uses RobolectricTestRunner because SyncClient calls Android APIs
  * (Log.w, BitmapFactory.decodeByteArray) that need Robolectric shadows.
@@ -302,7 +318,7 @@ class SyncClientTest {
 
     @Test
     fun pollEvents_displayCommandSkippedWhenBitmapMissing() {
-        // Bitmap not in cache, GetBitmap returns empty → display should NOT fire
+        // Bitmap not in cache, GetBitmap returns empty -> display should NOT fire
         fakeService.eventsToReturn = listOf(makeDisplayEvent(1000L, "0xMISSING"))
         fakeService.getBitmapResponse = null  // empty response
 
@@ -312,6 +328,69 @@ class SyncClientTest {
         assertThat(fakeService.lastGetBitmapCacheKey).isEqualTo("0xMISSING")
         // Display callback should not fire (bitmap unavailable)
         assertThat(displayedKeys).isEmpty()
+    }
+
+    // -----------------------------------------------------------------------
+    // Event handling: BitmapPayload
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun pollEvents_bitmapPayloadWithInvalidData_notCached() {
+        val decoder = FakeBitmapDecoder() // empty queue -> returns null
+        val testClient = createClientWithDecoder(decoder)
+
+        fakeService.eventsToReturn = listOf(
+            makeBitmapPayloadEvent(1000L, "0xBAD", byteArrayOf(0, 1, 2)),
+        )
+        testClient.pollEvents()
+
+        assertThat(decoder.callCount).isEqualTo(1)
+        assertThat(bitmapCache.has("0xBAD")).isFalse()
+        assertThat(bitmapCache.size).isEqualTo(0)
+    }
+
+    @Test
+    fun pollEvents_bitmapPayloadWithValidData_cached() {
+        val decoder = FakeBitmapDecoder()
+        val fakeBitmap = android.graphics.Bitmap.createBitmap(1, 1, android.graphics.Bitmap.Config.ARGB_8888)
+        decoder.results.add(fakeBitmap)
+        val testClient = createClientWithDecoder(decoder)
+
+        fakeService.eventsToReturn = listOf(
+            makeBitmapPayloadEvent(1000L, "0xGOOD", byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47)),
+        )
+        testClient.pollEvents()
+
+        assertThat(decoder.callCount).isEqualTo(1)
+        assertThat(bitmapCache.has("0xGOOD")).isTrue()
+        assertThat(bitmapCache.get("0xGOOD")).isSameInstanceAs(fakeBitmap)
+    }
+
+    @Test
+    fun pollEvents_multipleBitmapPayloads_correctCacheState() {
+        val decoder = FakeBitmapDecoder()
+        val bitmap1 = android.graphics.Bitmap.createBitmap(1, 1, android.graphics.Bitmap.Config.ARGB_8888)
+        val bitmap2 = android.graphics.Bitmap.createBitmap(2, 2, android.graphics.Bitmap.Config.ARGB_8888)
+        // First decodes successfully, second fails, third succeeds
+        decoder.results.add(bitmap1)
+        decoder.results.add(null)
+        decoder.results.add(bitmap2)
+        val testClient = createClientWithDecoder(decoder)
+
+        fakeService.eventsToReturn = listOf(
+            makeBitmapPayloadEvent(1000L, "0xA", byteArrayOf(1)),
+            makeBitmapPayloadEvent(2000L, "0xB", byteArrayOf(2)),
+            makeBitmapPayloadEvent(3000L, "0xC", byteArrayOf(3)),
+        )
+        testClient.pollEvents()
+
+        assertThat(decoder.callCount).isEqualTo(3)
+        assertThat(bitmapCache.has("0xA")).isTrue()
+        assertThat(bitmapCache.get("0xA")).isSameInstanceAs(bitmap1)
+        assertThat(bitmapCache.has("0xB")).isFalse()
+        assertThat(bitmapCache.has("0xC")).isTrue()
+        assertThat(bitmapCache.get("0xC")).isSameInstanceAs(bitmap2)
+        assertThat(bitmapCache.size).isEqualTo(2)
     }
 
     // -----------------------------------------------------------------------
@@ -357,6 +436,28 @@ class SyncClientTest {
     // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
+
+    private fun createClientWithDecoder(decoder: BitmapDecoder): SyncClient {
+        return SyncClient(
+            channel = channel,
+            bitmapCache = bitmapCache,
+            onDisplayCommand = { key -> displayedKeys.add(key) },
+            onTextMessage = { agentId, content -> textMessages.add(Pair(agentId, content)) },
+            bitmapDecoder = decoder,
+        )
+    }
+
+    private fun makeBitmapPayloadEvent(timestampMs: Long, cacheKey: String, imageData: ByteArray): Event {
+        return Event.newBuilder()
+            .setTimestampMs(timestampMs)
+            .setBitmapPayload(
+                BitmapPayload.newBuilder()
+                    .setCacheKey(cacheKey)
+                    .setImageData(ByteString.copyFrom(imageData))
+                    .build()
+            )
+            .build()
+    }
 
     private fun makeTextEvent(timestampMs: Long, agentId: String, content: String): Event {
         return Event.newBuilder()
