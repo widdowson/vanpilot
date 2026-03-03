@@ -31,6 +31,8 @@ def _make_stubs(channel):
         "list": _stub("ListInstances", pb.ListInstancesRequest, pb.ListInstancesResponse),
         "get": _stub("GetInstance", pb.GetInstanceRequest, pb.GetInstanceResponse),
         "screenshot": _stub("ScreenshotInstance", pb.ScreenshotInstanceRequest, pb.ScreenshotInstanceResponse),
+        "restart_dhu": _stub("RestartDhu", pb.RestartDhuRequest, pb.RestartDhuResponse),
+        "dhu_command": _stub("DhuCommand", pb.DhuCommandRequest, pb.DhuCommandResponse),
     }
 
 
@@ -97,6 +99,32 @@ def cmd_screenshot(stubs, args):
         print(f"Phone screenshot: {emu_path} ({len(resp.emulator_screenshot_png)} bytes)")
 
 
+def cmd_restart_dhu(stubs, args):
+    pb = instance_manager_pb2
+    req = pb.RestartDhuRequest(name=args.name)
+    print(f"Restarting DHU for '{args.name}'...")
+    resp = stubs["restart_dhu"](req, timeout=args.timeout)
+    print("OK")
+    _print_instance(resp.instance)
+
+
+def cmd_dhu_command(stubs, args):
+    pb = instance_manager_pb2
+    command = " ".join(args.dhu_words)
+    req = pb.DhuCommandRequest(
+        name=args.name,
+        command=command,
+        capture_screenshot=args.screenshot,
+    )
+    resp = stubs["dhu_command"](req, timeout=30)
+    print(f"Command sent at {resp.executed_at_ms}")
+    if resp.screenshot_png:
+        out_path = args.output or f"/tmp/{args.name}_dhu_cmd.png"
+        with open(out_path, "wb") as f:
+            f.write(resp.screenshot_png)
+        print(f"Screenshot: {out_path} ({len(resp.screenshot_png)} bytes)")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Instance manager CLI")
     parser.add_argument("--addr", default="localhost:50061", help="gRPC server address")
@@ -122,6 +150,16 @@ def main():
     p_ss.add_argument("--output", help="DHU screenshot output path")
     p_ss.add_argument("--emu-output", help="Phone screenshot output path")
 
+    p_restart = sub.add_parser("restart-dhu")
+    p_restart.add_argument("--name", required=True)
+    p_restart.add_argument("--timeout", type=int, default=120)
+
+    p_dhu_cmd = sub.add_parser("dhu-command")
+    p_dhu_cmd.add_argument("--name", required=True)
+    p_dhu_cmd.add_argument("--screenshot", action="store_true")
+    p_dhu_cmd.add_argument("--output", help="Screenshot output path")
+    p_dhu_cmd.add_argument("dhu_words", nargs="+", metavar="command", help="DHU console command")
+
     args = parser.parse_args()
     channel = grpc.insecure_channel(args.addr)
     stubs = _make_stubs(channel)
@@ -132,6 +170,8 @@ def main():
         "list": cmd_list,
         "get": cmd_get,
         "screenshot": cmd_screenshot,
+        "restart-dhu": cmd_restart_dhu,
+        "dhu-command": cmd_dhu_command,
     }
     try:
         dispatch[args.command](stubs, args)

@@ -40,6 +40,8 @@ class FakeSubprocessRunner(SubprocessRunner):
         self.popen_calls.append((args, kwargs))
         proc = MagicMock()
         proc.pid = 12345
+        proc.poll.return_value = None  # alive
+        proc.wait.return_value = 0
         return proc
 
 
@@ -190,7 +192,8 @@ class EmulatorLifecycleTest(unittest.TestCase):
         self.assertIn("cold-booted", str(ctx.exception))
         self.assertEqual(store.get("test").state, ERROR)
 
-    def test_destroy_kills_processes(self):
+    def test_destroy_falls_back_to_pid_kill(self):
+        """When no Popen handles exist, destroy falls back to kill <pid>."""
         store, runner, lifecycle = self._make_lifecycle()
         store.create("test", 5554, 5555, 5277, False, 1000, "test_avd")
         store.update(
@@ -204,6 +207,7 @@ class EmulatorLifecycleTest(unittest.TestCase):
         )
         record = store.get("test")
 
+        # No handles stored — simulates manager restart
         lifecycle.destroy(record)
 
         # Check kill calls
@@ -217,6 +221,245 @@ class EmulatorLifecycleTest(unittest.TestCase):
             if len(c[0]) > 2 and "emu" in c[0] and "kill" in c[0]
         ]
         self.assertTrue(len(emu_kills) > 0)
+
+    def test_destroy_uses_popen_handles(self):
+        """When Popen handles exist, destroy uses terminate/wait instead of shell kill."""
+        store, runner, lifecycle = self._make_lifecycle()
+        store.create("test", 5554, 5555, 5277, False, 1000, "test_avd")
+        store.update(
+            "test",
+            state=RUNNING,
+            dhu_pid=100,
+            keeper_pid=101,
+            emulator_pid=102,
+            pipe_path="/tmp/dhu_test_pipe",
+            log_path="/tmp/dhu_test.log",
+        )
+        record = store.get("test")
+
+        # Inject process handles
+        from instance_manager.src.emulator_lifecycle import _ProcessHandles
+        emu_proc = MagicMock()
+        emu_proc.poll.return_value = None  # alive
+        emu_proc.wait.return_value = 0
+
+        dhu_proc = MagicMock()
+        dhu_proc.pid = 100
+        dhu_proc.poll.return_value = None
+        dhu_proc.wait.return_value = 0
+
+        keeper_proc = MagicMock()
+        keeper_proc.poll.return_value = None
+        keeper_proc.wait.return_value = 0
+
+        lifecycle._handles["test"] = _ProcessHandles(
+            emulator=emu_proc, dhu=dhu_proc, keeper=keeper_proc,
+        )
+
+        with patch("os.getpgid", return_value=200), \
+             patch("os.killpg") as mock_killpg:
+            lifecycle.destroy(record)
+
+        # DHU should be killed via process group SIGTERM
+        mock_killpg.assert_any_call(200, __import__("signal").SIGTERM)
+        dhu_proc.wait.assert_called()
+
+        # Keeper should be terminated
+        keeper_proc.terminate.assert_called_once()
+
+        # Emulator should get adb emu kill then wait
+        emu_kills = [
+            c for c in runner.run_calls
+            if len(c[0]) > 2 and "emu" in c[0] and "kill" in c[0]
+        ]
+        self.assertTrue(len(emu_kills) > 0)
+        emu_proc.wait.assert_called()
+
+        # Should NOT have shell kill calls (no PID fallback)
+        kill_args = [c[0] for c in runner.run_calls if c[0][0] == "kill"]
+        self.assertEqual(kill_args, [])
+
+    def test_check_health_all_alive(self):
+        """check_health returns True when all processes are alive."""
+        store, _, lifecycle = self._make_lifecycle()
+        from instance_manager.src.emulator_lifecycle import _ProcessHandles
+
+        emu = MagicMock()
+        emu.poll.return_value = None
+        dhu = MagicMock()
+        dhu.poll.return_value = None
+        keeper = MagicMock()
+        keeper.poll.return_value = None
+
+        lifecycle._handles["test"] = _ProcessHandles(
+            emulator=emu, dhu=dhu, keeper=keeper,
+        )
+        self.assertTrue(lifecycle.check_health("test"))
+
+    def test_check_health_emulator_dead(self):
+        """check_health returns False when emulator has exited."""
+        store, _, lifecycle = self._make_lifecycle()
+        from instance_manager.src.emulator_lifecycle import _ProcessHandles
+
+        emu = MagicMock()
+        emu.poll.return_value = 1  # exited
+        dhu = MagicMock()
+        dhu.poll.return_value = None
+        keeper = MagicMock()
+        keeper.poll.return_value = None
+
+        lifecycle._handles["test"] = _ProcessHandles(
+            emulator=emu, dhu=dhu, keeper=keeper,
+        )
+        self.assertFalse(lifecycle.check_health("test"))
+
+    def test_check_health_no_handles(self):
+        """check_health returns True (optimistic) when no handles are tracked."""
+        store, _, lifecycle = self._make_lifecycle()
+        self.assertTrue(lifecycle.check_health("unknown"))
+
+
+    def test_restart_dhu_kills_old_spawns_new(self):
+        """restart_dhu terminates old DHU/keeper handles and spawns new ones."""
+        store, runner, lifecycle = self._make_lifecycle()
+        store.create("test", 5554, 5555, 5277, False, 1000, "test_avd")
+        store.update(
+            "test",
+            state=RUNNING,
+            dhu_pid=100,
+            keeper_pid=101,
+            emulator_pid=102,
+            pipe_path="/tmp/dhu_test_pipe",
+            log_path="/tmp/dhu_test.log",
+        )
+        record = store.get("test")
+
+        # Inject old process handles
+        from instance_manager.src.emulator_lifecycle import _ProcessHandles
+        old_dhu = MagicMock()
+        old_dhu.pid = 100
+        old_dhu.poll.return_value = None  # alive
+        old_dhu.wait.return_value = 0
+
+        old_keeper = MagicMock()
+        old_keeper.poll.return_value = None
+        old_keeper.wait.return_value = 0
+
+        emu_proc = MagicMock()
+        emu_proc.poll.return_value = None
+
+        lifecycle._handles["test"] = _ProcessHandles(
+            emulator=emu_proc, dhu=old_dhu, keeper=old_keeper,
+        )
+
+        with patch("os.getpgid", return_value=200), \
+             patch("os.killpg") as mock_killpg, \
+             patch.object(lifecycle, "_wait_for_dhu"), \
+             patch.object(lifecycle, "_wait_for_dhu_screenshot", return_value=b"png"), \
+             patch.object(lifecycle, "emulator_screenshot_to_bytes", return_value=b"png"):
+            updated = lifecycle.restart_dhu(record)
+
+        # Old DHU should be killed via SIGTERM on its process group
+        mock_killpg.assert_any_call(200, __import__("signal").SIGTERM)
+        old_dhu.wait.assert_called()
+
+        # Old keeper should be terminated
+        old_keeper.terminate.assert_called_once()
+
+        # New popen calls: keeper + DHU (2 popen calls)
+        self.assertEqual(len(runner.popen_calls), 2)
+
+        # mkfifo should have been called (after rm -f pipe and rm -f log)
+        mkfifo_calls = [c for c in runner.run_calls if c[0][0] == "mkfifo"]
+        self.assertEqual(len(mkfifo_calls), 1)
+
+        # Handles should be updated with new procs (not the old ones)
+        new_handles = lifecycle._handles["test"]
+        self.assertIsNot(new_handles.dhu, old_dhu)
+        self.assertIsNot(new_handles.keeper, old_keeper)
+        # Emulator handle should be preserved
+        self.assertIs(new_handles.emulator, emu_proc)
+
+        # Store should have updated PIDs
+        self.assertEqual(updated.state, RUNNING)
+
+    def test_restart_dhu_pid_fallback(self):
+        """restart_dhu uses kill-by-PID when no Popen handles are available."""
+        store, runner, lifecycle = self._make_lifecycle()
+        store.create("test", 5554, 5555, 5277, False, 1000, "test_avd")
+        store.update(
+            "test",
+            state=RUNNING,
+            dhu_pid=100,
+            keeper_pid=101,
+            emulator_pid=102,
+            pipe_path="/tmp/dhu_test_pipe",
+            log_path="/tmp/dhu_test.log",
+        )
+        record = store.get("test")
+
+        # No handles — simulates manager restart
+        with patch.object(lifecycle, "_wait_for_dhu"), \
+             patch.object(lifecycle, "_wait_for_dhu_screenshot", return_value=b"png"), \
+             patch.object(lifecycle, "emulator_screenshot_to_bytes", return_value=b"png"):
+            lifecycle.restart_dhu(record)
+
+        # Should have shell kill calls for old PIDs
+        kill_args = [c[0] for c in runner.run_calls if c[0][0] == "kill"]
+        self.assertIn(["kill", "100"], kill_args)
+        self.assertIn(["kill", "101"], kill_args)
+
+
+    def test_dhu_command_writes_to_pipe(self):
+        """dhu_command writes the command string to the named pipe."""
+        store, runner, lifecycle = self._make_lifecycle()
+        store.create("test", 5554, 5555, 5277, False, 1000, "test_avd")
+        store.update(
+            "test",
+            state=RUNNING,
+            pipe_path="/tmp/dhu_test_pipe",
+        )
+        record = store.get("test")
+
+        result = lifecycle.dhu_command(record, "keycode home", False)
+
+        self.assertEqual(result, b"")
+        # Find the bash echo command
+        echo_calls = [
+            c for c in runner.run_calls
+            if c[0][0] == "bash" and "keycode home" in c[0][-1]
+        ]
+        self.assertEqual(len(echo_calls), 1)
+        self.assertIn("/tmp/dhu_test_pipe", echo_calls[0][0][-1])
+
+    def test_dhu_command_with_screenshot(self):
+        """dhu_command captures a screenshot when requested."""
+        store, runner, lifecycle = self._make_lifecycle()
+        store.create("test", 5554, 5555, 5277, False, 1000, "test_avd")
+        store.update(
+            "test",
+            state=RUNNING,
+            pipe_path="/tmp/dhu_test_pipe",
+        )
+        record = store.get("test")
+
+        with patch.object(lifecycle, "screenshot_to_bytes", return_value=b"fake-png") as mock_ss, \
+             patch("time.sleep"):
+            result = lifecycle.dhu_command(record, "tap 300 430", True)
+
+        self.assertEqual(result, b"fake-png")
+        mock_ss.assert_called_once_with("test", "/tmp/dhu_test_pipe")
+
+    def test_dhu_command_no_pipe_raises(self):
+        """dhu_command raises RuntimeError when pipe_path is None."""
+        store, runner, lifecycle = self._make_lifecycle()
+        store.create("test", 5554, 5555, 5277, False, 1000, "test_avd")
+        store.update("test", state=RUNNING)
+        record = store.get("test")
+
+        with self.assertRaises(RuntimeError) as ctx:
+            lifecycle.dhu_command(record, "keycode home", False)
+        self.assertIn("no pipe path", str(ctx.exception))
 
 
 class ResolveGpuModeTest(unittest.TestCase):

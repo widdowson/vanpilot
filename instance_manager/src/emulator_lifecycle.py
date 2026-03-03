@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import os
+import signal
 import subprocess
+import threading
 import time
+from dataclasses import dataclass
 from typing import Optional
 
 from instance_manager.src.instance_store import (
@@ -15,10 +19,22 @@ from instance_manager.src.instance_store import (
 )
 from instance_manager.src.port_allocator import PortSlot
 
+log = logging.getLogger(__name__)
 
 _DEFAULT_BOOT_TIMEOUT = 60
 _DEFAULT_DHU_TIMEOUT = 30
 _DEFAULT_SCREENSHOT_TIMEOUT = 5
+_DESTROY_GRACEFUL_TIMEOUT = 5
+_DESTROY_EMULATOR_TIMEOUT = 10
+
+
+@dataclass
+class _ProcessHandles:
+    """Live Popen objects for an instance's child processes."""
+
+    emulator: Optional[subprocess.Popen] = None
+    dhu: Optional[subprocess.Popen] = None
+    keeper: Optional[subprocess.Popen] = None
 
 
 class SubprocessRunner:
@@ -45,6 +61,8 @@ class EmulatorLifecycle:
         self._runner = runner or SubprocessRunner()
         self._boot_timeout = boot_timeout
         self._dhu_timeout = dhu_timeout
+        self._handles: dict[str, _ProcessHandles] = {}
+        self._handles_lock = threading.Lock()
 
     def create(
         self,
@@ -63,6 +81,7 @@ class EmulatorLifecycle:
         pipe_path = f"/tmp/dhu_{name}_pipe"
         log_path = f"/tmp/dhu_{name}.log"
 
+        handles = _ProcessHandles()
         try:
             # 1. Clear crash DB
             self._runner.run(
@@ -88,6 +107,7 @@ class EmulatorLifecycle:
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
+            handles.emulator = emu_proc
             self._store.update(name, emulator_pid=emu_proc.pid)
 
             # 3. Wait for boot
@@ -112,16 +132,22 @@ class EmulatorLifecycle:
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
+            handles.keeper = keeper_proc
 
             android_home = os.environ.get("ANDROID_HOME", "")
             dhu_path = os.path.join(
                 android_home, "extras", "google", "auto", "desktop-head-unit"
             )
+            dhu_flags = f"--adb={ports.aa_forward_port}"
+            if not headful:
+                dhu_flags += " --headless"
             dhu_proc = self._runner.popen(
-                ["bash", "-c", f"{dhu_path} < {pipe_path} > {log_path} 2>&1"],
+                ["bash", "-c", f"{dhu_path} {dhu_flags} < {pipe_path} > {log_path} 2>&1"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                start_new_session=True,
             )
+            handles.dhu = dhu_proc
 
             self._store.update(
                 name,
@@ -148,35 +174,38 @@ class EmulatorLifecycle:
                 last_screenshot_at_ms=now_ms,
             )
 
+            with self._handles_lock:
+                self._handles[name] = handles
+
             return self._store.get(name)
 
         except Exception:
+            # Best-effort cleanup of any already-started processes.
+            for proc in [handles.dhu, handles.keeper, handles.emulator]:
+                if proc is not None:
+                    try:
+                        proc.kill()
+                    except OSError:
+                        pass
             self._store.update(name, state=ERROR)
             raise
 
     def destroy(self, record: InstanceRecord) -> None:
-        """Stop an emulator + DHU pair and clean up resources."""
+        """Stop an emulator + DHU pair and clean up resources.
+
+        Uses retained Popen handles for graceful shutdown when available,
+        falling back to PID-based kill for instances started before the
+        manager was restarted.
+        """
         serial = f"emulator-{record.emulator_console_port}"
 
-        # Kill DHU
-        if record.dhu_pid:
-            self._runner.run(
-                ["kill", str(record.dhu_pid)],
-                capture_output=True,
-            )
+        with self._handles_lock:
+            handles = self._handles.pop(record.name, None)
 
-        # Kill keeper
-        if record.keeper_pid:
-            self._runner.run(
-                ["kill", str(record.keeper_pid)],
-                capture_output=True,
-            )
-
-        # Kill emulator
-        self._runner.run(
-            ["adb", "-s", serial, "emu", "kill"],
-            capture_output=True,
-        )
+        if handles:
+            self._destroy_via_handles(handles, serial, record)
+        else:
+            self._destroy_via_pids(record, serial)
 
         # Remove port forward
         self._runner.run(
@@ -191,6 +220,220 @@ class EmulatorLifecycle:
                 self._runner.run(
                     ["rm", "-f", path], capture_output=True
                 )
+
+    def _destroy_via_handles(
+        self,
+        handles: _ProcessHandles,
+        serial: str,
+        record: InstanceRecord,
+    ) -> None:
+        """Graceful shutdown using retained Popen objects."""
+        # 1. DHU — kill the whole process group (bash wrapper + DHU binary)
+        if handles.dhu and handles.dhu.poll() is None:
+            try:
+                pgid = os.getpgid(handles.dhu.pid)
+                os.killpg(pgid, signal.SIGTERM)
+                try:
+                    handles.dhu.wait(timeout=_DESTROY_GRACEFUL_TIMEOUT)
+                except subprocess.TimeoutExpired:
+                    os.killpg(pgid, signal.SIGKILL)
+                    handles.dhu.wait(timeout=_DESTROY_GRACEFUL_TIMEOUT)
+            except (OSError, subprocess.TimeoutExpired):
+                log.warning("Failed to stop DHU process group for %s", record.name)
+
+        # 2. Keeper
+        if handles.keeper and handles.keeper.poll() is None:
+            handles.keeper.terminate()
+            try:
+                handles.keeper.wait(timeout=_DESTROY_GRACEFUL_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                handles.keeper.kill()
+                handles.keeper.wait(timeout=_DESTROY_GRACEFUL_TIMEOUT)
+
+        # 3. Emulator — ask adb to shut it down cleanly first
+        if handles.emulator and handles.emulator.poll() is None:
+            self._runner.run(
+                ["adb", "-s", serial, "emu", "kill"],
+                capture_output=True,
+            )
+            try:
+                handles.emulator.wait(timeout=_DESTROY_EMULATOR_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                handles.emulator.terminate()
+                try:
+                    handles.emulator.wait(timeout=_DESTROY_GRACEFUL_TIMEOUT)
+                except subprocess.TimeoutExpired:
+                    handles.emulator.kill()
+                    handles.emulator.wait(timeout=_DESTROY_GRACEFUL_TIMEOUT)
+
+    def _destroy_via_pids(
+        self, record: InstanceRecord, serial: str
+    ) -> None:
+        """Fallback: kill by PID when Popen handles are unavailable."""
+        if record.dhu_pid:
+            self._runner.run(
+                ["kill", str(record.dhu_pid)],
+                capture_output=True,
+            )
+        if record.keeper_pid:
+            self._runner.run(
+                ["kill", str(record.keeper_pid)],
+                capture_output=True,
+            )
+        self._runner.run(
+            ["adb", "-s", serial, "emu", "kill"],
+            capture_output=True,
+        )
+
+    def restart_dhu(self, record: InstanceRecord) -> InstanceRecord:
+        """Kill the DHU + keeper and spawn fresh ones.
+
+        The emulator and ADB forward are left untouched. After the new DHU
+        completes its SSL handshake and acquires video focus, fresh screenshots
+        are captured and the store is updated.
+        """
+        name = record.name
+        pipe_path = record.pipe_path or f"/tmp/dhu_{name}_pipe"
+        log_path = record.log_path or f"/tmp/dhu_{name}.log"
+
+        with self._handles_lock:
+            handles = self._handles.get(name)
+
+        # 1. Kill old DHU + keeper
+        if handles:
+            if handles.dhu and handles.dhu.poll() is None:
+                try:
+                    pgid = os.getpgid(handles.dhu.pid)
+                    os.killpg(pgid, signal.SIGTERM)
+                    try:
+                        handles.dhu.wait(timeout=_DESTROY_GRACEFUL_TIMEOUT)
+                    except subprocess.TimeoutExpired:
+                        os.killpg(pgid, signal.SIGKILL)
+                        handles.dhu.wait(timeout=_DESTROY_GRACEFUL_TIMEOUT)
+                except (OSError, subprocess.TimeoutExpired):
+                    log.warning("Failed to stop old DHU for %s", name)
+
+            if handles.keeper and handles.keeper.poll() is None:
+                handles.keeper.terminate()
+                try:
+                    handles.keeper.wait(timeout=_DESTROY_GRACEFUL_TIMEOUT)
+                except subprocess.TimeoutExpired:
+                    handles.keeper.kill()
+                    handles.keeper.wait(timeout=_DESTROY_GRACEFUL_TIMEOUT)
+        else:
+            # Fallback: kill by PID
+            if record.dhu_pid:
+                self._runner.run(
+                    ["kill", str(record.dhu_pid)], capture_output=True,
+                )
+            if record.keeper_pid:
+                self._runner.run(
+                    ["kill", str(record.keeper_pid)], capture_output=True,
+                )
+
+        # 2. Remove old pipe + log, recreate pipe
+        self._runner.run(["rm", "-f", pipe_path], capture_output=True)
+        self._runner.run(["rm", "-f", log_path], capture_output=True)
+        self._runner.run(["mkfifo", pipe_path], capture_output=True)
+
+        # 3. Spawn new keeper + DHU
+        keeper_proc = self._runner.popen(
+            ["bash", "-c", f"while true; do sleep 3600; done > {pipe_path}"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+        android_home = os.environ.get("ANDROID_HOME", "")
+        dhu_path = os.path.join(
+            android_home, "extras", "google", "auto", "desktop-head-unit",
+        )
+        dhu_flags = f"--adb={record.aa_forward_port}"
+        if not record.headful:
+            dhu_flags += " --headless"
+        dhu_proc = self._runner.popen(
+            ["bash", "-c", f"{dhu_path} {dhu_flags} < {pipe_path} > {log_path} 2>&1"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+
+        # 4. Update handles
+        with self._handles_lock:
+            if name in self._handles:
+                self._handles[name].dhu = dhu_proc
+                self._handles[name].keeper = keeper_proc
+            else:
+                self._handles[name] = _ProcessHandles(
+                    dhu=dhu_proc, keeper=keeper_proc,
+                )
+
+        # 5. Update store with new PIDs
+        self._store.update(
+            name,
+            dhu_pid=dhu_proc.pid,
+            keeper_pid=keeper_proc.pid,
+            pipe_path=pipe_path,
+            log_path=log_path,
+        )
+
+        # 6. Wait for SSL handshake
+        self._wait_for_dhu(log_path)
+
+        # 7. Capture fresh screenshots
+        serial = f"emulator-{record.emulator_console_port}"
+        dhu_png = self._wait_for_dhu_screenshot(name, pipe_path)
+        emu_png = self.emulator_screenshot_to_bytes(serial)
+        now_ms = int(time.time() * 1000)
+        self._store.update(
+            name,
+            last_screenshot_png=dhu_png,
+            last_emulator_screenshot_png=emu_png,
+            last_screenshot_at_ms=now_ms,
+        )
+
+        return self._store.get(name)
+
+    def check_health(self, name: str) -> bool:
+        """Check whether all tracked child processes for *name* are alive.
+
+        Returns True if no handles are tracked (optimistic — we can't tell)
+        or if all tracked processes are still running. Returns False if any
+        child has exited.
+        """
+        with self._handles_lock:
+            handles = self._handles.get(name)
+        if handles is None:
+            return True
+        for proc in [handles.emulator, handles.dhu, handles.keeper]:
+            if proc is not None and proc.poll() is not None:
+                return False
+        return True
+
+    def dhu_command(
+        self,
+        record: InstanceRecord,
+        command: str,
+        capture_screenshot: bool,
+    ) -> bytes:
+        """Send a console command to the DHU via the named pipe.
+
+        Returns screenshot PNG bytes if capture_screenshot is True, else b"".
+        """
+        if not record.pipe_path:
+            raise RuntimeError(
+                f"Instance '{record.name}' has no pipe path"
+            )
+
+        self._runner.run(
+            ["bash", "-c", f'echo "{command}" > {record.pipe_path}'],
+            capture_output=True,
+        )
+
+        if capture_screenshot:
+            time.sleep(1)  # let UI settle after tap/keycode
+            return self.screenshot_to_bytes(record.name, record.pipe_path)
+
+        return b""
 
     def screenshot(self, record: InstanceRecord) -> bytes:
         """Capture a DHU screenshot and return PNG bytes."""
@@ -215,10 +458,10 @@ class EmulatorLifecycle:
             capture_output=True,
         )
 
-        # Poll for file
+        # Poll for file (check size > 0 to avoid reading a partially-created file)
         deadline = time.time() + _DEFAULT_SCREENSHOT_TIMEOUT
         while time.time() < deadline:
-            if os.path.exists(screenshot_path):
+            if os.path.exists(screenshot_path) and os.path.getsize(screenshot_path) > 0:
                 with open(screenshot_path, "rb") as f:
                     return f.read()
             time.sleep(0.2)

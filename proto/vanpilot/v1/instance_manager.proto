@@ -22,6 +22,14 @@ service InstanceManagerService {
 
   // Capture a DHU screenshot from a running instance.
   rpc ScreenshotInstance(ScreenshotInstanceRequest) returns (ScreenshotInstanceResponse);
+
+  // Restart the DHU for an existing running instance (without touching the emulator).
+  // Useful after installing an APK so Android Auto discovers the new app.
+  rpc RestartDhu(RestartDhuRequest) returns (RestartDhuResponse);
+
+  // Send a console command to the DHU (e.g. "tap 300 430", "keycode home", "day").
+  // Optionally captures a screenshot after the command executes.
+  rpc DhuCommand(DhuCommandRequest) returns (DhuCommandResponse);
 }
 
 message CreateInstanceRequest {
@@ -75,6 +83,33 @@ message ScreenshotInstanceResponse {
 
   // Emulator phone screen as PNG bytes (adb screencap).
   bytes emulator_screenshot_png = 3;
+}
+
+message RestartDhuRequest {
+  string name = 1;
+}
+
+message RestartDhuResponse {
+  InstanceInfo instance = 1;
+}
+
+message DhuCommandRequest {
+  string name = 1;
+
+  // DHU console command, e.g. "tap 300 430", "keycode home", "day".
+  string command = 2;
+
+  // If true, capture and return a DHU screenshot after the command executes.
+  // A short delay (1s) is inserted before capture to let the UI settle.
+  bool capture_screenshot = 3;
+}
+
+message DhuCommandResponse {
+  // Millisecond epoch timestamp when the command was sent to the pipe.
+  int64 executed_at_ms = 1;
+
+  // DHU screenshot captured after the command (only if capture_screenshot was true).
+  bytes screenshot_png = 2;
 }
 
 message InstanceInfo {

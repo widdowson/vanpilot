@@ -54,6 +54,8 @@ class InstanceManagerServiceTest(unittest.TestCase):
             "ListInstances": instance_manager_pb2.ListInstancesResponse,
             "GetInstance": instance_manager_pb2.GetInstanceResponse,
             "ScreenshotInstance": instance_manager_pb2.ScreenshotInstanceResponse,
+            "RestartDhu": instance_manager_pb2.RestartDhuResponse,
+            "DhuCommand": instance_manager_pb2.DhuCommandResponse,
         }
         resp_type = resp_map[method]
         return self.channel.unary_unary(
@@ -178,6 +180,108 @@ class InstanceManagerServiceTest(unittest.TestCase):
                 instance_manager_pb2.ScreenshotInstanceRequest(name="nope"),
             )
         self.assertEqual(ctx.exception.code(), grpc.StatusCode.NOT_FOUND)
+
+    def test_restart_dhu(self):
+        # Set up restart_dhu mock to return the updated record
+        def fake_restart_dhu(record):
+            return self.store.get(record.name)
+
+        self.lifecycle.restart_dhu = MagicMock(side_effect=fake_restart_dhu)
+
+        self._call(
+            "CreateInstance",
+            instance_manager_pb2.CreateInstanceRequest(name="restart-test"),
+        )
+        resp = self._call(
+            "RestartDhu",
+            instance_manager_pb2.RestartDhuRequest(name="restart-test"),
+        )
+        self.assertEqual(resp.instance.name, "restart-test")
+        self.lifecycle.restart_dhu.assert_called_once()
+
+    def test_restart_dhu_not_running(self):
+        self.store.create("creating", 5554, 5555, 5277, False, 1000, "avd")
+        with self.assertRaises(grpc.RpcError) as ctx:
+            self._call(
+                "RestartDhu",
+                instance_manager_pb2.RestartDhuRequest(name="creating"),
+            )
+        self.assertEqual(ctx.exception.code(), grpc.StatusCode.FAILED_PRECONDITION)
+
+    def test_restart_dhu_nonexistent(self):
+        with self.assertRaises(grpc.RpcError) as ctx:
+            self._call(
+                "RestartDhu",
+                instance_manager_pb2.RestartDhuRequest(name="nope"),
+            )
+        self.assertEqual(ctx.exception.code(), grpc.StatusCode.NOT_FOUND)
+
+    def test_dhu_command(self):
+        self.lifecycle.dhu_command = MagicMock(return_value=b"")
+        self._call(
+            "CreateInstance",
+            instance_manager_pb2.CreateInstanceRequest(name="cmd-test"),
+        )
+        resp = self._call(
+            "DhuCommand",
+            instance_manager_pb2.DhuCommandRequest(
+                name="cmd-test", command="keycode home",
+            ),
+        )
+        self.assertGreater(resp.executed_at_ms, 0)
+        self.lifecycle.dhu_command.assert_called_once()
+
+    def test_dhu_command_screenshot_updates_store(self):
+        self.lifecycle.dhu_command = MagicMock(return_value=b"fresh-png")
+        self._call(
+            "CreateInstance",
+            instance_manager_pb2.CreateInstanceRequest(name="cache-test"),
+        )
+        self._call(
+            "DhuCommand",
+            instance_manager_pb2.DhuCommandRequest(
+                name="cache-test", command="tap 100 200",
+                capture_screenshot=True,
+            ),
+        )
+        record = self.store.get("cache-test")
+        self.assertEqual(record.last_screenshot_png, b"fresh-png")
+        self.assertIsNotNone(record.last_screenshot_at_ms)
+
+    def test_dhu_command_not_running(self):
+        self.store.create("creating", 5554, 5555, 5277, False, 1000, "avd")
+        with self.assertRaises(grpc.RpcError) as ctx:
+            self._call(
+                "DhuCommand",
+                instance_manager_pb2.DhuCommandRequest(
+                    name="creating", command="keycode home",
+                ),
+            )
+        self.assertEqual(ctx.exception.code(), grpc.StatusCode.FAILED_PRECONDITION)
+
+    def test_dhu_command_nonexistent(self):
+        with self.assertRaises(grpc.RpcError) as ctx:
+            self._call(
+                "DhuCommand",
+                instance_manager_pb2.DhuCommandRequest(
+                    name="nope", command="keycode home",
+                ),
+            )
+        self.assertEqual(ctx.exception.code(), grpc.StatusCode.NOT_FOUND)
+
+    def test_dhu_command_empty_command(self):
+        self._call(
+            "CreateInstance",
+            instance_manager_pb2.CreateInstanceRequest(name="empty-cmd"),
+        )
+        with self.assertRaises(grpc.RpcError) as ctx:
+            self._call(
+                "DhuCommand",
+                instance_manager_pb2.DhuCommandRequest(
+                    name="empty-cmd", command="",
+                ),
+            )
+        self.assertEqual(ctx.exception.code(), grpc.StatusCode.INVALID_ARGUMENT)
 
 
 if __name__ == "__main__":

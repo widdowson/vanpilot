@@ -53,6 +53,8 @@ class FakeRunner(SubprocessRunner):
     def popen(self, args, **kwargs):
         proc = MagicMock()
         proc.pid = 99999
+        proc.poll.return_value = None  # alive
+        proc.wait.return_value = 0
 
         # When DHU is launched, create the log file with "connected".
         if args and args[0] == "bash" and len(args) > 2:
@@ -110,6 +112,8 @@ class E2ETest(unittest.TestCase):
             "ListInstances": instance_manager_pb2.ListInstancesResponse,
             "GetInstance": instance_manager_pb2.GetInstanceResponse,
             "ScreenshotInstance": instance_manager_pb2.ScreenshotInstanceResponse,
+            "RestartDhu": instance_manager_pb2.RestartDhuResponse,
+            "DhuCommand": instance_manager_pb2.DhuCommandResponse,
         }
         resp_type = resp_map[method]
         return self.channel.unary_unary(
@@ -118,7 +122,7 @@ class E2ETest(unittest.TestCase):
             response_deserializer=resp_type.FromString,
         )(request)
 
-    def test_create_list_screenshot_destroy_cycle(self):
+    def test_create_list_screenshot_restart_destroy_cycle(self):
         # Create
         resp = self._call(
             "CreateInstance",
@@ -141,6 +145,36 @@ class E2ETest(unittest.TestCase):
         self.assertEqual(snap_resp.dhu_screenshot_png, _FAKE_PNG)
         self.assertEqual(snap_resp.emulator_screenshot_png, _FAKE_PNG)
         self.assertGreater(snap_resp.captured_at_ms, 0)
+
+        # DHU command (no screenshot)
+        cmd_resp = self._call(
+            "DhuCommand",
+            instance_manager_pb2.DhuCommandRequest(
+                name="e2e-test", command="keycode home",
+            ),
+        )
+        self.assertGreater(cmd_resp.executed_at_ms, 0)
+        self.assertEqual(cmd_resp.screenshot_png, b"")
+
+        # DHU command (with screenshot)
+        cmd_ss_resp = self._call(
+            "DhuCommand",
+            instance_manager_pb2.DhuCommandRequest(
+                name="e2e-test", command="tap 300 430",
+                capture_screenshot=True,
+            ),
+        )
+        self.assertGreater(cmd_ss_resp.executed_at_ms, 0)
+        self.assertEqual(cmd_ss_resp.screenshot_png, _FAKE_PNG)
+
+        # Restart DHU
+        restart_resp = self._call(
+            "RestartDhu",
+            instance_manager_pb2.RestartDhuRequest(name="e2e-test"),
+        )
+        self.assertEqual(restart_resp.instance.name, "e2e-test")
+        self.assertEqual(restart_resp.instance.state, RUNNING)
+        self.assertTrue(len(restart_resp.instance.last_screenshot_png) > 0)
 
         # Destroy
         self._call(

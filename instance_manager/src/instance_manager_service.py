@@ -171,6 +171,63 @@ class InstanceManagerServicer:
         except Exception as e:
             context.abort(grpc.StatusCode.INTERNAL, str(e))
 
+    def RestartDhu(self, request, context):
+        record = self._store.get(request.name)
+        if record is None:
+            context.abort(
+                grpc.StatusCode.NOT_FOUND,
+                f"Instance '{request.name}' not found",
+            )
+        if record.state != RUNNING:
+            context.abort(
+                grpc.StatusCode.FAILED_PRECONDITION,
+                f"Instance '{request.name}' is not running (state={record.state})",
+            )
+
+        try:
+            updated = self._lifecycle.restart_dhu(record)
+            return instance_manager_pb2.RestartDhuResponse(
+                instance=_record_to_proto(updated),
+            )
+        except Exception as e:
+            context.abort(grpc.StatusCode.INTERNAL, str(e))
+
+    def DhuCommand(self, request, context):
+        if not request.command:
+            context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT, "command is required"
+            )
+
+        record = self._store.get(request.name)
+        if record is None:
+            context.abort(
+                grpc.StatusCode.NOT_FOUND,
+                f"Instance '{request.name}' not found",
+            )
+        if record.state != RUNNING:
+            context.abort(
+                grpc.StatusCode.FAILED_PRECONDITION,
+                f"Instance '{request.name}' is not running (state={record.state})",
+            )
+
+        try:
+            screenshot_png = self._lifecycle.dhu_command(
+                record, request.command, request.capture_screenshot,
+            )
+            now_ms = int(time.time() * 1000)
+            if screenshot_png:
+                self._store.update(
+                    request.name,
+                    last_screenshot_png=screenshot_png,
+                    last_screenshot_at_ms=now_ms,
+                )
+            return instance_manager_pb2.DhuCommandResponse(
+                executed_at_ms=now_ms,
+                screenshot_png=screenshot_png,
+            )
+        except Exception as e:
+            context.abort(grpc.StatusCode.INTERNAL, str(e))
+
 
 def add_instance_manager_service_to_server(
     server: grpc.Server,
@@ -220,6 +277,18 @@ class _InstanceManagerGenericHandler(grpc.GenericRpcHandler):
                     servicer.ScreenshotInstance,
                     request_deserializer=instance_manager_pb2.ScreenshotInstanceRequest.FromString,
                     response_serializer=instance_manager_pb2.ScreenshotInstanceResponse.SerializeToString,
+                ),
+            f"/{self._SERVICE}/RestartDhu":
+                grpc.unary_unary_rpc_method_handler(
+                    servicer.RestartDhu,
+                    request_deserializer=instance_manager_pb2.RestartDhuRequest.FromString,
+                    response_serializer=instance_manager_pb2.RestartDhuResponse.SerializeToString,
+                ),
+            f"/{self._SERVICE}/DhuCommand":
+                grpc.unary_unary_rpc_method_handler(
+                    servicer.DhuCommand,
+                    request_deserializer=instance_manager_pb2.DhuCommandRequest.FromString,
+                    response_serializer=instance_manager_pb2.DhuCommandResponse.SerializeToString,
                 ),
         }
 

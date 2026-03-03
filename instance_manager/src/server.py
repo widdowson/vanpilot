@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import signal
 import socket
 import sys
@@ -15,9 +16,11 @@ from instance_manager.src.emulator_lifecycle import EmulatorLifecycle, Subproces
 from instance_manager.src.instance_manager_service import (
     add_instance_manager_service_to_server,
 )
-from instance_manager.src.instance_store import InstanceStore
+from instance_manager.src.instance_store import InstanceStore, ERROR
 from instance_manager.src.port_allocator import PortAllocator
 from instance_manager.src.web_server import start_web_server
+
+log = logging.getLogger(__name__)
 
 _MAX_WORKERS = 4
 
@@ -31,6 +34,16 @@ def _screenshot_refresh_loop(
     while True:
         time.sleep(interval)
         for record in store.get_running():
+            if not lifecycle.check_health(record.name):
+                log.warning(
+                    "Instance %s has a dead child process — marking ERROR",
+                    record.name,
+                )
+                try:
+                    store.update(record.name, state=ERROR)
+                except KeyError:
+                    pass
+                continue
             try:
                 serial = f"emulator-{record.emulator_console_port}"
                 dhu_png = lifecycle.screenshot(record)
