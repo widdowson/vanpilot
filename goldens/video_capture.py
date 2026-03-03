@@ -14,6 +14,7 @@ AC-4: Video Capture (Optional Diagnostic)
 from __future__ import annotations
 
 import os
+import signal
 import subprocess
 import tempfile
 import threading
@@ -33,6 +34,7 @@ class VideoCaptureConfig:
     output_dir: str | None = None
     adb_host: str = "localhost"
     adb_port: int = 5555
+    adb_serial: str | None = None  # Override: use this as -s arg (e.g. "emulator-5554")
 
     @classmethod
     def from_args(cls, args: list[str]) -> VideoCaptureConfig:
@@ -93,6 +95,12 @@ class VideoCapture:
     def recording(self) -> bool:
         return self._recording
 
+    def _adb_target(self) -> str:
+        """Return the adb -s target string."""
+        if self._config.adb_serial:
+            return self._config.adb_serial
+        return f"{self._config.adb_host}:{self._config.adb_port}"
+
     def start(self) -> None:
         """Start video recording on the emulator.
 
@@ -106,12 +114,11 @@ class VideoCapture:
                 return
 
             self._remote_path = _REMOTE_VIDEO_PATH
-            adb_addr = f"{self._config.adb_host}:{self._config.adb_port}"
 
             cmd = [
                 "adb",
                 "-s",
-                adb_addr,
+                self._adb_target(),
                 "shell",
                 "screenrecord",
                 "--time-limit",
@@ -147,15 +154,26 @@ class VideoCapture:
             if not self._recording or self._process is None:
                 return None
 
-            # Send interrupt to stop screenrecord gracefully
-            self._process.terminate()
+            # Send SIGINT so screenrecord writes the moov atom (file index)
+            # before exiting. SIGTERM kills the local adb process without
+            # giving the on-device screenrecord a chance to finalize.
+            self._process.send_signal(signal.SIGINT)
             try:
                 self._process.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 self._process.kill()
                 self._process.wait(timeout=5)
 
+            # Close pipes to avoid ResourceWarning
+            if self._process.stdout:
+                self._process.stdout.close()
+            if self._process.stderr:
+                self._process.stderr.close()
+
             self._recording = False
+
+            # Give the device a moment to flush the file to disk
+            time.sleep(1)
 
             # Determine output directory
             output_dir = self._config.output_dir
@@ -164,12 +182,12 @@ class VideoCapture:
             os.makedirs(output_dir, exist_ok=True)
 
             local_path = os.path.join(output_dir, f"{name}.mp4")
-            adb_addr = f"{self._config.adb_host}:{self._config.adb_port}"
+            target = self._adb_target()
 
             # Pull the video from the emulator
             try:
                 subprocess.run(
-                    ["adb", "-s", adb_addr, "pull", self._remote_path, local_path],
+                    ["adb", "-s", target, "pull", self._remote_path, local_path],
                     timeout=30,
                     capture_output=True,
                     check=True,
@@ -180,7 +198,7 @@ class VideoCapture:
                 # Clean up remote file (best-effort)
                 try:
                     subprocess.run(
-                        ["adb", "-s", adb_addr, "shell", "rm", "-f", self._remote_path],
+                        ["adb", "-s", target, "shell", "rm", "-f", self._remote_path],
                         timeout=10,
                         capture_output=True,
                     )
