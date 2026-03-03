@@ -47,7 +47,7 @@ def create_server(
     port: int = _DEFAULT_PORT,
     host: str = _DEFAULT_HOST,
     app_client: Optional[AndroidAppClient] = None,
-) -> tuple[grpc.Server, int, McpBridge]:
+) -> tuple[grpc.Server, int, McpBridge, LogTailer]:
     """Create and configure the supervisor gRPC server.
 
     Args:
