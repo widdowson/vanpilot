@@ -71,12 +71,14 @@ class EmulatorLifecycle:
             )
 
             # 2. Start emulator
+            gpu_mode = self._read_gpu_mode(avd_name)
             emu_args = [
                 "emulator", f"@{avd_name}",
                 "-read-only",
                 "-port", str(ports.console_port),
                 "-snapshot", snapshot_name,
                 "-no-boot-anim",
+                "-gpu", gpu_mode,
             ]
             if not headful:
                 emu_args.append("-no-window")
@@ -218,6 +220,34 @@ class EmulatorLifecycle:
 
         raise TimeoutError(
             f"Screenshot file not created within {_DEFAULT_SCREENSHOT_TIMEOUT}s"
+        )
+
+    def _read_gpu_mode(self, avd_name: str) -> str:
+        """Read hw.gpu.mode from the AVD's config.ini.
+
+        Looks up ``ANDROID_AVD_HOME`` (defaulting to ``~/.android/avd``) and
+        parses ``<avd_name>.avd/config.ini`` for the ``hw.gpu.mode`` key.
+
+        Raises:
+            RuntimeError: if config.ini is missing or hw.gpu.mode is absent.
+        """
+        avd_home = os.environ.get(
+            "ANDROID_AVD_HOME",
+            os.path.expanduser("~/.android/avd"),
+        )
+        config_path = os.path.join(avd_home, f"{avd_name}.avd", "config.ini")
+        try:
+            with open(config_path) as f:
+                for line in f:
+                    key, _, value = line.partition("=")
+                    if key.strip() == "hw.gpu.mode":
+                        return value.strip()
+        except FileNotFoundError:
+            raise RuntimeError(
+                f"AVD config not found: {config_path}"
+            )
+        raise RuntimeError(
+            f"hw.gpu.mode not found in {config_path}"
         )
 
     def _wait_for_boot(self, serial: str) -> None:

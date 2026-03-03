@@ -1,6 +1,8 @@
 """Tests for EmulatorLifecycle with mocked SubprocessRunner."""
 
+import os
 import subprocess
+import tempfile
 import unittest
 from unittest.mock import MagicMock, patch, call
 
@@ -67,9 +69,10 @@ class EmulatorLifecycleTest(unittest.TestCase):
         ports = self._make_ports()
         store.create("test", 5554, 5555, 5277, False, 1000, "test_avd")
 
-        with patch.object(lifecycle, "_wait_for_dhu"):
-            with patch.object(lifecycle, "screenshot_to_bytes", return_value=b"png"):
-                lifecycle.create("test", "test_avd", "aa_ready", False, ports)
+        with patch.object(lifecycle, "_read_gpu_mode", return_value="swiftshader_indirect"):
+            with patch.object(lifecycle, "_wait_for_dhu"):
+                with patch.object(lifecycle, "screenshot_to_bytes", return_value=b"png"):
+                    lifecycle.create("test", "test_avd", "aa_ready", False, ports)
 
         # Check emulator popen was called
         emu_call = runner.popen_calls[0]
@@ -79,15 +82,18 @@ class EmulatorLifecycleTest(unittest.TestCase):
         self.assertIn("-port", emu_args)
         self.assertIn("5554", emu_args)
         self.assertIn("-no-window", emu_args)
+        self.assertIn("-gpu", emu_args)
+        self.assertIn("swiftshader_indirect", emu_args)
 
     def test_create_headful_omits_no_window(self):
         store, runner, lifecycle = self._make_lifecycle()
         ports = self._make_ports()
         store.create("test", 5554, 5555, 5277, True, 1000, "test_avd")
 
-        with patch.object(lifecycle, "_wait_for_dhu"):
-            with patch.object(lifecycle, "screenshot_to_bytes", return_value=b"png"):
-                lifecycle.create("test", "test_avd", "aa_ready", True, ports)
+        with patch.object(lifecycle, "_read_gpu_mode", return_value="swiftshader_indirect"):
+            with patch.object(lifecycle, "_wait_for_dhu"):
+                with patch.object(lifecycle, "screenshot_to_bytes", return_value=b"png"):
+                    lifecycle.create("test", "test_avd", "aa_ready", True, ports)
 
         emu_call = runner.popen_calls[0]
         emu_args = emu_call[0]
@@ -98,9 +104,10 @@ class EmulatorLifecycleTest(unittest.TestCase):
         ports = self._make_ports()
         store.create("test", 5554, 5555, 5277, False, 1000, "test_avd")
 
-        with patch.object(lifecycle, "_wait_for_dhu"):
-            with patch.object(lifecycle, "screenshot_to_bytes", return_value=b"png"):
-                lifecycle.create("test", "test_avd", "aa_ready", False, ports)
+        with patch.object(lifecycle, "_read_gpu_mode", return_value="swiftshader_indirect"):
+            with patch.object(lifecycle, "_wait_for_dhu"):
+                with patch.object(lifecycle, "screenshot_to_bytes", return_value=b"png"):
+                    lifecycle.create("test", "test_avd", "aa_ready", False, ports)
 
         # Find the adb forward call
         forward_calls = [
@@ -114,9 +121,10 @@ class EmulatorLifecycleTest(unittest.TestCase):
         ports = self._make_ports()
         store.create("test", 5554, 5555, 5277, False, 1000, "test_avd")
 
-        with patch.object(lifecycle, "_wait_for_dhu"):
-            with patch.object(lifecycle, "screenshot_to_bytes", return_value=b"png"):
-                record = lifecycle.create("test", "test_avd", "aa_ready", False, ports)
+        with patch.object(lifecycle, "_read_gpu_mode", return_value="swiftshader_indirect"):
+            with patch.object(lifecycle, "_wait_for_dhu"):
+                with patch.object(lifecycle, "screenshot_to_bytes", return_value=b"png"):
+                    record = lifecycle.create("test", "test_avd", "aa_ready", False, ports)
 
         self.assertEqual(record.state, RUNNING)
 
@@ -125,8 +133,9 @@ class EmulatorLifecycleTest(unittest.TestCase):
         ports = self._make_ports()
         store.create("test", 5554, 5555, 5277, False, 1000, "test_avd")
 
-        with self.assertRaises(TimeoutError):
-            lifecycle.create("test", "test_avd", "aa_ready", False, ports)
+        with patch.object(lifecycle, "_read_gpu_mode", return_value="swiftshader_indirect"):
+            with self.assertRaises(TimeoutError):
+                lifecycle.create("test", "test_avd", "aa_ready", False, ports)
 
         self.assertEqual(store.get("test").state, ERROR)
 
@@ -136,9 +145,10 @@ class EmulatorLifecycleTest(unittest.TestCase):
         ports = self._make_ports()
         store.create("test", 5554, 5555, 5277, False, 1000, "test_avd")
 
-        with patch.object(lifecycle, "_wait_for_dhu"):
-            with patch.object(lifecycle, "screenshot_to_bytes", return_value=b"png"):
-                record = lifecycle.create("test", "test_avd", "aa_ready", False, ports)
+        with patch.object(lifecycle, "_read_gpu_mode", return_value="swiftshader_indirect"):
+            with patch.object(lifecycle, "_wait_for_dhu"):
+                with patch.object(lifecycle, "screenshot_to_bytes", return_value=b"png"):
+                    record = lifecycle.create("test", "test_avd", "aa_ready", False, ports)
 
         # Sentinel check should have been issued
         sentinel_calls = [
@@ -166,9 +176,10 @@ class EmulatorLifecycleTest(unittest.TestCase):
         store.create("test", 5554, 5555, 5277, False, 1000, "test_avd")
 
         with self.assertRaises(RuntimeError) as ctx:
-            with patch.object(lifecycle, "_wait_for_dhu"):
-                with patch.object(lifecycle, "screenshot_to_bytes", return_value=b"png"):
-                    lifecycle.create("test", "test_avd", "aa_ready", False, ports)
+            with patch.object(lifecycle, "_read_gpu_mode", return_value="swiftshader_indirect"):
+                with patch.object(lifecycle, "_wait_for_dhu"):
+                    with patch.object(lifecycle, "screenshot_to_bytes", return_value=b"png"):
+                        lifecycle.create("test", "test_avd", "aa_ready", False, ports)
 
         self.assertIn("cold-booted", str(ctx.exception))
         self.assertEqual(store.get("test").state, ERROR)
@@ -200,6 +211,56 @@ class EmulatorLifecycleTest(unittest.TestCase):
             if len(c[0]) > 2 and "emu" in c[0] and "kill" in c[0]
         ]
         self.assertTrue(len(emu_kills) > 0)
+
+
+class ReadGpuModeTest(unittest.TestCase):
+    """Unit tests for EmulatorLifecycle._read_gpu_mode."""
+
+    def _make_lifecycle(self):
+        store = InstanceStore()
+        runner = FakeSubprocessRunner()
+        return EmulatorLifecycle(store, runner, boot_timeout=2, dhu_timeout=2)
+
+    def test_returns_gpu_mode_from_config_ini(self):
+        """_read_gpu_mode returns the hw.gpu.mode value from config.ini."""
+        lifecycle = self._make_lifecycle()
+        with tempfile.TemporaryDirectory() as avd_home:
+            avd_dir = os.path.join(avd_home, "test_avd.avd")
+            os.makedirs(avd_dir)
+            config_path = os.path.join(avd_dir, "config.ini")
+            with open(config_path, "w") as f:
+                f.write("avd.ini.encoding=UTF-8\n")
+                f.write("hw.gpu.mode=swiftshader_indirect\n")
+                f.write("hw.ramSize=2048\n")
+            with patch.dict(os.environ, {"ANDROID_AVD_HOME": avd_home}):
+                result = lifecycle._read_gpu_mode("test_avd")
+        self.assertEqual(result, "swiftshader_indirect")
+
+    def test_raises_runtime_error_when_config_missing(self):
+        """_read_gpu_mode raises RuntimeError when config.ini does not exist."""
+        lifecycle = self._make_lifecycle()
+        with tempfile.TemporaryDirectory() as avd_home:
+            # AVD directory does not exist at all
+            with patch.dict(os.environ, {"ANDROID_AVD_HOME": avd_home}):
+                with self.assertRaises(RuntimeError) as ctx:
+                    lifecycle._read_gpu_mode("nonexistent_avd")
+        self.assertIn("AVD config not found", str(ctx.exception))
+
+    def test_raises_runtime_error_when_key_absent(self):
+        """_read_gpu_mode raises RuntimeError when hw.gpu.mode key is absent."""
+        lifecycle = self._make_lifecycle()
+        with tempfile.TemporaryDirectory() as avd_home:
+            avd_dir = os.path.join(avd_home, "test_avd.avd")
+            os.makedirs(avd_dir)
+            config_path = os.path.join(avd_dir, "config.ini")
+            with open(config_path, "w") as f:
+                f.write("avd.ini.encoding=UTF-8\n")
+                f.write("hw.ramSize=2048\n")
+                # hw.gpu.mode is deliberately absent
+            with patch.dict(os.environ, {"ANDROID_AVD_HOME": avd_home}):
+                with self.assertRaises(RuntimeError) as ctx:
+                    lifecycle._read_gpu_mode("test_avd")
+        self.assertIn("hw.gpu.mode not found", str(ctx.exception))
 
 
 if __name__ == "__main__":
