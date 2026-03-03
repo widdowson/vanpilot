@@ -39,6 +39,14 @@ if [ ! -f "$UNSIGNED_APK" ]; then
   exit 1
 fi
 
+if ! command -v apksigner &>/dev/null; then
+  echo "Error: apksigner not found on \$PATH." >&2
+  echo "Install it via the Android SDK Build-Tools:" >&2
+  echo "  sdkmanager 'build-tools;<version>'" >&2
+  echo "Then ensure \$ANDROID_HOME/build-tools/<version> is on your PATH." >&2
+  exit 1
+fi
+
 # Copy the unsigned APK to the output path for in-place signing
 cp "$UNSIGNED_APK" "$OUTPUT_APK"
 

@@ -37,6 +37,18 @@ bazel build //android:vanpilot_release_apk
 
 Bazel passes environment variables to the genrule action automatically when they are set in the shell. The output APK is written to `bazel-bin/android/vanpilot-release.apk`.
 
+> **Note — sandboxed and remote execution:** The implicit environment passthrough only works for local (non-sandboxed) builds. If you use `--spawn_strategy=sandboxed` or remote execution, you must explicitly forward each variable with `--action_env`, e.g.:
+>
+> ```
+> bazel build //android:vanpilot_release_apk \
+>   --action_env=VANPILOT_RELEASE_KEYSTORE \
+>   --action_env=VANPILOT_RELEASE_KEYSTORE_PASS \
+>   --action_env=VANPILOT_RELEASE_KEY_ALIAS \
+>   --action_env=VANPILOT_RELEASE_KEY_PASS
+> ```
+>
+> You can also add these to your `.bazelrc` to avoid repeating them on every invocation.
+
 ### Generating a new release keystore
 
 If you need to create a new release keystore (first-time setup):
