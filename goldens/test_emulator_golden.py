@@ -49,7 +49,11 @@ GOLDEN_DIR = os.path.join(
 # Video capture config parsed from test args (AC-4.1, AC-4.2).
 # Enabled via: bazel test //goldens:emulator_golden_test --test_arg=--record-video
 VIDEO_CONFIG = VideoCaptureConfig.from_args(sys.argv[1:])
-VIDEO_CAPTURE = VideoCapture(VIDEO_CONFIG)
+
+# Strip --record-video* args so unittest.main() doesn't choke on them.
+sys.argv = [a for a in sys.argv if not a.startswith("--record-video")]
+
+VIDEO_CAPTURE: VideoCapture  # initialized after emulator discovery (needs serial)
 
 
 def _find_emulator_serial() -> str | None:
@@ -92,6 +96,13 @@ def _find_emulator_serial() -> str | None:
 
 
 EMU_SERIAL = _find_emulator_serial()
+
+# Now that we know the emulator serial, configure video capture to target it.
+# VideoCapture defaults to "localhost:5555" which only works for TCP sidecar;
+# native emulators appear as "emulator-NNNN" and need the serial passed directly.
+if EMU_SERIAL and VIDEO_CONFIG.enabled:
+    VIDEO_CONFIG.adb_serial = EMU_SERIAL
+VIDEO_CAPTURE = VideoCapture(VIDEO_CONFIG)
 
 
 def _adb(*args: str, timeout: int = 30) -> str:
