@@ -88,7 +88,7 @@ class LogTailer:
     def __init__(
         self,
         event_store: EventStore,
-        log_dir: str = "/tmp/vanpilot/logs",
+        log_dir: str = os.path.expanduser("~/.claude/projects"),
         poll_interval_s: float = 1.0,
         time_fn: Callable[[], int] = _current_time_ms,
     ) -> None:
@@ -101,10 +101,20 @@ class LogTailer:
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
 
+    @property
+    def log_dir(self) -> str:
+        """The directory being watched for JSONL log files."""
+        return self._log_dir
+
+    @property
+    def event_store(self) -> EventStore:
+        """The EventStore that receives parsed TextMessage events."""
+        return self._event_store
+
     def poll_once(self) -> None:
-        """Scan all .jsonl files in log_dir for new entries."""
-        pattern = os.path.join(self._log_dir, "*.jsonl")
-        for path in glob.glob(pattern):
+        """Scan all .jsonl files in log_dir (recursively) for new entries."""
+        pattern = os.path.join(self._log_dir, "**", "*.jsonl")
+        for path in glob.glob(pattern, recursive=True):
             self._tail_file(path)
 
     def _tail_file(self, path: str) -> None:

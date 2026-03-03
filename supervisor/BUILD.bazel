@@ -93,6 +93,7 @@ py_library(
     deps = [
         ":android_app_client",
         ":event_store",
+        ":log_tailer",
         ":mcp_bridge",
         ":sync_service",
         requirement("grpcio"),
@@ -184,7 +185,21 @@ py_test(
     imports = [".."],
     deps = [
         ":android_app_client",
+        ":log_tailer",
         ":mcp_bridge",
+        ":server",
+        "//proto/vanpilot/v1:sync_py_proto",
+        requirement("grpcio"),
+    ],
+)
+
+py_test(
+    name = "server_log_tailer_test",
+    srcs = ["tests/test_server_log_tailer.py"],
+    main = "tests/test_server_log_tailer.py",
+    imports = [".."],
+    deps = [
+        ":log_tailer",
         ":server",
         "//proto/vanpilot/v1:sync_py_proto",
         requirement("grpcio"),
