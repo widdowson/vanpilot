@@ -82,7 +82,7 @@ This document defines the acceptance criteria for VanPilot development. All feat
 
 ## AC-11: Security
 
-- [ ] **AC-11.1**: The head unit never receives credentials, API keys, or gRPC traffic.
+- [x] **AC-11.1**: The head unit never receives credentials, API keys, or gRPC traffic.
 - [ ] **AC-11.2**: All gRPC traffic is tunneled through Tailscale.
 - [x] **AC-11.3**: Claude Code agents run in Docker with resource limits.
 
@@ -98,7 +98,7 @@ This document defines the acceptance criteria for VanPilot development. All feat
 - [x] **AC-13.1**: The supervisory process can inject user prompts into the lead agent's tmux session via `tmux send-keys`.
 - [x] **AC-13.2**: After injection, the supervisor monitors for a response within a configurable timeout.
 - [x] **AC-13.3**: If no response is detected, an `InputDeliveryFailure` event is emitted.
-- [ ] **AC-13.4**: (Stretch Goal) Investigate protocol spoofing as an alternative input injection path. Document findings regardless of outcome.
+- [x] **AC-13.4**: (Stretch Goal) Investigate protocol spoofing as an alternative input injection path. Document findings regardless of outcome.
 
 ## AC-14: Watchdog
 
