@@ -91,6 +91,9 @@ class EmulatorLifecycle:
             # 3. Wait for boot
             self._wait_for_boot(serial)
 
+            # 3b. Verify snapshot sentinel (detects cold-boot vs snapshot resume)
+            self._check_snapshot_sentinel(serial)
+
             # 4. Forward AA port
             self._runner.run(
                 ["adb", "-s", serial, "forward",
@@ -233,6 +236,25 @@ class EmulatorLifecycle:
         raise TimeoutError(
             f"Emulator {serial} did not boot within {self._boot_timeout}s"
         )
+
+    def _check_snapshot_sentinel(self, serial: str) -> None:
+        """Verify the snapshot sentinel file exists on the emulator.
+
+        The ``aa_ready`` snapshot has ``.vanpilot_snapshot_sentinel`` baked in
+        at ``/data/local/tmp/``.  If the file is absent the emulator cold-booted
+        (i.e. the snapshot was not loaded) and the caller should not proceed.
+        """
+        result = self._runner.run(
+            ["adb", "-s", serial, "shell",
+             "ls", "/data/local/tmp/.vanpilot_snapshot_sentinel"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Snapshot sentinel missing on {serial}: emulator cold-booted "
+                "instead of resuming snapshot. Check -gpu flag and AVD snapshot name."
+            )
 
     def _wait_for_dhu(self, log_path: str) -> None:
         """Poll DHU log until 'connected' appears."""

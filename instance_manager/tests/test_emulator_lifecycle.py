@@ -130,6 +130,49 @@ class EmulatorLifecycleTest(unittest.TestCase):
 
         self.assertEqual(store.get("test").state, ERROR)
 
+    def test_create_sentinel_present_succeeds(self):
+        """create() completes normally when the snapshot sentinel file exists."""
+        store, runner, lifecycle = self._make_lifecycle()
+        ports = self._make_ports()
+        store.create("test", 5554, 5555, 5277, False, 1000, "test_avd")
+
+        with patch.object(lifecycle, "_wait_for_dhu"):
+            with patch.object(lifecycle, "screenshot_to_bytes", return_value=b"png"):
+                record = lifecycle.create("test", "test_avd", "aa_ready", False, ports)
+
+        # Sentinel check should have been issued
+        sentinel_calls = [
+            c for c in runner.run_calls
+            if ".vanpilot_snapshot_sentinel" in " ".join(c[0])
+        ]
+        self.assertEqual(len(sentinel_calls), 1)
+        self.assertEqual(record.state, RUNNING)
+
+    def test_create_sentinel_absent_raises_and_sets_error(self):
+        """create() raises RuntimeError with 'cold-booted' when sentinel is missing."""
+
+        class SentinelMissingRunner(FakeSubprocessRunner):
+            def run(self, args, **kwargs):
+                result = super().run(args, **kwargs)
+                if ".vanpilot_snapshot_sentinel" in " ".join(args):
+                    result.returncode = 1
+                    result.stdout = ""
+                return result
+
+        runner = SentinelMissingRunner()
+        store = InstanceStore()
+        lifecycle = EmulatorLifecycle(store, runner, boot_timeout=2, dhu_timeout=2)
+        ports = self._make_ports()
+        store.create("test", 5554, 5555, 5277, False, 1000, "test_avd")
+
+        with self.assertRaises(RuntimeError) as ctx:
+            with patch.object(lifecycle, "_wait_for_dhu"):
+                with patch.object(lifecycle, "screenshot_to_bytes", return_value=b"png"):
+                    lifecycle.create("test", "test_avd", "aa_ready", False, ports)
+
+        self.assertIn("cold-booted", str(ctx.exception))
+        self.assertEqual(store.get("test").state, ERROR)
+
     def test_destroy_kills_processes(self):
         store, runner, lifecycle = self._make_lifecycle()
         store.create("test", 5554, 5555, 5277, False, 1000, "test_avd")
