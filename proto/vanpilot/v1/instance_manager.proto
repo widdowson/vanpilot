@@ -1,0 +1,149 @@
+syntax = "proto3";
+
+package vanpilot.v1;
+
+option java_package = "com.vanpilot.proto.v1";
+option java_multiple_files = true;
+
+// Manages Android emulator + DHU instance pairs on the macOS host.
+// Sandbox workers call this to spin up isolated testing environments.
+service InstanceManagerService {
+  // Create a new emulator + DHU instance pair.
+  rpc CreateInstance(CreateInstanceRequest) returns (CreateInstanceResponse);
+
+  // Destroy an existing instance, killing emulator and DHU processes.
+  rpc DestroyInstance(DestroyInstanceRequest) returns (DestroyInstanceResponse);
+
+  // List all known instances and their states.
+  rpc ListInstances(ListInstancesRequest) returns (ListInstancesResponse);
+
+  // Get details for a single instance by name.
+  rpc GetInstance(GetInstanceRequest) returns (GetInstanceResponse);
+
+  // Capture a DHU screenshot from a running instance.
+  rpc ScreenshotInstance(ScreenshotInstanceRequest) returns (ScreenshotInstanceResponse);
+
+  // Restart the DHU for an existing running instance (without touching the emulator).
+  // Useful after installing an APK so Android Auto discovers the new app.
+  rpc RestartDhu(RestartDhuRequest) returns (RestartDhuResponse);
+
+  // Send a console command to the DHU (e.g. "tap 300 430", "keycode home", "day").
+  // Optionally captures a screenshot after the command executes.
+  rpc DhuCommand(DhuCommandRequest) returns (DhuCommandResponse);
+}
+
+message CreateInstanceRequest {
+  // Human-readable instance name (e.g., "coder-agent-1"). Must be unique.
+  string name = 1;
+
+  // true = GUI emulator window, false = headless (default).
+  bool headful = 2;
+
+  // AVD to use. Default: "vanpilot_pixel9pro_api36".
+  string avd_name = 3;
+
+  // Snapshot to restore on boot. Default: "aa_ready".
+  string snapshot_name = 4;
+}
+
+message CreateInstanceResponse {
+  InstanceInfo instance = 1;
+}
+
+message DestroyInstanceRequest {
+  string name = 1;
+}
+
+message DestroyInstanceResponse {}
+
+message ListInstancesRequest {}
+
+message ListInstancesResponse {
+  repeated InstanceInfo instances = 1;
+}
+
+message GetInstanceRequest {
+  string name = 1;
+}
+
+message GetInstanceResponse {
+  InstanceInfo instance = 1;
+}
+
+message ScreenshotInstanceRequest {
+  string name = 1;
+}
+
+message ScreenshotInstanceResponse {
+  // DHU screenshot as PNG bytes.
+  bytes dhu_screenshot_png = 1;
+
+  // When the screenshot was captured (milliseconds since epoch).
+  int64 captured_at_ms = 2;
+
+  // Emulator phone screen as PNG bytes (adb screencap).
+  bytes emulator_screenshot_png = 3;
+}
+
+message RestartDhuRequest {
+  string name = 1;
+}
+
+message RestartDhuResponse {
+  InstanceInfo instance = 1;
+}
+
+message DhuCommandRequest {
+  string name = 1;
+
+  // DHU console command, e.g. "tap 300 430", "keycode home", "day".
+  string command = 2;
+
+  // If true, capture and return a DHU screenshot after the command executes.
+  // A short delay (1s) is inserted before capture to let the UI settle.
+  bool capture_screenshot = 3;
+}
+
+message DhuCommandResponse {
+  // Millisecond epoch timestamp when the command was sent to the pipe.
+  int64 executed_at_ms = 1;
+
+  // DHU screenshot captured after the command (only if capture_screenshot was true).
+  bytes screenshot_png = 2;
+}
+
+message InstanceInfo {
+  string name = 1;
+  InstanceState state = 2;
+
+  // Emulator console port (e.g., 5554).
+  int32 emulator_console_port = 3;
+
+  // ADB port (e.g., 5555). Always console_port + 1.
+  int32 adb_port = 4;
+
+  // AA forwarded port (e.g., 5277).
+  int32 aa_forward_port = 5;
+
+  bool headful = 6;
+
+  // Instance creation time (milliseconds since epoch).
+  int64 created_at_ms = 7;
+
+  string avd_name = 8;
+
+  // Most recent DHU screenshot (populated by background refresh loop).
+  // Omitted if no screenshot has been taken yet.
+  bytes last_screenshot_png = 9;
+
+  // Most recent emulator phone screen (adb screencap).
+  bytes last_emulator_screenshot_png = 10;
+}
+
+enum InstanceState {
+  INSTANCE_STATE_UNSPECIFIED = 0;
+  CREATING = 1;
+  RUNNING = 2;
+  ERROR = 3;
+  DESTROYING = 4;
+}

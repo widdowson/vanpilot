@@ -1,0 +1,167 @@
+load("@pip//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+package(default_visibility = ["//visibility:public"])
+
+# ============================================================================
+# Libraries
+# ============================================================================
+
+py_library(
+    name = "port_allocator",
+    srcs = ["src/port_allocator.py"],
+    imports = [".."],
+)
+
+py_library(
+    name = "instance_store",
+    srcs = ["src/instance_store.py"],
+    imports = [".."],
+)
+
+py_library(
+    name = "emulator_lifecycle",
+    srcs = ["src/emulator_lifecycle.py"],
+    imports = [".."],
+    deps = [
+        ":instance_store",
+        ":port_allocator",
+    ],
+)
+
+py_library(
+    name = "instance_manager_service",
+    srcs = ["src/instance_manager_service.py"],
+    imports = [".."],
+    deps = [
+        ":emulator_lifecycle",
+        ":instance_store",
+        ":port_allocator",
+        "//proto/vanpilot/v1:instance_manager_py_proto",
+        requirement("grpcio"),
+    ],
+)
+
+py_library(
+    name = "web_server",
+    srcs = ["src/web_server.py"],
+    imports = [".."],
+    deps = [
+        ":instance_store",
+    ],
+)
+
+py_library(
+    name = "server",
+    srcs = ["src/server.py"],
+    imports = [".."],
+    deps = [
+        ":emulator_lifecycle",
+        ":instance_manager_service",
+        ":instance_store",
+        ":port_allocator",
+        ":web_server",
+        requirement("grpcio"),
+    ],
+)
+
+py_binary(
+    name = "instance_manager",
+    srcs = ["src/server.py"],
+    main = "src/server.py",
+    imports = [".."],
+    deps = [":server"],
+)
+
+py_library(
+    name = "client_lib",
+    srcs = ["src/client.py"],
+    imports = [".."],
+    deps = [
+        "//proto/vanpilot/v1:instance_manager_py_proto",
+        requirement("grpcio"),
+    ],
+)
+
+py_binary(
+    name = "instance_manager_client",
+    srcs = ["src/client.py"],
+    main = "src/client.py",
+    imports = [".."],
+    deps = [":client_lib"],
+)
+
+# ============================================================================
+# Tests (fine-grained: one target per test module)
+# ============================================================================
+
+py_test(
+    name = "port_allocator_test",
+    srcs = ["tests/test_port_allocator.py"],
+    main = "tests/test_port_allocator.py",
+    imports = [".."],
+    deps = [":port_allocator"],
+)
+
+py_test(
+    name = "instance_store_test",
+    srcs = ["tests/test_instance_store.py"],
+    main = "tests/test_instance_store.py",
+    imports = [".."],
+    deps = [":instance_store"],
+)
+
+py_test(
+    name = "emulator_lifecycle_test",
+    srcs = ["tests/test_emulator_lifecycle.py"],
+    main = "tests/test_emulator_lifecycle.py",
+    imports = [".."],
+    deps = [
+        ":emulator_lifecycle",
+        ":instance_store",
+        ":port_allocator",
+    ],
+)
+
+py_test(
+    name = "instance_manager_service_test",
+    srcs = ["tests/test_instance_manager_service.py"],
+    main = "tests/test_instance_manager_service.py",
+    imports = [".."],
+    deps = [
+        ":emulator_lifecycle",
+        ":instance_manager_service",
+        ":instance_store",
+        ":port_allocator",
+        "//proto/vanpilot/v1:instance_manager_py_proto",
+        requirement("grpcio"),
+    ],
+)
+
+py_test(
+    name = "web_server_test",
+    srcs = ["tests/test_web_server.py"],
+    main = "tests/test_web_server.py",
+    imports = [".."],
+    deps = [
+        ":instance_store",
+        ":web_server",
+    ],
+)
+
+py_test(
+    name = "e2e_test",
+    srcs = ["tests/test_e2e.py"],
+    main = "tests/test_e2e.py",
+    imports = [".."],
+    deps = [
+        ":emulator_lifecycle",
+        ":instance_manager_service",
+        ":instance_store",
+        ":port_allocator",
+        ":server",
+        ":web_server",
+        "//proto/vanpilot/v1:instance_manager_py_proto",
+        requirement("grpcio"),
+    ],
+)

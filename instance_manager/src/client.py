@@ -1,0 +1,184 @@
+"""CLI client for the instance manager gRPC service."""
+
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+import time
+
+import grpc
+
+from proto.vanpilot.v1 import instance_manager_pb2
+
+_SERVICE = "/vanpilot.v1.InstanceManagerService"
+_STATE_NAMES = {0: "UNSPECIFIED", 1: "CREATING", 2: "RUNNING", 3: "ERROR", 4: "DESTROYING"}
+
+
+def _make_stubs(channel):
+    """Build low-level unary-unary stubs (no gRPC codegen needed)."""
+    def _stub(method, req_type, resp_type):
+        return channel.unary_unary(
+            f"{_SERVICE}/{method}",
+            request_serializer=req_type.SerializeToString,
+            response_deserializer=resp_type.FromString,
+        )
+
+    pb = instance_manager_pb2
+    return {
+        "create": _stub("CreateInstance", pb.CreateInstanceRequest, pb.CreateInstanceResponse),
+        "destroy": _stub("DestroyInstance", pb.DestroyInstanceRequest, pb.DestroyInstanceResponse),
+        "list": _stub("ListInstances", pb.ListInstancesRequest, pb.ListInstancesResponse),
+        "get": _stub("GetInstance", pb.GetInstanceRequest, pb.GetInstanceResponse),
+        "screenshot": _stub("ScreenshotInstance", pb.ScreenshotInstanceRequest, pb.ScreenshotInstanceResponse),
+        "restart_dhu": _stub("RestartDhu", pb.RestartDhuRequest, pb.RestartDhuResponse),
+        "dhu_command": _stub("DhuCommand", pb.DhuCommandRequest, pb.DhuCommandResponse),
+    }
+
+
+def _print_instance(info):
+    state = _STATE_NAMES.get(info.state, f"UNKNOWN({info.state})")
+    print(f"  {info.name}  state={state}  console={info.emulator_console_port}"
+          f"  adb={info.adb_port}  aa={info.aa_forward_port}"
+          f"  headful={info.headful}  avd={info.avd_name}")
+    if info.last_screenshot_png:
+        print(f"    DHU screenshot: {len(info.last_screenshot_png)} bytes")
+    if info.last_emulator_screenshot_png:
+        print(f"    Phone screenshot: {len(info.last_emulator_screenshot_png)} bytes")
+
+
+def cmd_create(stubs, args):
+    pb = instance_manager_pb2
+    req = pb.CreateInstanceRequest(
+        name=args.name,
+        headful=args.headful,
+        avd_name=args.avd or "",
+        snapshot_name=args.snapshot or "",
+    )
+    print(f"Creating instance '{args.name}'...")
+    resp = stubs["create"](req, timeout=args.timeout)
+    print("OK")
+    _print_instance(resp.instance)
+
+
+def cmd_destroy(stubs, args):
+    pb = instance_manager_pb2
+    stubs["destroy"](pb.DestroyInstanceRequest(name=args.name), timeout=30)
+    print(f"Destroyed '{args.name}'")
+
+
+def cmd_list(stubs, args):
+    pb = instance_manager_pb2
+    resp = stubs["list"](pb.ListInstancesRequest(), timeout=10)
+    if not resp.instances:
+        print("No instances.")
+        return
+    for info in resp.instances:
+        _print_instance(info)
+
+
+def cmd_get(stubs, args):
+    pb = instance_manager_pb2
+    resp = stubs["get"](pb.GetInstanceRequest(name=args.name), timeout=10)
+    _print_instance(resp.instance)
+
+
+def cmd_screenshot(stubs, args):
+    pb = instance_manager_pb2
+    resp = stubs["screenshot"](pb.ScreenshotInstanceRequest(name=args.name), timeout=30)
+    ts = resp.captured_at_ms
+    if resp.dhu_screenshot_png:
+        dhu_path = args.output or f"/tmp/{args.name}_dhu.png"
+        with open(dhu_path, "wb") as f:
+            f.write(resp.dhu_screenshot_png)
+        print(f"DHU screenshot: {dhu_path} ({len(resp.dhu_screenshot_png)} bytes)")
+    if resp.emulator_screenshot_png:
+        emu_path = args.emu_output or f"/tmp/{args.name}_phone.png"
+        with open(emu_path, "wb") as f:
+            f.write(resp.emulator_screenshot_png)
+        print(f"Phone screenshot: {emu_path} ({len(resp.emulator_screenshot_png)} bytes)")
+
+
+def cmd_restart_dhu(stubs, args):
+    pb = instance_manager_pb2
+    req = pb.RestartDhuRequest(name=args.name)
+    print(f"Restarting DHU for '{args.name}'...")
+    resp = stubs["restart_dhu"](req, timeout=args.timeout)
+    print("OK")
+    _print_instance(resp.instance)
+
+
+def cmd_dhu_command(stubs, args):
+    pb = instance_manager_pb2
+    command = " ".join(args.dhu_words)
+    req = pb.DhuCommandRequest(
+        name=args.name,
+        command=command,
+        capture_screenshot=args.screenshot,
+    )
+    resp = stubs["dhu_command"](req, timeout=30)
+    print(f"Command sent at {resp.executed_at_ms}")
+    if resp.screenshot_png:
+        out_path = args.output or f"/tmp/{args.name}_dhu_cmd.png"
+        with open(out_path, "wb") as f:
+            f.write(resp.screenshot_png)
+        print(f"Screenshot: {out_path} ({len(resp.screenshot_png)} bytes)")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Instance manager CLI")
+    parser.add_argument("--addr", default="localhost:50061", help="gRPC server address")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p_create = sub.add_parser("create")
+    p_create.add_argument("--name", required=True)
+    p_create.add_argument("--avd", default="")
+    p_create.add_argument("--snapshot", default="")
+    p_create.add_argument("--headful", action="store_true")
+    p_create.add_argument("--timeout", type=int, default=180)
+
+    p_destroy = sub.add_parser("destroy")
+    p_destroy.add_argument("--name", required=True)
+
+    sub.add_parser("list")
+
+    p_get = sub.add_parser("get")
+    p_get.add_argument("--name", required=True)
+
+    p_ss = sub.add_parser("screenshot")
+    p_ss.add_argument("--name", required=True)
+    p_ss.add_argument("--output", help="DHU screenshot output path")
+    p_ss.add_argument("--emu-output", help="Phone screenshot output path")
+
+    p_restart = sub.add_parser("restart-dhu")
+    p_restart.add_argument("--name", required=True)
+    p_restart.add_argument("--timeout", type=int, default=120)
+
+    p_dhu_cmd = sub.add_parser("dhu-command")
+    p_dhu_cmd.add_argument("--name", required=True)
+    p_dhu_cmd.add_argument("--screenshot", action="store_true")
+    p_dhu_cmd.add_argument("--output", help="Screenshot output path")
+    p_dhu_cmd.add_argument("dhu_words", nargs="+", metavar="command", help="DHU console command")
+
+    args = parser.parse_args()
+    channel = grpc.insecure_channel(args.addr)
+    stubs = _make_stubs(channel)
+
+    dispatch = {
+        "create": cmd_create,
+        "destroy": cmd_destroy,
+        "list": cmd_list,
+        "get": cmd_get,
+        "screenshot": cmd_screenshot,
+        "restart-dhu": cmd_restart_dhu,
+        "dhu-command": cmd_dhu_command,
+    }
+    try:
+        dispatch[args.command](stubs, args)
+    except grpc.RpcError as e:
+        print(f"ERROR: {e.code()} — {e.details()}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

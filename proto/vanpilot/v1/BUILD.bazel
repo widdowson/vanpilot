@@ -26,6 +26,8 @@ build_test(
         ":sync_proto",
         ":display_proto",
         ":screenshot_proto",
+        ":instance_manager_proto",
+        ":instance_manager_py_proto",
     ],
 )
 
@@ -88,4 +90,15 @@ java_grpc_library(
     srcs = [":screenshot_proto"],
     deps = [":screenshot_java_proto"],
     flavor = "lite",
+)
+
+# Instance manager proto (Python-only — no Java/gRPC targets needed)
+proto_library(
+    name = "instance_manager_proto",
+    srcs = ["instance_manager.proto"],
+)
+
+py_proto_library(
+    name = "instance_manager_py_proto",
+    deps = [":instance_manager_proto"],
 )
