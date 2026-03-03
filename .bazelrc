@@ -11,6 +11,9 @@ test --test_output=errors
 # Disk cache for local builds
 build --disk_cache=~/.cache/bazel-disk
 
+# CI config: let setup-bazel manage the disk cache
+build:ci --disk_cache=
+
 # Verbose failures for debugging
 build --verbose_failures
 

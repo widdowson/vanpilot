@@ -30,25 +30,20 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Build all targets
+      - name: Configure remote cache
+        id: cache
         run: |
-          REMOTE_CACHE_FLAG=""
           if [ -n "$BAZEL_REMOTE_CACHE_URL" ]; then
-            REMOTE_CACHE_FLAG="--remote_cache=$BAZEL_REMOTE_CACHE_URL"
+            echo "flag=--remote_cache=$BAZEL_REMOTE_CACHE_URL" >> "$GITHUB_OUTPUT"
           fi
-          bazel build //... --config=ci $REMOTE_CACHE_FLAG
         env:
           BAZEL_REMOTE_CACHE_URL: ${{ secrets.BAZEL_REMOTE_CACHE_URL }}
 
+      - name: Build all targets
+        run: bazel build //... --config=ci ${{ steps.cache.outputs.flag }}
+
       - name: Run all tests
-        run: |
-          REMOTE_CACHE_FLAG=""
-          if [ -n "$BAZEL_REMOTE_CACHE_URL" ]; then
-            REMOTE_CACHE_FLAG="--remote_cache=$BAZEL_REMOTE_CACHE_URL"
-          fi
-          bazel test //... --test_output=errors --config=ci $REMOTE_CACHE_FLAG
-        env:
-          BAZEL_REMOTE_CACHE_URL: ${{ secrets.BAZEL_REMOTE_CACHE_URL }}
+        run: bazel test //... --config=ci ${{ steps.cache.outputs.flag }}
 
       - name: Upload test logs (on failure)
         if: failure()
