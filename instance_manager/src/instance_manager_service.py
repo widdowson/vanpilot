@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 
 import grpc
@@ -19,6 +20,8 @@ from instance_manager.src.port_allocator import PortAllocator
 
 _DEFAULT_AVD = "vanpilot_pixel9pro_api36"
 _DEFAULT_SNAPSHOT = "aa_ready"
+
+_SAFE_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]*$")
 
 
 def _record_to_proto(record: InstanceRecord) -> instance_manager_pb2.InstanceInfo:
@@ -57,6 +60,11 @@ class InstanceManagerServicer:
         name = request.name
         if not name:
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, "name is required")
+        if not _SAFE_NAME_RE.match(name):
+            context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT,
+                f"Invalid name '{name}': must match [a-zA-Z0-9][a-zA-Z0-9._-]*",
+            )
 
         if self._store.get(name) is not None:
             context.abort(
@@ -66,6 +74,17 @@ class InstanceManagerServicer:
 
         avd_name = request.avd_name or _DEFAULT_AVD
         snapshot_name = request.snapshot_name or _DEFAULT_SNAPSHOT
+
+        if not _SAFE_NAME_RE.match(avd_name):
+            context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT,
+                f"Invalid avd_name '{avd_name}'",
+            )
+        if not _SAFE_NAME_RE.match(snapshot_name):
+            context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT,
+                f"Invalid snapshot_name '{snapshot_name}'",
+            )
 
         try:
             ports = self._port_allocator.allocate()
@@ -95,6 +114,7 @@ class InstanceManagerServicer:
             )
         except Exception as e:
             self._port_allocator.release(ports.slot_index)
+            self._store.remove(name)
             context.abort(grpc.StatusCode.INTERNAL, str(e))
 
     def DestroyInstance(self, request, context):

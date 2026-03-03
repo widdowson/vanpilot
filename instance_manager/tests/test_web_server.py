@@ -36,14 +36,14 @@ class WebServerTest(unittest.TestCase):
     def test_screenshot_route(self):
         self.store.create("snap", 5554, 5555, 5277, False, 1000, "avd")
         self.store.update("snap", last_screenshot_png=b"\x89PNG-fake")
-        resp = urllib.request.urlopen(f"{self.base_url}/instances/snap/screenshot")
+        resp = urllib.request.urlopen(f"{self.base_url}/instances/snap/dhu-screenshot")
         self.assertEqual(resp.status, 200)
         self.assertEqual(resp.headers["Content-Type"], "image/png")
         self.assertEqual(resp.read(), b"\x89PNG-fake")
 
     def test_screenshot_not_found(self):
         with self.assertRaises(urllib.error.HTTPError) as ctx:
-            urllib.request.urlopen(f"{self.base_url}/instances/nope/screenshot")
+            urllib.request.urlopen(f"{self.base_url}/instances/nope/dhu-screenshot")
         self.assertEqual(ctx.exception.code, 404)
 
     def test_api_instances(self):

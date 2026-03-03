@@ -185,7 +185,7 @@ class GoldenTestCase(unittest.TestCase):
     def capture_dhu_screenshot(self) -> bytes:
         """Capture a DHU screenshot via the instance manager."""
         resp = self._client.screenshot_instance(self.instance_name)
-        return resp.screenshot_png
+        return resp.dhu_screenshot_png
 
     def capture_emulator_screenshot(self) -> bytes:
         """Capture an emulator screenshot via adb screencap."""

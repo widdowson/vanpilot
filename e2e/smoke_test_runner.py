@@ -204,4 +204,4 @@ class SmokeTestRunner:
     def capture_dhu_screenshot(self) -> bytes:
         """Capture DHU screenshot via the instance manager."""
         resp = self._im_client.screenshot_instance(self.instance_name)
-        return resp.screenshot_png
+        return resp.dhu_screenshot_png

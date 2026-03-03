@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import json
+import re
 import threading
 import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -13,6 +14,9 @@ from instance_manager.src.instance_store import InstanceStore
 
 _STATE_NAMES = {0: "UNSPECIFIED", 1: "CREATING", 2: "RUNNING", 3: "ERROR", 4: "DESTROYING"}
 _STATE_COLORS = {1: "#f0ad4e", 2: "#5cb85c", 3: "#d9534f", 4: "#999"}
+_INSTANCE_SCREENSHOT_RE = re.compile(
+    r"^/instances/([a-zA-Z0-9][a-zA-Z0-9._-]*)/(dhu-screenshot|emu-screenshot)$"
+)
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
@@ -23,16 +27,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/":
             self._serve_dashboard()
-        elif self.path.startswith("/instances/") and self.path.endswith("/dhu-screenshot"):
-            name = self.path.split("/")[2]
-            self._serve_screenshot(name, "dhu")
-        elif self.path.startswith("/instances/") and self.path.endswith("/emu-screenshot"):
-            name = self.path.split("/")[2]
-            self._serve_screenshot(name, "emu")
-        elif self.path.startswith("/instances/") and self.path.endswith("/screenshot"):
-            # Backwards compat — serves DHU screenshot
-            name = self.path.split("/")[2]
-            self._serve_screenshot(name, "dhu")
+            return
+        m = _INSTANCE_SCREENSHOT_RE.match(self.path)
+        if m:
+            name = m.group(1)
+            kind = "emu" if m.group(2) == "emu-screenshot" else "dhu"
+            self._serve_screenshot(name, kind)
         elif self.path == "/api/instances":
             self._serve_api_instances()
         else:

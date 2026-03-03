@@ -421,16 +421,11 @@ class EmulatorLifecycleTest(unittest.TestCase):
         )
         record = store.get("test")
 
-        result = lifecycle.dhu_command(record, "keycode home", False)
+        with patch.object(runner, "pipe_write") as mock_pw:
+            result = lifecycle.dhu_command(record, "keycode home", False)
 
         self.assertEqual(result, b"")
-        # Find the bash echo command
-        echo_calls = [
-            c for c in runner.run_calls
-            if c[0][0] == "bash" and "keycode home" in c[0][-1]
-        ]
-        self.assertEqual(len(echo_calls), 1)
-        self.assertIn("/tmp/dhu_test_pipe", echo_calls[0][0][-1])
+        mock_pw.assert_called_once_with("/tmp/dhu_test_pipe", "keycode home")
 
     def test_dhu_command_with_screenshot(self):
         """dhu_command captures a screenshot when requested."""

@@ -46,6 +46,11 @@ class SubprocessRunner:
     def popen(self, args: list[str], **kwargs) -> subprocess.Popen:
         return subprocess.Popen(args, **kwargs)
 
+    def pipe_write(self, pipe_path: str, text: str) -> None:
+        """Write a line to a named pipe."""
+        with open(pipe_path, "w") as pipe:
+            pipe.write(text + "\n")
+
 
 class EmulatorLifecycle:
     """Manages emulator + DHU instance lifecycle."""
@@ -424,10 +429,7 @@ class EmulatorLifecycle:
                 f"Instance '{record.name}' has no pipe path"
             )
 
-        self._runner.run(
-            ["bash", "-c", f'echo "{command}" > {record.pipe_path}'],
-            capture_output=True,
-        )
+        self._runner.pipe_write(record.pipe_path, command)
 
         if capture_screenshot:
             time.sleep(1)  # let UI settle after tap/keycode
@@ -453,10 +455,7 @@ class EmulatorLifecycle:
         )
 
         # Send screenshot command via pipe
-        self._runner.run(
-            ["bash", "-c", f'echo "screenshot {screenshot_path}" > {pipe_path}'],
-            capture_output=True,
-        )
+        self._runner.pipe_write(pipe_path, f"screenshot {screenshot_path}")
 
         # Poll for file (check size > 0 to avoid reading a partially-created file)
         deadline = time.time() + _DEFAULT_SCREENSHOT_TIMEOUT
@@ -497,10 +496,7 @@ class EmulatorLifecycle:
         screenshot_path = f"/tmp/dhu_{name}_screenshot.png"
         while time.time() < deadline:
             self._runner.run(["rm", "-f", screenshot_path], capture_output=True)
-            self._runner.run(
-                ["bash", "-c", f'echo "screenshot {screenshot_path}" > {pipe_path}'],
-                capture_output=True,
-            )
+            self._runner.pipe_write(pipe_path, f"screenshot {screenshot_path}")
             time.sleep(interval)
             if os.path.exists(screenshot_path) and os.path.getsize(screenshot_path) > 0:
                 with open(screenshot_path, "rb") as f:

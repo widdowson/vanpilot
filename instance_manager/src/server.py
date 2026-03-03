@@ -56,7 +56,10 @@ def _screenshot_refresh_loop(
                     last_screenshot_at_ms=now_ms,
                 )
             except Exception:
-                pass  # Don't crash the refresh loop
+                log.debug(
+                    "Screenshot refresh failed for %s", record.name,
+                    exc_info=True,
+                )
 
 
 def create_server(

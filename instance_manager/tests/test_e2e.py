@@ -28,19 +28,10 @@ class FakeRunner(SubprocessRunner):
         if "getprop" in args and "sys.boot_completed" in args:
             result.stdout = "1"
 
-        # When screenshot command is echoed into the pipe, create the file.
+        # Simulate adb screencap creating an emulator screenshot file.
         if args and args[0] == "bash" and len(args) > 2:
             cmd_str = args[-1]
-            if "screenshot" in cmd_str and ">" in cmd_str and "screencap" not in cmd_str:
-                # Parse: echo "screenshot /tmp/dhu_X_screenshot.png" > pipe
-                parts = cmd_str.split("screenshot ", 1)
-                if len(parts) == 2:
-                    path = parts[1].split('"')[0].strip()
-                    os.makedirs(os.path.dirname(path) or "/tmp", exist_ok=True)
-                    with open(path, "wb") as f:
-                        f.write(_FAKE_PNG)
-            elif "screencap" in cmd_str:
-                # Parse: adb -s ... exec-out screencap -p > /tmp/emu_X_screenshot.png
+            if "screencap" in cmd_str:
                 parts = cmd_str.split("> ")
                 if len(parts) >= 2:
                     path = parts[-1].strip()
@@ -49,6 +40,14 @@ class FakeRunner(SubprocessRunner):
                         f.write(_FAKE_PNG)
 
         return result
+
+    def pipe_write(self, pipe_path, text):
+        """Intercept pipe writes to simulate DHU responses."""
+        if text.startswith("screenshot "):
+            path = text[len("screenshot "):].strip()
+            os.makedirs(os.path.dirname(path) or "/tmp", exist_ok=True)
+            with open(path, "wb") as f:
+                f.write(_FAKE_PNG)
 
     def popen(self, args, **kwargs):
         proc = MagicMock()
