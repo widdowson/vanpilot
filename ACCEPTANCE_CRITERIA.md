@@ -45,7 +45,7 @@ This document defines the acceptance criteria for VanPilot development. All feat
 - [x] **AC-6.2**: `display_bitmap` with `blocking=false` returns immediately.
 - [ ] **AC-6.3**: `display_bitmap` with `blocking=true` holds until the Android app confirms display.
 - [x] **AC-6.4**: `submit_bitmap` returns the assigned cache key and a courtesy screenshot showing the rendered result at correct head unit dimensions.
-- [ ] **AC-6.5**: The MCP runs inside the Docker container alongside the Claude Code agents.
+- [x] **AC-6.5**: The MCP runs inside the Docker container alongside the Claude Code agents.
 
 ## AC-7: Bitmap Caching
 
@@ -84,7 +84,7 @@ This document defines the acceptance criteria for VanPilot development. All feat
 
 - [ ] **AC-11.1**: The head unit never receives credentials, API keys, or gRPC traffic.
 - [ ] **AC-11.2**: All gRPC traffic is tunneled through Tailscale.
-- [ ] **AC-11.3**: Claude Code agents run in Docker with resource limits.
+- [x] **AC-11.3**: Claude Code agents run in Docker with resource limits.
 
 ## AC-12: CI/CD
 
