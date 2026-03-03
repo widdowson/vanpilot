@@ -105,7 +105,10 @@ py_test(
         ["phase9/*.png"],
         allow_empty = True,
     ),
-    deps = [":golden_diff"],
+    deps = [
+        ":golden_diff",
+        ":video_capture",
+    ],
     size = "large",
     tags = [
         "exclusive",
@@ -184,6 +187,74 @@ py_test(
     imports = [".."],
     args = ["VideoCaptureConfigCustomDurationTest"],
     deps = [":video_capture"],
+)
+
+# Video capture wiring tests — verify video_capture is integrated into
+# the emulator golden test lifecycle (AC-4.2).
+py_test(
+    name = "emulator_golden_video_wiring_exports_test",
+    srcs = [
+        "test_emulator_golden_video_wiring.py",
+        "test_emulator_golden.py",
+    ],
+    main = "test_emulator_golden_video_wiring.py",
+    imports = [".."],
+    args = [
+        "EmulatorGoldenVideoWiringTest.test_exports_video_config",
+        "EmulatorGoldenVideoWiringTest.test_exports_video_capture",
+    ],
+    deps = [
+        ":golden_diff",
+        ":video_capture",
+    ],
+)
+
+py_test(
+    name = "emulator_golden_video_wiring_default_test",
+    srcs = [
+        "test_emulator_golden_video_wiring.py",
+        "test_emulator_golden.py",
+    ],
+    main = "test_emulator_golden_video_wiring.py",
+    imports = [".."],
+    args = ["EmulatorGoldenVideoWiringTest.test_video_disabled_by_default"],
+    deps = [
+        ":golden_diff",
+        ":video_capture",
+    ],
+)
+
+py_test(
+    name = "emulator_golden_video_wiring_enabled_test",
+    srcs = [
+        "test_emulator_golden_video_wiring.py",
+        "test_emulator_golden.py",
+    ],
+    main = "test_emulator_golden_video_wiring.py",
+    imports = [".."],
+    args = ["EmulatorGoldenVideoWiringTest.test_video_enabled_with_record_flag"],
+    deps = [
+        ":golden_diff",
+        ":video_capture",
+    ],
+)
+
+py_test(
+    name = "emulator_golden_video_wiring_lifecycle_test",
+    srcs = [
+        "test_emulator_golden_video_wiring.py",
+        "test_emulator_golden.py",
+    ],
+    main = "test_emulator_golden_video_wiring.py",
+    imports = [".."],
+    args = [
+        "EmulatorGoldenVideoWiringTest.test_setup_class_starts_video",
+        "EmulatorGoldenVideoWiringTest.test_teardown_class_stops_video",
+    ],
+    deps = [
+        ":golden_diff",
+        ":video_capture",
+    ],
 )
 
 # ============================================================================

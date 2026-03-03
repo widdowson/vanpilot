@@ -140,6 +140,27 @@ def read_png_pixels(png_data: bytes) -> tuple[int, int, list[tuple[int, int, int
     return width, height, pixels
 
 
+def mask_status_bar(png_data: bytes, rows: int = 100) -> bytes:
+    """Replace the top N rows of a PNG with hot pink (FF00FF).
+
+    Used to eliminate status bar jitter (clock, battery) from golden
+    comparisons. Both the golden and actual screenshot should be masked
+    so they match deterministically.
+
+    Args:
+        png_data: Raw PNG file bytes.
+        rows: Number of rows from the top to mask.
+
+    Returns:
+        New PNG bytes with the top rows painted hot pink.
+    """
+    w, h, pixels = read_png_pixels(png_data)
+    mask_color = (255, 0, 255)
+    for i in range(min(rows * w, len(pixels))):
+        pixels[i] = mask_color
+    return _make_png_from_pixels(w, h, pixels)
+
+
 def compare_golden(
     actual_png: bytes,
     golden_png: bytes,

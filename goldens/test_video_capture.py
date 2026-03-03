@@ -7,6 +7,7 @@ Tests are organized into fine-grained classes:
 """
 
 import os
+import signal
 import subprocess
 import tempfile
 import unittest
@@ -169,9 +170,11 @@ class VideoCaptureEnabledTest(unittest.TestCase):
             self.assertEqual(mock_popen.call_count, 1)
 
     def test_stop_terminates_process(self):
-        """stop() should terminate the screenrecord process."""
+        """stop() should send SIGINT to the screenrecord process."""
         mock_proc = mock.MagicMock()
         mock_proc.wait.return_value = 0
+        mock_proc.stdout = None
+        mock_proc.stderr = None
         with mock.patch("goldens.video_capture.subprocess.Popen", return_value=mock_proc):
             self.capture.start()
 
@@ -180,9 +183,10 @@ class VideoCaptureEnabledTest(unittest.TestCase):
         with open(video_path, "wb") as f:
             f.write(b"fake video data")
 
-        with mock.patch("goldens.video_capture.subprocess.run"):
+        with mock.patch("goldens.video_capture.subprocess.run"), \
+             mock.patch("goldens.video_capture.time.sleep"):
             self.capture.stop()
-            mock_proc.terminate.assert_called_once()
+            mock_proc.send_signal.assert_called_once_with(signal.SIGINT)
 
     def test_stop_returns_video_path(self):
         """stop() should return path to the pulled video."""

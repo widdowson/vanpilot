@@ -17,6 +17,9 @@ Usage:
 
   # Native emulator (auto-detect)
   bazel test //goldens:emulator_golden_test
+
+  # With video capture (AC-4.2)
+  bazel test //goldens:emulator_golden_test --test_arg=--record-video
 """
 
 import os
@@ -28,7 +31,8 @@ import unittest
 # Allow imports from workspace root
 sys.path.insert(0, os.path.join(os.environ.get("TEST_SRCDIR", ""), os.environ.get("TEST_WORKSPACE", "")))
 
-from goldens.golden_diff import compare_golden, read_png_pixels
+from goldens.golden_diff import compare_golden, mask_status_bar, read_png_pixels
+from goldens.video_capture import VideoCaptureConfig, VideoCapture
 
 
 EMU_HOST = os.environ.get("EMU_HOST", "")
@@ -41,6 +45,15 @@ GOLDEN_DIR = os.path.join(
     "goldens",
     "phase9",
 )
+
+# Video capture config parsed from test args (AC-4.1, AC-4.2).
+# Enabled via: bazel test //goldens:emulator_golden_test --test_arg=--record-video
+VIDEO_CONFIG = VideoCaptureConfig.from_args(sys.argv[1:])
+
+# Strip --record-video* args so unittest.main() doesn't choke on them.
+sys.argv = [a for a in sys.argv if not a.startswith("--record-video")]
+
+VIDEO_CAPTURE: VideoCapture  # initialized after emulator discovery (needs serial)
 
 
 def _find_emulator_serial() -> str | None:
@@ -84,6 +97,13 @@ def _find_emulator_serial() -> str | None:
 
 EMU_SERIAL = _find_emulator_serial()
 
+# Now that we know the emulator serial, configure video capture to target it.
+# VideoCapture defaults to "localhost:5555" which only works for TCP sidecar;
+# native emulators appear as "emulator-NNNN" and need the serial passed directly.
+if EMU_SERIAL and VIDEO_CONFIG.enabled:
+    VIDEO_CONFIG.adb_serial = EMU_SERIAL
+VIDEO_CAPTURE = VideoCapture(VIDEO_CONFIG)
+
 
 def _adb(*args: str, timeout: int = 30) -> str:
     """Run an ADB command targeting the discovered emulator."""
@@ -104,11 +124,21 @@ def _adb_check(*args: str, timeout: int = 30) -> str:
 
 
 def _capture_screenshot(output_path: str) -> None:
-    """Capture screenshot from emulator via adb screencap."""
+    """Capture screenshot from emulator via adb screencap.
+
+    The top 100 rows (status bar) are masked to hot pink to eliminate
+    clock/battery jitter between captures.
+    """
     remote = "/sdcard/golden_test_screenshot.png"
     _adb_check("shell", "screencap", "-p", remote)
     _adb_check("pull", remote, output_path, timeout=60)
     _adb_check("shell", "rm", remote)
+
+    with open(output_path, "rb") as f:
+        raw = f.read()
+    masked = mask_status_bar(raw, rows=100)
+    with open(output_path, "wb") as f:
+        f.write(masked)
 
 
 @unittest.skipUnless(
@@ -117,6 +147,14 @@ def _capture_screenshot(output_path: str) -> None:
 )
 class EmulatorGoldenTest(unittest.TestCase):
     """Compare live emulator screenshots against committed goldens."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        VIDEO_CAPTURE.start()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        VIDEO_CAPTURE.stop("emulator_golden")
 
     def _save_undeclared(self, name: str, data: bytes) -> str | None:
         """Save data to TEST_UNDECLARED_OUTPUTS_DIR for CI artifacts."""

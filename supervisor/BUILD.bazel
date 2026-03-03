@@ -67,6 +67,16 @@ py_library(
 )
 
 py_library(
+    name = "log_tailer",
+    srcs = ["src/log_tailer.py"],
+    imports = [".."],
+    deps = [
+        ":event_store",
+        "//proto/vanpilot/v1:sync_py_proto",
+    ],
+)
+
+py_library(
     name = "android_app_client",
     srcs = ["src/android_app_client.py"],
     imports = [".."],
@@ -83,6 +93,7 @@ py_library(
     deps = [
         ":android_app_client",
         ":event_store",
+        ":log_tailer",
         ":mcp_bridge",
         ":sync_service",
         requirement("grpcio"),
@@ -174,7 +185,21 @@ py_test(
     imports = [".."],
     deps = [
         ":android_app_client",
+        ":log_tailer",
         ":mcp_bridge",
+        ":server",
+        "//proto/vanpilot/v1:sync_py_proto",
+        requirement("grpcio"),
+    ],
+)
+
+py_test(
+    name = "server_log_tailer_test",
+    srcs = ["tests/test_server_log_tailer.py"],
+    main = "tests/test_server_log_tailer.py",
+    imports = [".."],
+    deps = [
+        ":log_tailer",
         ":server",
         "//proto/vanpilot/v1:sync_py_proto",
         requirement("grpcio"),
@@ -313,5 +338,31 @@ py_test(
     deps = [
         ":mcp_bridge",
         "//mcp:handlers",
+    ],
+)
+
+py_test(
+    name = "log_tailer_test",
+    srcs = ["tests/test_log_tailer.py"],
+    main = "tests/test_log_tailer.py",
+    imports = [".."],
+    deps = [
+        ":log_tailer",
+        "//proto/vanpilot/v1:sync_py_proto",
+    ],
+)
+
+py_test(
+    name = "log_tailer_integration_test",
+    srcs = ["tests/test_log_tailer_integration.py"],
+    main = "tests/test_log_tailer_integration.py",
+    imports = [".."],
+    tags = ["requires-tmux"],
+    deps = [
+        ":event_store",
+        ":input_injector",
+        ":log_tailer",
+        ":tmux_launcher",
+        "//proto/vanpilot/v1:sync_py_proto",
     ],
 )

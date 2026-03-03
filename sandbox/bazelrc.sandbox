@@ -6,3 +6,8 @@ startup --host_jvm_args=-Djavax.net.ssl.trustStorePassword=changeit
 common --repo_env=REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 common --repo_env=SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 common --repo_env=CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+
+# Coursier (rules_jvm_external) — use JDK truststore so proxy CA is trusted
+build --repo_env=COURSIER_OPTS=-Djavax.net.ssl.trustStore=/usr/lib/jvm/java-21-openjdk-arm64/lib/security/cacerts
+build --repo_env=RJE_COURSIER_USE_JAVA_HOME=1
+build --repo_env=JAVA_HOME=/usr/lib/jvm/java-21-openjdk-arm64

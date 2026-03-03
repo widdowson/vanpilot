@@ -1,0 +1,22 @@
+name: Test plan
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: All test plan items checked
+        run: |
+          UNCHECKED=$(echo "$BODY" | grep -c '^\s*- \[ \]' || true)
+          if [ "$UNCHECKED" -gt 0 ]; then
+            echo "::error::$UNCHECKED unchecked test plan item(s):"
+            echo "$BODY" | grep '^\s*- \[ \]'
+            exit 1
+          fi
+          echo "All test plan items checked (or no checklist found)."
+        env:
+          BODY: ${{ github.event.pull_request.body }}
