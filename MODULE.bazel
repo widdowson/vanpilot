@@ -38,6 +38,14 @@ pip.parse(
     hub_name = "pip",
     python_version = "3.12",
     requirements_lock = "//:requirements.txt",
+    extra_pip_args = [
+        # Trust the system CA bundle (includes sandbox proxy CA if present).
+        # Harmless on non-proxy environments — pip falls back to certifi.
+        "--cert=/etc/ssl/certs/ca-certificates.crt",
+        # Disable pip cache — cachecontrol adapter causes read timeouts
+        # through the sandbox HTTPS proxy.
+        "--no-cache-dir",
+    ],
 )
 use_repo(pip, "pip")
 

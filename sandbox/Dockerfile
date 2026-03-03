@@ -32,7 +32,7 @@ RUN mkdir -p ${ANDROID_HOME}/licenses \
     && echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > ${ANDROID_HOME}/licenses/android-sdk-preview-license
 
 # Keep API level in sync with CI runner (rules_android auto-detects from installed SDK).
-RUN sdkmanager "platform-tools" "platforms;android-36"
+RUN sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
 RUN chown -R agent:agent ${ANDROID_HOME}
 
