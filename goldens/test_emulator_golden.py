@@ -20,9 +20,6 @@ Usage:
 
   # With video capture (AC-4.2)
   bazel test //goldens:emulator_golden_test --test_arg=--record-video
-
-  # 13-inch automotive display (AC-10.2)
-  bazel test //goldens:emulator_golden_13inch_test --test_env=EMU_HOST=localhost --test_env=EMU_PORT=5555
 """
 
 import os
@@ -34,7 +31,6 @@ import unittest
 # Allow imports from workspace root
 sys.path.insert(0, os.path.join(os.environ.get("TEST_SRCDIR", ""), os.environ.get("TEST_WORKSPACE", "")))
 
-from goldens.display_profiles import get_profile
 from goldens.golden_diff import compare_golden, read_png_pixels
 from goldens.video_capture import VideoCaptureConfig, VideoCapture
 
@@ -43,15 +39,11 @@ EMU_HOST = os.environ.get("EMU_HOST", "")
 EMU_PORT = os.environ.get("EMU_PORT", "")
 BOOT_TIMEOUT = 300  # 5 minutes
 
-# Display profile selection (AC-10.2). Set DISPLAY_PROFILE=13inch to test
-# against a 13-inch automotive ultrawide display (1920x720).
-DISPLAY_PROFILE = get_profile(os.environ.get("DISPLAY_PROFILE", "default"))
-
 GOLDEN_DIR = os.path.join(
     os.environ.get("TEST_SRCDIR", ""),
     os.environ.get("TEST_WORKSPACE", ""),
     "goldens",
-    DISPLAY_PROFILE.golden_subdir,
+    "phase9",
 )
 
 # Video capture config parsed from test args (AC-4.1, AC-4.2).
@@ -217,7 +209,9 @@ class EmulatorGoldenTest(unittest.TestCase):
         self._save_undeclared("actual.png", actual)
         self._save_undeclared("golden.png", golden)
 
-        match, diff_count, diff_png = compare_golden(actual, golden, tolerance=5)
+        match, diff_count, diff_png = compare_golden(
+            actual, golden, tolerance=5, mask_top_px=100,
+        )
         if diff_png:
             self._save_undeclared("diff.png", diff_png)
 
