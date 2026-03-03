@@ -8,6 +8,18 @@ RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends \
     gcc g++ \
     && rm -rf /var/lib/apt/lists/*
 
+# x86_64 emulation for Android SDK build-tools (aapt2) and platform-tools (adb).
+# Google does not publish Linux aarch64 SDK packages; the x86_64 binaries run
+# under QEMU user-mode emulation with the amd64 dynamic linker and libc.
+RUN dpkg --add-architecture amd64 \
+    && printf 'Types: deb\nURIs: http://archive.ubuntu.com/ubuntu/\nSuites: questing questing-updates questing-security\nComponents: main universe\nArchitectures: amd64\nSigned-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n' \
+       > /etc/apt/sources.list.d/amd64.sources \
+    && sed -i '/^Signed-By:/a Architectures: arm64' /etc/apt/sources.list.d/ubuntu.sources \
+    && apt-get update -qq \
+    && apt-get install -y -qq --no-install-recommends \
+       qemu-user-static libc6:amd64 libstdc++6:amd64 zlib1g:amd64 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Bazelisk
 RUN curl -fsSL -o /usr/local/bin/bazelisk \
     https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-arm64 \
@@ -35,6 +47,17 @@ RUN mkdir -p ${ANDROID_HOME}/licenses \
 RUN sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
 RUN chown -R agent:agent ${ANDROID_HOME}
+
+# Verify SDK tools are executable (catches architecture mismatches early)
+RUN ${ANDROID_HOME}/build-tools/36.0.0/aapt2 version \
+    && ${ANDROID_HOME}/platform-tools/adb version
+
+# Import proxy CA cert into all JDK truststores so Coursier/Maven fetches work
+RUN for ks in $(find /usr/lib/jvm -name cacerts 2>/dev/null); do \
+      keytool -importcert -noprompt -trustcacerts -alias proxy-ca \
+        -file /usr/local/share/ca-certificates/proxy-ca.crt \
+        -keystore "$ks" -storepass changeit 2>/dev/null || true; \
+    done
 
 USER agent
 

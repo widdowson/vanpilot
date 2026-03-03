@@ -32,6 +32,15 @@ jobs:
       - name: Build all targets
         run: bazel build //...
 
+      - name: Upload APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vanpilot-apk
+          path: bazel-bin/android/vanpilot.apk
+          if-no-files-found: ignore
+          retention-days: 30
+
       - name: Run all tests
         run: bazel test //... --test_output=errors
 
