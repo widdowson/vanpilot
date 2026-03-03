@@ -38,11 +38,15 @@ The **Android Auto projection boundary** between the Pixel and head unit is the 
 
 **3. Android app pulls events via `GetEvents` RPC**
 - `SyncClient.kt:pollEvents()` calls `stub.getEvents(request)` over gRPC
-- Receives `Event` messages; `handleEvent()` dispatches by `payloadCase`:
+- Receives `Event` messages; `SyncClient.handleEvent()` dispatches by `payloadCase`:
   - `BITMAP_PAYLOAD` → decodes PNG, stores in `BitmapCache` as `Bitmap` object
   - `DISPLAY_COMMAND` → looks up cache key, calls `onDisplayCommand(cacheKey)`
   - `TEXT_MESSAGE` → forwards `agentId` + `content` strings to callback
-- **Data crossing gRPC**: Proto messages containing text strings, PNG bytes, cache keys, timestamps, agent IDs, watchdog alerts. No credentials or API keys are part of any proto message schema.
+- `EventProcessor.kt:processEvent()` handles the full event set, including two additional types:
+  - `WATCHDOG_TIMEOUT` → creates a `ProcessedAlert` with agent ID and silent-duration text (e.g., "Agent X unresponsive for 5000ms")
+  - `INPUT_DELIVERY_FAILURE` → creates a `ProcessedAlert` with attempted-input and target-agent text (e.g., "Failed to deliver '...' to agent Y")
+  - These alerts are rendered as text rows in the UI, so only the human-readable alert string crosses the AA boundary — no raw proto fields or internal identifiers beyond what is shown to the user.
+- **Data crossing gRPC**: Proto messages containing text strings, PNG bytes, cache keys, timestamps, agent IDs, watchdog alerts, and input-delivery failure details. No credentials or API keys are part of any proto message schema.
 
 **4. Android app renders to Android Auto Surface**
 - `VanPilotSurfaceCallback.kt:displayBitmap()` receives a `Bitmap` object and draws it onto the `Surface` via `Canvas.drawBitmap()`
@@ -56,6 +60,7 @@ The **Android Auto projection boundary** between the Pixel and head unit is the 
 | Rendered bitmap pixels | Yes | AA projected frames (pixels) |
 | Text message content | Yes | Car App Library `ListTemplate` rows (rendered text) |
 | Watchdog alerts | Yes | Rendered in UI (text) |
+| Input delivery failure alerts | Yes | Rendered in UI (text) |
 | Bitmap cache keys | No | Internal to app, never rendered to user |
 | gRPC traffic | No | Tailscale tunnel terminates at the Pixel |
 | Tailscale keys | No | Stored in Pixel's Tailscale app, never exposed |
