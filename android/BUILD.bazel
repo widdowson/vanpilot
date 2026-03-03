@@ -38,8 +38,27 @@ kt_android_library(
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
     deps = [
+        ":grpc_endpoint_lib",
         ":voice_lib",
         "@maven//:androidx_car_app_app",
+    ],
+)
+
+# ============================================================================
+# Lightweight gRPC endpoint config (no proto deps — safe for android_binary)
+#
+# Contains only GrpcEndpointConfig and ChannelFactory. These classes
+# depend on io.grpc types but NOT on generated proto code, so they can
+# be pulled into vanpilot_lib without triggering the dex .jar error.
+# ============================================================================
+kt_jvm_library(
+    name = "grpc_endpoint_lib",
+    srcs = [
+        "app/src/main/kotlin/com/vanpilot/auto/grpc/GrpcEndpointConfig.kt",
+        "app/src/main/kotlin/com/vanpilot/auto/grpc/ChannelFactory.kt",
+    ],
+    deps = [
+        "@maven//:io_grpc_grpc_stub",
     ],
 )
 
@@ -48,6 +67,7 @@ kt_android_library(
 #
 # SyncClient.kt is excluded because it uses Android APIs (Bitmap,
 # BitmapFactory) and must be in an android_library target instead.
+# GrpcEndpointConfig and ChannelFactory live in grpc_endpoint_lib above.
 # ============================================================================
 kt_jvm_library(
     name = "grpc_lib",
@@ -58,9 +78,14 @@ kt_jvm_library(
             "app/src/main/kotlin/com/vanpilot/auto/sync/**/*.kt",
             "app/src/main/kotlin/com/vanpilot/auto/connectivity/**/*.kt",
         ],
-        exclude = ["app/src/main/kotlin/com/vanpilot/auto/grpc/SyncClient.kt"],
+        exclude = [
+            "app/src/main/kotlin/com/vanpilot/auto/grpc/SyncClient.kt",
+            "app/src/main/kotlin/com/vanpilot/auto/grpc/GrpcEndpointConfig.kt",
+            "app/src/main/kotlin/com/vanpilot/auto/grpc/ChannelFactory.kt",
+        ],
     ),
     deps = [
+        ":grpc_endpoint_lib",
         "//proto/vanpilot/v1:sync_java_proto",
         "//proto/vanpilot/v1:sync_java_grpc",
         "//proto/vanpilot/v1:screenshot_java_proto",
@@ -160,6 +185,7 @@ kt_jvm_library(
         "@maven//:androidx_car_app_app_testing",
         "@maven//:androidx_test_core",
         "@maven//:com_google_truth_truth",
+        "@maven//:io_grpc_grpc_inprocess",
         "@maven//:junit_junit",
         "@maven//:org_robolectric_robolectric",
     ],
@@ -645,6 +671,81 @@ android_local_test(
     test_class = "com.vanpilot.auto.grpc.SyncClientTest",
     deps = [
         ":sync_client_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+# ---- gRPC endpoint config test targets ----
+
+kt_jvm_library(
+    name = "grpc_endpoint_config_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/grpc/GrpcEndpointConfigTest.kt"],
+    deps = [
+        ":grpc_endpoint_lib",
+        "@maven//:junit_junit",
+        "@maven//:com_google_truth_truth",
+        "@maven//:org_robolectric_robolectric",
+    ],
+)
+
+kt_jvm_library(
+    name = "channel_factory_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/grpc/ChannelFactoryTest.kt"],
+    deps = [
+        ":grpc_endpoint_lib",
+        "@maven//:io_grpc_grpc_inprocess",
+        "@maven//:junit_junit",
+        "@maven//:com_google_truth_truth",
+        "@maven//:org_robolectric_robolectric",
+    ],
+)
+
+kt_jvm_library(
+    name = "session_grpc_wiring_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/grpc/SessionGrpcWiringTest.kt"],
+    deps = [
+        ":vanpilot_lib",
+        ":grpc_lib",
+        "@maven//:io_grpc_grpc_inprocess",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:androidx_car_app_app",
+        "@maven//:androidx_car_app_app_testing",
+        "@maven//:androidx_test_core",
+        "@maven//:junit_junit",
+        "@maven//:com_google_truth_truth",
+        "@maven//:org_robolectric_robolectric",
+    ],
+)
+
+android_local_test(
+    name = "grpc_endpoint_config_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
+    test_class = "com.vanpilot.auto.grpc.GrpcEndpointConfigTest",
+    deps = [
+        ":grpc_endpoint_config_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_local_test(
+    name = "channel_factory_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
+    test_class = "com.vanpilot.auto.grpc.ChannelFactoryTest",
+    deps = [
+        ":channel_factory_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_local_test(
+    name = "session_grpc_wiring_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
+    test_class = "com.vanpilot.auto.grpc.SessionGrpcWiringTest",
+    deps = [
+        ":session_grpc_wiring_test_lib",
         "@robolectric//bazel:android-all",
     ],
 )

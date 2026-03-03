@@ -24,15 +24,25 @@ tmux start-server
 
 # Start the supervisor gRPC server in a tmux session
 tmux new-session -d -s supervisor bash -c '
-  echo "[supervisor] Starting gRPC server on port 50051..."
+  echo "[supervisor] Starting gRPC server..."
   python -c "
-from supervisor.src.server import create_server
+from supervisor.src.server import create_server, create_android_app_client, parse_server_config
 import signal, sys
 
-server, port, bridge = create_server(50051)
+host, port, app_target = parse_server_config()
+app_client, app_channel = create_android_app_client(app_target)
+server, actual_port, bridge, tailer = create_server(port=port, host=host, app_client=app_client)
+tailer.start()
 server.start()
-print(f\"[supervisor] gRPC server listening on port {port}\", flush=True)
-signal.signal(signal.SIGTERM, lambda *_: (server.stop(5), sys.exit(0)))
+print(f\"[supervisor] gRPC server listening on {host}:{actual_port}\", flush=True)
+
+def shutdown(*_):
+    tailer.stop()
+    app_channel.close()
+    server.stop(5)
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, shutdown)
 server.wait_for_termination()
 "
 '

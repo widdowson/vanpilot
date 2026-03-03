@@ -5,6 +5,8 @@ import androidx.car.app.testing.SessionController
 import androidx.car.app.testing.TestCarContext
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
+import io.grpc.inprocess.InProcessChannelBuilder
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -23,14 +25,22 @@ class VanPilotSessionTest {
 
     private lateinit var session: VanPilotSession
     private lateinit var controller: SessionController
+    private val testChannel = InProcessChannelBuilder.forName("test-session")
+        .directExecutor()
+        .build()
 
     @Before
     fun setUp() {
-        session = VanPilotSession()
+        session = VanPilotSession(channelOverride = testChannel)
         val testCarContext = TestCarContext.createCarContext(
             ApplicationProvider.getApplicationContext()
         )
         controller = SessionController(session, testCarContext, Intent())
+    }
+
+    @After
+    fun tearDown() {
+        session.shutdownGrpc()
     }
 
     @Test
