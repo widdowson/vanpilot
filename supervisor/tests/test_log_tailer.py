@@ -9,6 +9,7 @@ Claude Code JSONL log format (each line is a JSON object):
   {"type": "system", ...}
 """
 
+import atexit
 import json
 import os
 import sys
@@ -26,6 +27,7 @@ _proto_patches = patch.dict("sys.modules", {
     "proto.vanpilot.v1.sync_pb2": _mock_sync,
 })
 _proto_patches.start()
+atexit.register(_proto_patches.stop)
 
 from supervisor.src.log_tailer import parse_log_entry, LogTailer
 

@@ -20,7 +20,7 @@ import json
 import os
 import threading
 import time
-from typing import Optional
+from typing import Callable, Optional
 
 from proto.vanpilot.v1 import sync_pb2
 from supervisor.src.event_store import EventStore
@@ -90,10 +90,12 @@ class LogTailer:
         event_store: EventStore,
         log_dir: str = "/tmp/vanpilot/logs",
         poll_interval_s: float = 1.0,
+        time_fn: Callable[[], int] = _current_time_ms,
     ) -> None:
         self._event_store = event_store
         self._log_dir = log_dir
         self._poll_interval = poll_interval_s
+        self._time_fn = time_fn
         # Track file read offsets: path -> byte offset
         self._offsets: dict[str, int] = {}
         self._stop_event = threading.Event()
@@ -136,7 +138,7 @@ class LogTailer:
             parsed = parse_log_entry(line)
             if parsed is not None:
                 event = sync_pb2.Event(
-                    timestamp_ms=_current_time_ms(),
+                    timestamp_ms=self._time_fn(),
                     text_message=sync_pb2.TextMessage(
                         agent_id=agent_id,
                         content=parsed["text"],
