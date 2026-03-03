@@ -21,7 +21,7 @@ _DEFAULT_LOG_DIR = os.path.expanduser("~/.claude/projects")
 _MAX_WORKERS = 4
 
 
-def parse_server_config() -> tuple:
+def parse_server_config() -> tuple[str, int, str]:
     """Parse server configuration from environment variables.
 
     Environment variables:
@@ -47,7 +47,7 @@ def create_server(
     port: int = _DEFAULT_PORT,
     host: str = _DEFAULT_HOST,
     app_client: Optional[AndroidAppClient] = None,
-) -> tuple:
+) -> tuple[grpc.Server, int, McpBridge]:
     """Create and configure the supervisor gRPC server.
 
     Args:
