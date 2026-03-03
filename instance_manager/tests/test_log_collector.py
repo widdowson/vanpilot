@@ -97,7 +97,7 @@ class LogCollectorReadRecentTest(unittest.TestCase):
         finally:
             os.unlink(dhu_path)
 
-    def test_max_lines_limits_output(self):
+    def test_max_lines_per_source_limits_output(self):
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".log", delete=False
         ) as f:
@@ -107,7 +107,7 @@ class LogCollectorReadRecentTest(unittest.TestCase):
         try:
             collector = LogCollector()
             record = _make_record(log_path=path)
-            entries = collector.read_recent(record, max_lines=10)
+            entries = collector.read_recent(record, max_lines_per_source=10)
             self.assertEqual(len(entries), 10)
             # Should be the last 10 lines
             self.assertEqual(entries[0].text, "line 90")
@@ -183,6 +183,8 @@ class LogCollectorTailTest(unittest.TestCase):
             collector = LogCollector()
             record = _make_record(log_path=dhu_path)
             for entry in collector.tail(record, poll_interval=0.1):
+                if entry is None:
+                    continue
                 results.append(entry)
                 if len(results) >= 2:
                     break
@@ -206,6 +208,76 @@ class LogCollectorTailTest(unittest.TestCase):
         self.assertEqual(results[0].text, "new line 1")
         self.assertEqual(results[1].text, "new line 2")
         self.assertEqual(results[0].source, "dhu")
+
+    def test_tail_handles_file_truncation(self):
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".log", delete=False
+        ) as f:
+            f.write("original line\n")
+            f.flush()
+            dhu_path = f.name
+
+        results = []
+
+        def tail_thread():
+            collector = LogCollector()
+            record = _make_record(log_path=dhu_path)
+            for entry in collector.tail(record, poll_interval=0.1):
+                if entry is None:
+                    continue
+                results.append(entry)
+                if len(results) >= 2:
+                    break
+
+        t = threading.Thread(target=tail_thread, daemon=True)
+        t.start()
+        time.sleep(0.2)
+
+        # Append a line so tail reads past original content
+        with open(dhu_path, "a") as f:
+            f.write("before truncation\n")
+            f.flush()
+        time.sleep(0.3)
+
+        # Truncate and write shorter content
+        with open(dhu_path, "w") as f:
+            f.write("after truncation\n")
+            f.flush()
+
+        t.join(timeout=5)
+        os.unlink(dhu_path)
+
+        self.assertGreaterEqual(len(results), 2)
+        self.assertEqual(results[0].text, "before truncation")
+        self.assertEqual(results[1].text, "after truncation")
+
+    def test_tail_yields_none_on_idle(self):
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".log", delete=False
+        ) as f:
+            f.write("initial\n")
+            f.flush()
+            dhu_path = f.name
+
+        results = []
+
+        def tail_thread():
+            collector = LogCollector()
+            record = _make_record(log_path=dhu_path)
+            count = 0
+            for entry in collector.tail(record, poll_interval=0.1):
+                results.append(entry)
+                count += 1
+                if count >= 3:
+                    break
+
+        t = threading.Thread(target=tail_thread, daemon=True)
+        t.start()
+        t.join(timeout=3)
+        os.unlink(dhu_path)
+
+        # Should have yielded None values (no new content to read)
+        self.assertTrue(any(r is None for r in results))
 
 
 if __name__ == "__main__":

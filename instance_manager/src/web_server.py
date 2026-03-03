@@ -21,8 +21,8 @@ _INSTANCE_SCREENSHOT_RE = re.compile(
     r"^/instances/([a-zA-Z0-9][a-zA-Z0-9._-]*)/(dhu-screenshot|emu-screenshot)$"
 )
 _LOGS_PAGE_RE = re.compile(r"^/logs/([a-zA-Z0-9][a-zA-Z0-9._-]*)$")
-_LOGS_STREAM_RE = re.compile(r"^/logs/([a-zA-Z0-9][a-zA-Z0-9._-]*)/stream")
-_API_LOGS_RE = re.compile(r"^/api/logs/([a-zA-Z0-9][a-zA-Z0-9._-]*)")
+_LOGS_STREAM_RE = re.compile(r"^/logs/([a-zA-Z0-9][a-zA-Z0-9._-]*)/stream$")
+_API_LOGS_RE = re.compile(r"^/api/logs/([a-zA-Z0-9][a-zA-Z0-9._-]*)$")
 
 
 class _ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
@@ -211,10 +211,20 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
         try:
-            for entry in collector.tail(record, sources=source_filter):
+            last_event = time.monotonic()
+            for entry in collector.tail(record, sources=source_filter,
+                                        poll_interval=0.5):
+                if entry is None:
+                    # Keepalive: send SSE comment every ~15s of silence
+                    if time.monotonic() - last_event >= 15:
+                        self.wfile.write(b": keepalive\n\n")
+                        self.wfile.flush()
+                        last_event = time.monotonic()
+                    continue
                 data = json.dumps({"source": entry.source, "text": entry.text})
                 self.wfile.write(f"data: {data}\n\n".encode())
                 self.wfile.flush()
+                last_event = time.monotonic()
         except (BrokenPipeError, ConnectionResetError, OSError):
             pass
 

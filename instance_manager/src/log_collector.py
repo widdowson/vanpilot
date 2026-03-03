@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import collections
+import io
 import os
 import time
 from dataclasses import dataclass
 from typing import Iterator, Optional
 
 from instance_manager.src.instance_store import InstanceRecord
+
+_SOURCE_RESCAN_INTERVAL = 5.0
 
 
 @dataclass
@@ -39,7 +43,7 @@ class LogCollector:
     def read_recent(
         self,
         record: InstanceRecord,
-        max_lines: int = 200,
+        max_lines_per_source: int = 200,
         sources: Optional[set[str]] = None,
     ) -> list[LogEntry]:
         """Read recent log lines from all (or filtered) sources."""
@@ -50,8 +54,8 @@ class LogCollector:
                 continue
             try:
                 with open(path, "r", errors="replace") as f:
-                    lines = f.readlines()
-                for line in lines[-max_lines:]:
+                    tail = collections.deque(f, maxlen=max_lines_per_source)
+                for line in tail:
                     entries.append(
                         LogEntry(source=source_name, text=line.rstrip("\n"))
                     )
@@ -64,10 +68,10 @@ class LogCollector:
         record: InstanceRecord,
         sources: Optional[set[str]] = None,
         poll_interval: float = 0.5,
-    ) -> Iterator[LogEntry]:
-        """Yield new log lines as they appear. Blocks between polls."""
+    ) -> Iterator[Optional[LogEntry]]:
+        """Yield new log lines as they appear, or None on idle polls."""
         available = self.get_sources(record)
-        positions: dict[str, tuple[str, object]] = {}
+        positions: dict[str, tuple[str, io.TextIOWrapper]] = {}
         for source_name, path in available.items():
             if sources and source_name not in sources:
                 continue
@@ -78,17 +82,42 @@ class LogCollector:
             except OSError:
                 pass
 
+        last_rescan = time.monotonic()
         try:
             while True:
                 found_any = False
-                for source_name, (path, fh) in positions.items():
+                for source_name, (path, fh) in list(positions.items()):
+                    # Detect file truncation/rotation
+                    try:
+                        file_size = os.path.getsize(path)
+                        if fh.tell() > file_size:
+                            fh.seek(0)
+                    except OSError:
+                        pass
                     for line in fh:
                         found_any = True
                         yield LogEntry(
                             source=source_name, text=line.rstrip("\n")
                         )
                 if not found_any:
+                    yield None
                     time.sleep(poll_interval)
+
+                # Periodically re-scan for new sources
+                now = time.monotonic()
+                if now - last_rescan >= _SOURCE_RESCAN_INTERVAL:
+                    last_rescan = now
+                    current_sources = self.get_sources(record)
+                    for src_name, src_path in current_sources.items():
+                        if sources and src_name not in sources:
+                            continue
+                        if src_name not in positions:
+                            try:
+                                fh = open(src_path, "r", errors="replace")
+                                fh.seek(0, 2)
+                                positions[src_name] = (src_path, fh)
+                            except OSError:
+                                pass
         finally:
             for _, (_, fh) in positions.items():
                 fh.close()

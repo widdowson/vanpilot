@@ -242,7 +242,8 @@ class EmulatorLifecycle:
         )
 
         # Clean up files
-        for path in [record.pipe_path, record.log_path]:
+        emu_log_path = f"/tmp/emu_{record.name}.log"
+        for path in [record.pipe_path, record.log_path, emu_log_path]:
             if path:
                 self._runner.run(
                     ["rm", "-f", path], capture_output=True

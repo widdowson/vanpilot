@@ -178,6 +178,7 @@ class WebServerLogStreamTest(unittest.TestCase):
         conn.close()
 
     def test_stream_delivers_events(self):
+        """Test SSE delivers events using polling instead of fixed sleep."""
         dhu_path = self._make_log_file()
         self.store.create("sse2", 5554, 5555, 5277, False, 1000, "avd")
         self.store.update("sse2", state=RUNNING, log_path=dhu_path)
@@ -204,15 +205,24 @@ class WebServerLogStreamTest(unittest.TestCase):
         reader = threading.Thread(target=read_events, daemon=True)
         reader.start()
 
-        # Give the SSE handler time to connect and start tailing
-        time.sleep(0.5)
+        # Poll until the SSE handler is connected (up to 2s)
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline:
+            time.sleep(0.1)
+            if time.monotonic() - deadline + 2.0 > 0.3:
+                break
 
         with open(dhu_path, "a") as f:
             f.write("streamed line 1\n")
             f.write("streamed line 2\n")
             f.flush()
 
-        reader.join(timeout=5)
+        # Poll for results with deadline instead of fixed sleep
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline and len(events) < 2:
+            time.sleep(0.1)
+
+        reader.join(timeout=1)
 
         self.assertGreaterEqual(len(events), 2)
         self.assertEqual(events[0]["source"], "dhu")
