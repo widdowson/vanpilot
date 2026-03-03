@@ -25,12 +25,22 @@ jobs:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}
           repository-cache: true
+          external-cache: true
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Configure remote cache
+        id: cache
+        run: |
+          if [ -n "$BAZEL_REMOTE_CACHE_URL" ]; then
+            echo "flag=--remote_cache=$BAZEL_REMOTE_CACHE_URL" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          BAZEL_REMOTE_CACHE_URL: ${{ secrets.BAZEL_REMOTE_CACHE_URL }}
+
       - name: Build all targets
-        run: bazel build //...
+        run: bazel build //... --config=ci ${{ steps.cache.outputs.flag }}
 
       - name: Upload APK
         if: always()
@@ -42,18 +52,34 @@ jobs:
           retention-days: 30
 
       - name: Run all tests
-        run: bazel test //... --test_output=errors
+        run: bazel test //... --config=ci ${{ steps.cache.outputs.flag }}
 
-      - name: Upload test outputs (on failure)
+      - name: Upload test logs (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-outputs
-          path: |
-            bazel-testlogs/**/test.outputs/
-            bazel-testlogs/**/test.log
+          name: test-logs
+          path: bazel-testlogs/**/test.log
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Upload golden diffs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-diffs
+          path: bazel-testlogs/**/test.outputs/*diff*
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Upload golden test outputs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-test-outputs
+          path: bazel-testlogs/**/test.outputs/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Upload golden images (for review)
         if: always()
