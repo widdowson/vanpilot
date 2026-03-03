@@ -207,6 +207,16 @@ py_test(
 )
 
 py_test(
+    name = "server_config_test",
+    srcs = ["tests/test_server_config.py"],
+    main = "tests/test_server_config.py",
+    imports = [".."],
+    deps = [
+        ":server",
+    ],
+)
+
+py_test(
     name = "watchdog_test",
     srcs = ["tests/test_watchdog.py"],
     main = "tests/test_watchdog.py",
