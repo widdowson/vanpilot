@@ -35,6 +35,7 @@ class _ProcessHandles:
     emulator: Optional[subprocess.Popen] = None
     dhu: Optional[subprocess.Popen] = None
     keeper: Optional[subprocess.Popen] = None
+    socat: Optional[subprocess.Popen] = None
 
 
 class SubprocessRunner:
@@ -121,6 +122,21 @@ class EmulatorLifecycle:
             # 3b. Verify snapshot sentinel (detects cold-boot vs snapshot resume)
             self._check_snapshot_sentinel(serial)
 
+            # 3c. Start socat to expose ADB on all interfaces for remote access.
+            # The emulator binds ADB to 127.0.0.1 only; socat makes it
+            # reachable from Docker sandbox agents via Tailscale.
+            socat_proc = self._runner.popen(
+                [
+                    "socat",
+                    f"TCP-LISTEN:{ports.adb_port},bind=0.0.0.0,reuseaddr,fork",
+                    f"TCP:127.0.0.1:{ports.adb_port}",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            handles.socat = socat_proc
+            self._store.update(name, socat_pid=socat_proc.pid)
+
             # 4. Forward AA port
             self._runner.run(
                 ["adb", "-s", serial, "forward",
@@ -186,7 +202,7 @@ class EmulatorLifecycle:
 
         except Exception:
             # Best-effort cleanup of any already-started processes.
-            for proc in [handles.dhu, handles.keeper, handles.emulator]:
+            for proc in [handles.dhu, handles.keeper, handles.socat, handles.emulator]:
                 if proc is not None:
                     try:
                         proc.kill()
@@ -255,7 +271,16 @@ class EmulatorLifecycle:
                 handles.keeper.kill()
                 handles.keeper.wait(timeout=_DESTROY_GRACEFUL_TIMEOUT)
 
-        # 3. Emulator — ask adb to shut it down cleanly first
+
+        # 3. Socat ADB forwarder
+        if handles.socat and handles.socat.poll() is None:
+            handles.socat.terminate()
+            try:
+                handles.socat.wait(timeout=_DESTROY_GRACEFUL_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                handles.socat.kill()
+                handles.socat.wait(timeout=_DESTROY_GRACEFUL_TIMEOUT)
+        # 4. Emulator — ask adb to shut it down cleanly first
         if handles.emulator and handles.emulator.poll() is None:
             self._runner.run(
                 ["adb", "-s", serial, "emu", "kill"],
@@ -283,6 +308,11 @@ class EmulatorLifecycle:
         if record.keeper_pid:
             self._runner.run(
                 ["kill", str(record.keeper_pid)],
+                capture_output=True,
+            )
+        if record.socat_pid:
+            self._runner.run(
+                ["kill", str(record.socat_pid)],
                 capture_output=True,
             )
         self._runner.run(
@@ -409,7 +439,7 @@ class EmulatorLifecycle:
             handles = self._handles.get(name)
         if handles is None:
             return True
-        for proc in [handles.emulator, handles.dhu, handles.keeper]:
+        for proc in [handles.emulator, handles.dhu, handles.keeper, handles.socat]:
             if proc is not None and proc.poll() is not None:
                 return False
         return True

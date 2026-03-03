@@ -410,6 +410,118 @@ class EmulatorLifecycleTest(unittest.TestCase):
         self.assertIn(["kill", "101"], kill_args)
 
 
+    def test_create_starts_socat_forwarder(self):
+        """create() launches socat to expose ADB on 0.0.0.0."""
+        store, runner, lifecycle = self._make_lifecycle()
+        ports = self._make_ports()
+        store.create("test", 5554, 5555, 5277, False, 1000, "test_avd")
+
+        with patch.object(lifecycle, "_resolve_gpu_mode", return_value="swiftshader_indirect"):
+            with patch.object(lifecycle, "_wait_for_dhu"):
+                with patch.object(lifecycle, "_wait_for_dhu_screenshot", return_value=b"png"), \
+                     patch.object(lifecycle, "emulator_screenshot_to_bytes", return_value=b"png"):
+                    lifecycle.create("test", "test_avd", "aa_ready", False, ports)
+
+        # Find the socat popen call (second popen: emulator is first, socat is second)
+        socat_calls = [
+            c for c in runner.popen_calls
+            if c[0][0] == "socat"
+        ]
+        self.assertEqual(len(socat_calls), 1)
+        socat_args = socat_calls[0][0]
+        self.assertEqual(socat_args[0], "socat")
+        self.assertIn("TCP-LISTEN:5555", socat_args[1])
+        self.assertIn("bind=0.0.0.0", socat_args[1])
+        self.assertEqual(socat_args[2], "TCP:127.0.0.1:5555")
+
+    def test_create_stores_socat_pid(self):
+        """create() records the socat PID in the instance store."""
+        store, runner, lifecycle = self._make_lifecycle()
+        ports = self._make_ports()
+        store.create("test", 5554, 5555, 5277, False, 1000, "test_avd")
+
+        with patch.object(lifecycle, "_resolve_gpu_mode", return_value="swiftshader_indirect"):
+            with patch.object(lifecycle, "_wait_for_dhu"):
+                with patch.object(lifecycle, "_wait_for_dhu_screenshot", return_value=b"png"), \
+                     patch.object(lifecycle, "emulator_screenshot_to_bytes", return_value=b"png"):
+                    record = lifecycle.create("test", "test_avd", "aa_ready", False, ports)
+
+        self.assertIsNotNone(record.socat_pid)
+
+    def test_destroy_kills_socat_via_handles(self):
+        """destroy() terminates the socat process when Popen handles exist."""
+        store, runner, lifecycle = self._make_lifecycle()
+        store.create("test", 5554, 5555, 5277, False, 1000, "test_avd")
+        store.update(
+            "test",
+            state=RUNNING,
+            dhu_pid=100,
+            keeper_pid=101,
+            emulator_pid=102,
+            socat_pid=103,
+            pipe_path="/tmp/dhu_test_pipe",
+            log_path="/tmp/dhu_test.log",
+        )
+        record = store.get("test")
+
+        from instance_manager.src.emulator_lifecycle import _ProcessHandles
+        socat_proc = MagicMock()
+        socat_proc.poll.return_value = None
+        socat_proc.wait.return_value = 0
+
+        lifecycle._handles["test"] = _ProcessHandles(
+            emulator=MagicMock(poll=MagicMock(return_value=None), wait=MagicMock(return_value=0)),
+            dhu=MagicMock(pid=100, poll=MagicMock(return_value=None), wait=MagicMock(return_value=0)),
+            keeper=MagicMock(poll=MagicMock(return_value=None), wait=MagicMock(return_value=0)),
+            socat=socat_proc,
+        )
+
+        with patch("os.getpgid", return_value=200), \
+             patch("os.killpg"):
+            lifecycle.destroy(record)
+
+        socat_proc.terminate.assert_called_once()
+
+    def test_destroy_kills_socat_via_pid(self):
+        """destroy() kills socat by PID when no Popen handles exist."""
+        store, runner, lifecycle = self._make_lifecycle()
+        store.create("test", 5554, 5555, 5277, False, 1000, "test_avd")
+        store.update(
+            "test",
+            state=RUNNING,
+            dhu_pid=100,
+            keeper_pid=101,
+            emulator_pid=102,
+            socat_pid=103,
+            pipe_path="/tmp/dhu_test_pipe",
+            log_path="/tmp/dhu_test.log",
+        )
+        record = store.get("test")
+
+        lifecycle.destroy(record)
+
+        kill_args = [c[0] for c in runner.run_calls if c[0][0] == "kill"]
+        self.assertIn(["kill", "103"], kill_args)
+
+    def test_check_health_socat_dead(self):
+        """check_health returns False when the socat process has exited."""
+        store, _, lifecycle = self._make_lifecycle()
+        from instance_manager.src.emulator_lifecycle import _ProcessHandles
+
+        emu = MagicMock()
+        emu.poll.return_value = None
+        dhu = MagicMock()
+        dhu.poll.return_value = None
+        keeper = MagicMock()
+        keeper.poll.return_value = None
+        socat = MagicMock()
+        socat.poll.return_value = 1  # exited
+
+        lifecycle._handles["test"] = _ProcessHandles(
+            emulator=emu, dhu=dhu, keeper=keeper, socat=socat,
+        )
+        self.assertFalse(lifecycle.check_health("test"))
+
     def test_dhu_command_writes_to_pipe(self):
         """dhu_command writes the command string to the named pipe."""
         store, runner, lifecycle = self._make_lifecycle()
