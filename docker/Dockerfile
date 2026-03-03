@@ -82,9 +82,6 @@ RUN chmod +x /entrypoint.sh
 
 ENV PYTHONPATH=/app
 
-# Claude Code agent teams feature flag
-ENV CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
-
 EXPOSE 50051
 
 ENTRYPOINT ["/entrypoint.sh"]
