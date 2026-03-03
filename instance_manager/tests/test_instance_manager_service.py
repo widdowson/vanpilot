@@ -30,6 +30,7 @@ class InstanceManagerServiceTest(unittest.TestCase):
 
         self.lifecycle.create.side_effect = fake_create
         self.lifecycle.screenshot.return_value = b"fake-png-bytes"
+        self.lifecycle.emulator_screenshot_to_bytes.return_value = b"fake-emu-png"
 
         self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=2))
         add_instance_manager_service_to_server(
@@ -156,7 +157,8 @@ class InstanceManagerServiceTest(unittest.TestCase):
             "ScreenshotInstance",
             instance_manager_pb2.ScreenshotInstanceRequest(name="snap"),
         )
-        self.assertEqual(resp.screenshot_png, b"fake-png-bytes")
+        self.assertEqual(resp.dhu_screenshot_png, b"fake-png-bytes")
+        self.assertEqual(resp.emulator_screenshot_png, b"fake-emu-png")
         self.assertGreater(resp.captured_at_ms, 0)
 
     def test_screenshot_not_running(self):

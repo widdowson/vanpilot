@@ -32,6 +32,7 @@ class InstanceRecord:
     pipe_path: Optional[str] = None
     log_path: Optional[str] = None
     last_screenshot_png: Optional[bytes] = None
+    last_emulator_screenshot_png: Optional[bytes] = None
     last_screenshot_at_ms: Optional[int] = None
 
 

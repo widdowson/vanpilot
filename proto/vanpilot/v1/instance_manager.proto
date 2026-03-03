@@ -68,10 +68,13 @@ message ScreenshotInstanceRequest {
 
 message ScreenshotInstanceResponse {
   // DHU screenshot as PNG bytes.
-  bytes screenshot_png = 1;
+  bytes dhu_screenshot_png = 1;
 
   // When the screenshot was captured (milliseconds since epoch).
   int64 captured_at_ms = 2;
+
+  // Emulator phone screen as PNG bytes (adb screencap).
+  bytes emulator_screenshot_png = 3;
 }
 
 message InstanceInfo {
@@ -97,6 +100,9 @@ message InstanceInfo {
   // Most recent DHU screenshot (populated by background refresh loop).
   // Omitted if no screenshot has been taken yet.
   bytes last_screenshot_png = 9;
+
+  // Most recent emulator phone screen (adb screencap).
+  bytes last_emulator_screenshot_png = 10;
 }
 
 enum InstanceState {

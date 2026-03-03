@@ -35,6 +35,8 @@ def _record_to_proto(record: InstanceRecord) -> instance_manager_pb2.InstanceInf
     )
     if record.last_screenshot_png:
         info.last_screenshot_png = record.last_screenshot_png
+    if record.last_emulator_screenshot_png:
+        info.last_emulator_screenshot_png = record.last_emulator_screenshot_png
     return info
 
 
@@ -151,15 +153,19 @@ class InstanceManagerServicer:
             )
 
         try:
-            png = self._lifecycle.screenshot(record)
+            serial = f"emulator-{record.emulator_console_port}"
+            dhu_png = self._lifecycle.screenshot(record)
+            emu_png = self._lifecycle.emulator_screenshot_to_bytes(serial)
             now_ms = int(time.time() * 1000)
             self._store.update(
                 request.name,
-                last_screenshot_png=png,
+                last_screenshot_png=dhu_png,
+                last_emulator_screenshot_png=emu_png,
                 last_screenshot_at_ms=now_ms,
             )
             return instance_manager_pb2.ScreenshotInstanceResponse(
-                screenshot_png=png,
+                dhu_screenshot_png=dhu_png,
+                emulator_screenshot_png=emu_png,
                 captured_at_ms=now_ms,
             )
         except Exception as e:

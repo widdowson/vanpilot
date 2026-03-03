@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import signal
+import socket
 import sys
 import threading
 import time
@@ -31,11 +32,15 @@ def _screenshot_refresh_loop(
         time.sleep(interval)
         for record in store.get_running():
             try:
-                png = lifecycle.screenshot(record)
+                serial = f"emulator-{record.emulator_console_port}"
+                dhu_png = lifecycle.screenshot(record)
+                emu_png = lifecycle.emulator_screenshot_to_bytes(serial)
+                now_ms = int(time.time() * 1000)
                 store.update(
                     record.name,
-                    last_screenshot_png=png,
-                    last_screenshot_at_ms=int(time.time() * 1000),
+                    last_screenshot_png=dhu_png,
+                    last_emulator_screenshot_png=emu_png,
+                    last_screenshot_at_ms=now_ms,
                 )
             except Exception:
                 pass  # Don't crash the refresh loop
@@ -76,8 +81,21 @@ def create_server(
     return server, http_thread, store
 
 
+def _check_port_free(port: int) -> None:
+    """Fail fast if a port is already in use."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.bind(("", port))
+    except OSError:
+        sys.exit(f"ERROR: port {port} already in use")
+    finally:
+        sock.close()
+
+
 def main():
     """Entry point: start the instance manager service."""
+    _check_port_free(50061)
+    _check_port_free(8080)
     server, http_thread, store = create_server()
     server.start()
     print("Instance manager gRPC on :50061, HTTP dashboard on :8080", flush=True)

@@ -73,6 +73,24 @@ py_binary(
     deps = [":server"],
 )
 
+py_library(
+    name = "client_lib",
+    srcs = ["src/client.py"],
+    imports = [".."],
+    deps = [
+        "//proto/vanpilot/v1:instance_manager_py_proto",
+        requirement("grpcio"),
+    ],
+)
+
+py_binary(
+    name = "instance_manager_client",
+    srcs = ["src/client.py"],
+    main = "src/client.py",
+    imports = [".."],
+    deps = [":client_lib"],
+)
+
 # ============================================================================
 # Tests (fine-grained: one target per test module)
 # ============================================================================

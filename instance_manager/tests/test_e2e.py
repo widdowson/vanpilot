@@ -8,7 +8,9 @@ import grpc
 
 from proto.vanpilot.v1 import instance_manager_pb2
 
-from instance_manager.src.emulator_lifecycle import SubprocessRunner
+from unittest.mock import patch as mock_patch
+
+from instance_manager.src.emulator_lifecycle import EmulatorLifecycle, SubprocessRunner
 from instance_manager.src.instance_store import RUNNING
 from instance_manager.src.server import create_server
 
@@ -29,11 +31,19 @@ class FakeRunner(SubprocessRunner):
         # When screenshot command is echoed into the pipe, create the file.
         if args and args[0] == "bash" and len(args) > 2:
             cmd_str = args[-1]
-            if "screenshot" in cmd_str and ">" in cmd_str:
+            if "screenshot" in cmd_str and ">" in cmd_str and "screencap" not in cmd_str:
                 # Parse: echo "screenshot /tmp/dhu_X_screenshot.png" > pipe
                 parts = cmd_str.split("screenshot ", 1)
                 if len(parts) == 2:
                     path = parts[1].split('"')[0].strip()
+                    os.makedirs(os.path.dirname(path) or "/tmp", exist_ok=True)
+                    with open(path, "wb") as f:
+                        f.write(_FAKE_PNG)
+            elif "screencap" in cmd_str:
+                # Parse: adb -s ... exec-out screencap -p > /tmp/emu_X_screenshot.png
+                parts = cmd_str.split("> ")
+                if len(parts) >= 2:
+                    path = parts[-1].strip()
                     os.makedirs(os.path.dirname(path) or "/tmp", exist_ok=True)
                     with open(path, "wb") as f:
                         f.write(_FAKE_PNG)
@@ -54,7 +64,7 @@ class FakeRunner(SubprocessRunner):
                     log_path = parts[-1].replace("2>&1", "").strip()
                     os.makedirs(os.path.dirname(log_path) or "/tmp", exist_ok=True)
                     with open(log_path, "w") as f:
-                        f.write("DHU connected\n")
+                        f.write("DHU connected\nVerify returned: ok\n")
 
         return proc
 
@@ -68,6 +78,11 @@ class E2ETest(unittest.TestCase):
         free_port = sock.getsockname()[1]
         sock.close()
 
+        self._gpu_patch = mock_patch.object(
+            EmulatorLifecycle, "_resolve_gpu_mode", return_value="swiftshader_indirect",
+        )
+        self._gpu_patch.start()
+
         self.grpc_server, self.http_thread, self.store = create_server(
             grpc_port=free_port, http_port=0, max_slots=4, runner=FakeRunner(),
         )
@@ -77,6 +92,7 @@ class E2ETest(unittest.TestCase):
     def tearDown(self):
         self.channel.close()
         self.grpc_server.stop(0)
+        self._gpu_patch.stop()
         # Clean up temp files created by FakeRunner
         import glob
         for pattern in ["/tmp/dhu_*"]:
@@ -122,7 +138,8 @@ class E2ETest(unittest.TestCase):
             "ScreenshotInstance",
             instance_manager_pb2.ScreenshotInstanceRequest(name="e2e-test"),
         )
-        self.assertEqual(snap_resp.screenshot_png, _FAKE_PNG)
+        self.assertEqual(snap_resp.dhu_screenshot_png, _FAKE_PNG)
+        self.assertEqual(snap_resp.emulator_screenshot_png, _FAKE_PNG)
         self.assertGreater(snap_resp.captured_at_ms, 0)
 
         # Destroy

@@ -23,9 +23,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/":
             self._serve_dashboard()
-        elif self.path.startswith("/instances/") and self.path.endswith("/screenshot"):
+        elif self.path.startswith("/instances/") and self.path.endswith("/dhu-screenshot"):
             name = self.path.split("/")[2]
-            self._serve_screenshot(name)
+            self._serve_screenshot(name, "dhu")
+        elif self.path.startswith("/instances/") and self.path.endswith("/emu-screenshot"):
+            name = self.path.split("/")[2]
+            self._serve_screenshot(name, "emu")
+        elif self.path.startswith("/instances/") and self.path.endswith("/screenshot"):
+            # Backwards compat — serves DHU screenshot
+            name = self.path.split("/")[2]
+            self._serve_screenshot(name, "dhu")
         elif self.path == "/api/instances":
             self._serve_api_instances()
         else:
@@ -42,12 +49,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
             safe_avd = html.escape(inst.avd_name or "")
             elapsed_s = (now_ms - inst.created_at_ms) // 1000
             uptime = f"{elapsed_s // 3600}h {(elapsed_s % 3600) // 60}m {elapsed_s % 60}s"
-            screenshot_html = ""
+            dhu_html = ""
             if inst.last_screenshot_png:
-                screenshot_html = (
-                    f'<a href="/instances/{safe_name}/screenshot">'
-                    f'<img src="/instances/{safe_name}/screenshot" '
-                    f'width="160" alt="screenshot"></a>'
+                dhu_html = (
+                    f'<a href="/instances/{safe_name}/dhu-screenshot">'
+                    f'<img src="/instances/{safe_name}/dhu-screenshot" '
+                    f'width="160" alt="DHU"></a>'
+                )
+            emu_html = ""
+            if inst.last_emulator_screenshot_png:
+                emu_html = (
+                    f'<a href="/instances/{safe_name}/emu-screenshot">'
+                    f'<img src="/instances/{safe_name}/emu-screenshot" '
+                    f'width="90" alt="Phone"></a>'
                 )
             rows += (
                 f"<tr>"
@@ -59,7 +73,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 f"<td>{uptime}</td>"
                 f"<td>{'yes' if inst.headful else 'no'}</td>"
                 f"<td>{safe_avd}</td>"
-                f"<td>{screenshot_html}</td>"
+                f"<td>{dhu_html}</td>"
+                f"<td>{emu_html}</td>"
                 f"</tr>\n"
             )
 
@@ -76,7 +91,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "<h1>VanPilot Instance Manager</h1>"
             "<table><tr><th>Name</th><th>State</th>"
             "<th>Console</th><th>ADB</th><th>AA Fwd</th>"
-            "<th>Uptime</th><th>Headful</th><th>AVD</th><th>Screenshot</th></tr>"
+            "<th>Uptime</th><th>Headful</th><th>AVD</th><th>DHU</th><th>Phone</th></tr>"
             f"{rows}</table></body></html>"
         )
 
@@ -85,18 +100,25 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(page.encode())
 
-    def _serve_screenshot(self, name: str):
+    def _serve_screenshot(self, name: str, kind: str = "dhu"):
         if not self.store:
             self.send_error(404)
             return
         record = self.store.get(name)
-        if record is None or not record.last_screenshot_png:
+        if record is None:
+            self.send_error(404)
+            return
+        if kind == "emu":
+            png = record.last_emulator_screenshot_png
+        else:
+            png = record.last_screenshot_png
+        if not png:
             self.send_error(404)
             return
         self.send_response(200)
         self.send_header("Content-Type", "image/png")
         self.end_headers()
-        self.wfile.write(record.last_screenshot_png)
+        self.wfile.write(png)
 
     def _serve_api_instances(self):
         instances = self.store.list_all() if self.store else []
