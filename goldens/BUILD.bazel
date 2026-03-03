@@ -36,6 +36,12 @@ py_library(
 )
 
 py_library(
+    name = "display_profiles",
+    srcs = ["display_profiles.py"],
+    imports = [".."],
+)
+
+py_library(
     name = "golden_test_harness",
     srcs = ["golden_test_harness.py"],
     imports = [".."],
@@ -106,6 +112,37 @@ py_test(
         allow_empty = True,
     ),
     deps = [
+        ":display_profiles",
+        ":golden_diff",
+        ":video_capture",
+    ],
+    size = "large",
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+    timeout = "long",
+)
+
+# 13-inch automotive display golden test (AC-10.2).
+# Uses 1920x720 ultrawide DHU resolution matching 13" head units.
+# Goldens live in goldens/13inch/.
+#
+# Usage:
+#   bazel test //goldens:emulator_golden_13inch_test \
+#     --test_env=EMU_HOST=localhost --test_env=EMU_PORT=5555
+py_test(
+    name = "emulator_golden_13inch_test",
+    srcs = ["test_emulator_golden.py"],
+    main = "test_emulator_golden.py",
+    imports = [".."],
+    data = glob(
+        ["13inch/*.png"],
+        allow_empty = True,
+    ),
+    env = {"DISPLAY_PROFILE": "13inch"},
+    deps = [
+        ":display_profiles",
         ":golden_diff",
         ":video_capture",
     ],
@@ -189,6 +226,51 @@ py_test(
     deps = [":video_capture"],
 )
 
+# Display profile tests (AC-10.2).
+py_test(
+    name = "display_profile_default_test",
+    srcs = ["test_display_profiles.py"],
+    main = "test_display_profiles.py",
+    imports = [".."],
+    args = ["DisplayProfileDefaultTest"],
+    deps = [":display_profiles"],
+)
+
+py_test(
+    name = "display_profile_13inch_test",
+    srcs = ["test_display_profiles.py"],
+    main = "test_display_profiles.py",
+    imports = [".."],
+    args = ["DisplayProfile13InchTest"],
+    deps = [":display_profiles"],
+)
+
+py_test(
+    name = "display_profile_lookup_test",
+    srcs = ["test_display_profiles.py"],
+    main = "test_display_profiles.py",
+    imports = [".."],
+    args = ["DisplayProfileLookupTest"],
+    deps = [":display_profiles"],
+)
+
+# Display profile wiring tests — verify DISPLAY_PROFILE env var
+# selects the correct profile and golden directory (AC-10.2).
+py_test(
+    name = "emulator_golden_display_profile_test",
+    srcs = [
+        "test_emulator_golden_display_profile.py",
+        "test_emulator_golden.py",
+    ],
+    main = "test_emulator_golden_display_profile.py",
+    imports = [".."],
+    deps = [
+        ":display_profiles",
+        ":golden_diff",
+        ":video_capture",
+    ],
+)
+
 # Video capture wiring tests — verify video_capture is integrated into
 # the emulator golden test lifecycle (AC-4.2).
 py_test(
@@ -204,6 +286,7 @@ py_test(
         "EmulatorGoldenVideoWiringTest.test_exports_video_capture",
     ],
     deps = [
+        ":display_profiles",
         ":golden_diff",
         ":video_capture",
     ],
@@ -219,6 +302,7 @@ py_test(
     imports = [".."],
     args = ["EmulatorGoldenVideoWiringTest.test_video_disabled_by_default"],
     deps = [
+        ":display_profiles",
         ":golden_diff",
         ":video_capture",
     ],
@@ -234,6 +318,7 @@ py_test(
     imports = [".."],
     args = ["EmulatorGoldenVideoWiringTest.test_video_enabled_with_record_flag"],
     deps = [
+        ":display_profiles",
         ":golden_diff",
         ":video_capture",
     ],
@@ -252,6 +337,7 @@ py_test(
         "EmulatorGoldenVideoWiringTest.test_teardown_class_stops_video",
     ],
     deps = [
+        ":display_profiles",
         ":golden_diff",
         ":video_capture",
     ],
