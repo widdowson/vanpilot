@@ -45,7 +45,7 @@ The **Android Auto projection boundary** between the Pixel and head unit is the 
 - `EventProcessor.kt:processEvent()` handles the full event set, including two additional types:
   - `WATCHDOG_TIMEOUT` → creates a `ProcessedAlert` with agent ID and silent-duration text (e.g., "Agent X unresponsive for 5000ms")
   - `INPUT_DELIVERY_FAILURE` → creates a `ProcessedAlert` with attempted-input and target-agent text (e.g., "Failed to deliver '...' to agent Y")
-  - These alerts are rendered as text rows in the UI, so only the human-readable alert string crosses the AA boundary — no raw proto fields or internal identifiers beyond what is shown to the user.
+  - These alerts are stored in `EventProcessor.alerts` but are **not yet wired to the Android Auto UI** — no code currently renders them to the head unit. When UI wiring is added, only the human-readable alert string will cross the AA boundary.
 - **Data crossing gRPC**: Proto messages containing text strings, PNG bytes, cache keys, timestamps, agent IDs, watchdog alerts, and input-delivery failure details. No credentials or API keys are part of any proto message schema.
 
 **4. Android app renders to Android Auto Surface**
@@ -59,8 +59,8 @@ The **Android Auto projection boundary** between the Pixel and head unit is the 
 |---|---|---|
 | Rendered bitmap pixels | Yes | AA projected frames (pixels) |
 | Text message content | Yes | Car App Library `ListTemplate` rows (rendered text) |
-| Watchdog alerts | Yes | Rendered in UI (text) |
-| Input delivery failure alerts | Yes | Rendered in UI (text) |
+| Watchdog alerts | No | `EventProcessor` creates `ProcessedAlert` but UI wiring not yet implemented |
+| Input delivery failure alerts | No | `EventProcessor` creates `ProcessedAlert` but UI wiring not yet implemented |
 | Bitmap cache keys | No | Internal to app, never rendered to user |
 | gRPC traffic | No | Tailscale tunnel terminates at the Pixel |
 | Tailscale keys | No | Stored in Pixel's Tailscale app, never exposed |
@@ -77,7 +77,7 @@ The head unit can only send:
 
 ### Conclusion
 
-**AC-11.1 is satisfied.** No credentials, API keys, or raw gRPC traffic reach the head unit. The Android Auto projection boundary ensures only rendered pixels and touch coordinates cross to the untrusted device. Secrets (Tailscale keys, Claude API key, gRPC configuration) remain on the Pixel and Mac Studio respectively.
+**AC-11.1 is satisfied.** No credentials, API keys, or raw gRPC traffic reach the head unit. The Android Auto projection boundary ensures only rendered pixels and touch coordinates cross to the untrusted device. Secrets (Tailscale keys, Claude API key, gRPC configuration) remain on the Pixel and Mac Studio respectively. Note that watchdog and input-delivery-failure alerts are not yet rendered to the head unit (UI wiring is pending), which further reduces the data types crossing the AA boundary.
 
 ---
 
