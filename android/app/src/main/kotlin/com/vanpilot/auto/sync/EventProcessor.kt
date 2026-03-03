@@ -1,8 +1,8 @@
 package com.vanpilot.auto.sync
 
 import com.vanpilot.auto.cache.BitmapCache
-import com.vanpilot.auto.cache.BitmapFetcher
 import com.vanpilot.proto.v1.Event
+import java.util.concurrent.ConcurrentHashMap
 import java.util.logging.Logger
 
 /**
@@ -10,12 +10,13 @@ import java.util.logging.Logger
  *
  * Stores processed results internally for consumption by the UI layer.
  * When a DisplayCommand references a cache key not in BitmapCache and
- * a [BitmapFetcher] is configured, automatically requests the missing
- * bitmap from the supervisor (AC-7.2).
+ * [fetchEnabled] is true, the missing key is added to [pendingFetches]
+ * for the caller to fetch asynchronously (#57).
+ * Call [completeFetch] when the bitmap data is available.
  */
 class EventProcessor(
     private val cache: BitmapCache,
-    private val fetcher: BitmapFetcher? = null
+    private val fetchEnabled: Boolean = false
 ) {
 
     private val logger = Logger.getLogger(EventProcessor::class.java.name)
@@ -26,10 +27,15 @@ class EventProcessor(
     private val _alerts = mutableListOf<ProcessedAlert>()
     val alerts: List<ProcessedAlert> get() = _alerts.toList()
 
+    private val _pendingFetches: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    /** Cache keys that need to be fetched asynchronously. */
+    val pendingFetches: Set<String> get() = _pendingFetches.toSet()
+
     var currentDisplayKey: String? = null
         private set
 
-    /** Count of auto-fetched bitmaps (for testing). */
+    /** Count of completed async bitmap fetches (for testing). */
     var fetchCount: Int = 0
         private set
 
@@ -51,15 +57,9 @@ class EventProcessor(
             }
             event.hasDisplayCommand() -> {
                 val key = event.displayCommand.cacheKey
-                // Auto-request missing bitmap from supervisor (AC-7.2)
-                // TODO: fetchBitmap is synchronous — should be async for large bitmaps
-                //  to avoid blocking the event processing loop.
-                if (!cache.contains(key) && fetcher != null) {
-                    val data = fetcher.fetchBitmap(key)
-                    if (data != null) {
-                        cache.put(key, data)
-                        fetchCount++
-                    }
+                // Queue missing bitmap for async fetch (AC-7.2, #57)
+                if (!cache.contains(key) && fetchEnabled) {
+                    _pendingFetches.add(key)
                 }
                 currentDisplayKey = key
             }
@@ -87,6 +87,20 @@ class EventProcessor(
                 unknownEventCount++
                 logger.warning("Unknown event type at timestampMs=${event.timestampMs}")
             }
+        }
+    }
+
+    /**
+     * Complete an async bitmap fetch. Call this when bitmap data is available.
+     *
+     * @param cacheKey The key that was fetched.
+     * @param data The PNG data, or null if the fetch failed.
+     */
+    fun completeFetch(cacheKey: String, data: ByteArray?) {
+        _pendingFetches.remove(cacheKey)
+        if (data != null) {
+            cache.put(cacheKey, data)
+            fetchCount++
         }
     }
 
