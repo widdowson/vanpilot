@@ -108,11 +108,16 @@ class EmulatorLifecycle:
             if not headful:
                 emu_args.append("-no-window")
 
-            emu_proc = self._runner.popen(
-                emu_args,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
+            emu_log_path = f"/tmp/emu_{name}.log"
+            emu_log_file = open(emu_log_path, "w")
+            try:
+                emu_proc = self._runner.popen(
+                    emu_args,
+                    stdout=emu_log_file,
+                    stderr=emu_log_file,
+                )
+            finally:
+                emu_log_file.close()
             handles.emulator = emu_proc
             self._store.update(name, emulator_pid=emu_proc.pid)
 

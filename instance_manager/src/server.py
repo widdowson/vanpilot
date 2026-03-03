@@ -17,6 +17,7 @@ from instance_manager.src.instance_manager_service import (
     add_instance_manager_service_to_server,
 )
 from instance_manager.src.instance_store import InstanceStore, ERROR
+from instance_manager.src.log_collector import LogCollector
 from instance_manager.src.port_allocator import PortAllocator
 from instance_manager.src.web_server import start_web_server
 
@@ -67,6 +68,7 @@ def create_server(
     http_port: int = 8080,
     max_slots: int = 8,
     runner: SubprocessRunner | None = None,
+    service_log_path: str | None = None,
 ) -> tuple[grpc.Server, threading.Thread, InstanceStore]:
     """Create and configure the instance manager servers.
 
@@ -84,7 +86,8 @@ def create_server(
     )
     actual_port = server.add_insecure_port(f"[::]:{grpc_port}")
 
-    _, http_thread = start_web_server(store, http_port)
+    log_collector = LogCollector(service_log_path=service_log_path)
+    _, http_thread = start_web_server(store, http_port, log_collector=log_collector)
 
     # Background screenshot refresh daemon
     refresh_thread = threading.Thread(
@@ -108,11 +111,25 @@ def _check_port_free(port: int) -> None:
         sock.close()
 
 
+_DEFAULT_SERVICE_LOG = "/tmp/vanpilot_service.log"
+
+
 def main():
     """Entry point: start the instance manager service."""
     _check_port_free(50061)
     _check_port_free(8080)
-    server, http_thread, store = create_server()
+
+    # Set up service log file
+    fh = logging.FileHandler(_DEFAULT_SERVICE_LOG)
+    fh.setFormatter(
+        logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
+    )
+    logging.getLogger().addHandler(fh)
+    logging.getLogger().setLevel(logging.INFO)
+
+    server, http_thread, store = create_server(
+        service_log_path=_DEFAULT_SERVICE_LOG,
+    )
     server.start()
     print("Instance manager gRPC on :50061, HTTP dashboard on :8080", flush=True)
     signal.signal(signal.SIGTERM, lambda *_: (server.stop(5), sys.exit(0)))
