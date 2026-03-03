@@ -52,15 +52,14 @@ RUN chown -R agent:agent ${ANDROID_HOME}
 RUN ${ANDROID_HOME}/build-tools/36.0.0/aapt2 version \
     && ${ANDROID_HOME}/platform-tools/adb version
 
-# Import proxy CA cert into all JDK truststores so Coursier/Maven fetches work
-RUN for ks in $(find /usr/lib/jvm -name cacerts 2>/dev/null); do \
-      keytool -importcert -noprompt -trustcacerts -alias proxy-ca \
-        -file /usr/local/share/ca-certificates/proxy-ca.crt \
-        -keystore "$ks" -storepass changeit 2>/dev/null || true; \
-    done
+# Runtime init script — imports proxy CA into JDK/Bazel truststores.
+# Must run at sandbox start (not image build) because the proxy CA cert
+# is injected by the sandbox infrastructure after container creation.
+COPY project-init.sh /usr/local/bin/project-init.sh
+RUN chmod +x /usr/local/bin/project-init.sh
 
 USER agent
 
-# Bazel proxy CA trust
+# Bazel proxy CA trust (directory only — populated at runtime by project-init.sh)
 RUN mkdir -p /home/agent/.bazel-ssl
 COPY bazelrc.sandbox /home/agent/.bazelrc
