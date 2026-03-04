@@ -1,6 +1,5 @@
 """End-to-end test: full gRPC server with mocked SubprocessRunner."""
 
-import io
 import os
 import unittest
 from unittest.mock import MagicMock
@@ -16,8 +15,6 @@ from instance_manager.src.instance_store import RUNNING
 from instance_manager.src.server import create_server
 
 _FAKE_PNG = b"\x89PNG-fake-screenshot"
-
-_FAKE_DHU_STDOUT = b"DHU connected\nVerify returned: ok\n> "
 
 
 class FakeRunner(SubprocessRunner):
@@ -58,12 +55,18 @@ class FakeRunner(SubprocessRunner):
         proc.poll.return_value = None  # alive
         proc.wait.return_value = 0
 
-        # When DHU is launched with stdout=PIPE, provide a readable
-        # stdout that the reader thread can consume.
+        # When DHU is launched, create the log file that _wait_for_dhu reads.
+        # The real DHU writes to this file via bash redirect (> log 2>&1).
         if args and args[0] == "bash" and len(args) > 2:
             cmd_str = args[-1]
             if "desktop-head-unit" in cmd_str:
-                proc.stdout = io.BytesIO(_FAKE_DHU_STDOUT)
+                # Extract log path from "... > /tmp/dhu_X.log 2>&1"
+                parts = cmd_str.split("> ")
+                if len(parts) >= 2:
+                    log_path = parts[-1].replace("2>&1", "").strip()
+                    os.makedirs(os.path.dirname(log_path) or "/tmp", exist_ok=True)
+                    with open(log_path, "w") as f:
+                        f.write("DHU connected\nVerify returned: ok\n> ")
 
         return proc
 
