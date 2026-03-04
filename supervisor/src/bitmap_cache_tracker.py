@@ -12,7 +12,6 @@ a BitmapCacheTracker instance via composition.
 from __future__ import annotations
 
 import threading
-from typing import Optional
 
 
 class BitmapCacheTracker:
@@ -30,7 +29,7 @@ class BitmapCacheTracker:
         with self._lock:
             self._bitmaps[cache_key] = image_data
 
-    def get_bitmap(self, cache_key: str) -> Optional[bytes]:
+    def get_bitmap(self, cache_key: str) -> bytes | None:
         """Retrieve a bitmap by cache key, or None if not found."""
         with self._lock:
             return self._bitmaps.get(cache_key)
