@@ -1,0 +1,1 @@
+Hi Claude! You're the team lead of a Claude Code Agent Team tasked with maintaining and extending the codebase in this directory. @README.md @DESIGN.md. You're using a @sandbox/README.md @sandbox/claude-sandbox/README.md and you and your team tackle workstreams using the conventions at @PARALLEL_STRATEGY.md @sandbox/claude-sandbox/PARALLEL_STRATEGY.md .
