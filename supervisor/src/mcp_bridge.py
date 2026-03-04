@@ -7,10 +7,10 @@ and adds them to the EventStore for the Android app to pull via GetEvents.
 
 from __future__ import annotations
 
-import threading
 import time
 from typing import TYPE_CHECKING
 
+from supervisor.src.bitmap_cache_tracker import BitmapCacheTracker
 from supervisor.src.event_store import EventStore
 from proto.vanpilot.v1 import sync_pb2
 
@@ -22,49 +22,37 @@ class BitmapStore:
     """Thread-safe store for bitmap data, keyed by cache key.
 
     Used by GetBitmap to serve bitmaps that the Android app doesn't have cached.
-    Also tracks which keys have been sent to each client (AC-7.3) and supports
-    cache reconciliation on reconnection (AC-7.4).
+    Delegates sent-tracking (AC-7.3) and cache reconciliation (AC-7.4) to a
+    BitmapCacheTracker instance.
     """
 
-    def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self._cache: dict[str, bytes] = {}
-        # client_id -> set of cache keys sent to that client
-        self._sent: dict[str, set[str]] = {}
+    def __init__(self, tracker: BitmapCacheTracker | None = None) -> None:
+        self._tracker = tracker or BitmapCacheTracker()
 
     def put(self, cache_key: str, data: bytes) -> None:
-        with self._lock:
-            self._cache[cache_key] = data
+        self._tracker.store_bitmap(cache_key, data)
 
     def get(self, cache_key: str) -> bytes | None:
-        with self._lock:
-            return self._cache.get(cache_key)
+        return self._tracker.get_bitmap(cache_key)
 
     def has(self, cache_key: str) -> bool:
-        with self._lock:
-            return cache_key in self._cache
+        return self._tracker.has_bitmap(cache_key)
 
     def all_keys(self) -> set[str]:
         """Return all stored cache keys."""
-        with self._lock:
-            return set(self._cache.keys())
+        return self._tracker.all_keys()
 
     def mark_sent(self, client_id: str, cache_key: str) -> None:
         """Record that a cache key has been sent to a client (AC-7.3)."""
-        with self._lock:
-            if client_id not in self._sent:
-                self._sent[client_id] = set()
-            self._sent[client_id].add(cache_key)
+        self._tracker.mark_sent(client_id, cache_key)
 
     def get_sent_keys(self, client_id: str) -> set[str]:
         """Return the set of cache keys sent to a client."""
-        with self._lock:
-            return set(self._sent.get(client_id, set()))
+        return self._tracker.get_sent_keys(client_id)
 
     def clear_client(self, client_id: str) -> None:
         """Remove all tracking for a client (e.g., on disconnect)."""
-        with self._lock:
-            self._sent.pop(client_id, None)
+        self._tracker.clear_client(client_id)
 
     def reconcile(self, client_id: str, present_keys: set[str]) -> set[str]:
         """Reconcile cache state with a client on reconnection (AC-7.4).
@@ -76,9 +64,7 @@ class BitmapStore:
         Returns:
             Set of cache keys the supervisor has that the client is missing.
         """
-        with self._lock:
-            self._sent[client_id] = set(present_keys)
-            return set(self._cache.keys()) - present_keys
+        return self._tracker.reconcile(client_id, present_keys)
 
 
 def _current_time_ms() -> int:

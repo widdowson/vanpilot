@@ -1,9 +1,95 @@
-"""Tests for BitmapStore sent-tracking and reconciliation features."""
+"""Tests for BitmapStore sent-tracking and reconciliation features.
+
+Verifies that BitmapStore delegates all storage and sent-tracking to a
+BitmapCacheTracker instance (issue #59).
+"""
 
 import unittest
 import threading
 
+from supervisor.src.bitmap_cache_tracker import BitmapCacheTracker
 from supervisor.src.mcp_bridge import BitmapStore
+
+
+class BitmapStoreDelegationTest(unittest.TestCase):
+    """Tests that BitmapStore delegates to a shared BitmapCacheTracker."""
+
+    def test_store_delegates_put_to_tracker(self):
+        """put() should store data in the underlying tracker."""
+        tracker = BitmapCacheTracker()
+        store = BitmapStore(tracker)
+        store.put("0xA", b"data-a")
+        self.assertEqual(tracker.get_bitmap("0xA"), b"data-a")
+
+    def test_store_delegates_get_to_tracker(self):
+        """get() should retrieve data from the underlying tracker."""
+        tracker = BitmapCacheTracker()
+        tracker.store_bitmap("0xB", b"data-b")
+        store = BitmapStore(tracker)
+        self.assertEqual(store.get("0xB"), b"data-b")
+
+    def test_store_delegates_has_to_tracker(self):
+        """has() should check the underlying tracker."""
+        tracker = BitmapCacheTracker()
+        store = BitmapStore(tracker)
+        self.assertFalse(store.has("0xC"))
+        tracker.store_bitmap("0xC", b"data-c")
+        self.assertTrue(store.has("0xC"))
+
+    def test_store_delegates_all_keys_to_tracker(self):
+        """all_keys() should return keys from the underlying tracker."""
+        tracker = BitmapCacheTracker()
+        store = BitmapStore(tracker)
+        tracker.store_bitmap("0xD", b"d")
+        tracker.store_bitmap("0xE", b"e")
+        self.assertEqual(store.all_keys(), {"0xD", "0xE"})
+
+    def test_store_delegates_mark_sent_to_tracker(self):
+        """mark_sent() should delegate to the tracker."""
+        tracker = BitmapCacheTracker()
+        store = BitmapStore(tracker)
+        store.mark_sent("client-1", "0xA")
+        self.assertEqual(tracker.get_sent_keys("client-1"), {"0xA"})
+
+    def test_store_delegates_get_sent_keys_to_tracker(self):
+        """get_sent_keys() should read from the tracker."""
+        tracker = BitmapCacheTracker()
+        store = BitmapStore(tracker)
+        tracker.mark_sent("client-1", "0xB")
+        self.assertEqual(store.get_sent_keys("client-1"), {"0xB"})
+
+    def test_store_delegates_clear_client_to_tracker(self):
+        """clear_client() should clear in the tracker."""
+        tracker = BitmapCacheTracker()
+        store = BitmapStore(tracker)
+        tracker.mark_sent("client-1", "0xA")
+        store.clear_client("client-1")
+        self.assertEqual(tracker.get_sent_keys("client-1"), set())
+
+    def test_store_delegates_reconcile_to_tracker(self):
+        """reconcile() should delegate to the tracker."""
+        tracker = BitmapCacheTracker()
+        store = BitmapStore(tracker)
+        store.put("0xA", b"a")
+        store.put("0xB", b"b")
+        missing = store.reconcile("client-1", {"0xA"})
+        self.assertEqual(missing, {"0xB"})
+        # Tracker's sent-keys should also be updated
+        self.assertEqual(tracker.get_sent_keys("client-1"), {"0xA"})
+
+    def test_default_tracker_created_when_none_provided(self):
+        """BitmapStore creates its own tracker if none is passed."""
+        store = BitmapStore()
+        store.put("0xF", b"data")
+        self.assertEqual(store.get("0xF"), b"data")
+
+    def test_shared_tracker_reflects_cross_store_mutations(self):
+        """Two BitmapStores sharing a tracker see each other's data."""
+        tracker = BitmapCacheTracker()
+        store1 = BitmapStore(tracker)
+        store2 = BitmapStore(tracker)
+        store1.put("0xSHARED", b"shared-data")
+        self.assertEqual(store2.get("0xSHARED"), b"shared-data")
 
 
 class BitmapStoreSentTrackingTest(unittest.TestCase):
