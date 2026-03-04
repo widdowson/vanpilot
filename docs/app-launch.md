@@ -7,10 +7,13 @@ Desktop Head Unit (DHU) after a fresh APK install.
 
 ```bash
 # Full flow: create instance → install → launch
-python3 standalone_client.py create --name my-instance
-python3 standalone_client.py install-apk --name my-instance --apk vanpilot.apk
-python3 standalone_client.py launch-app --name my-instance [--screenshot]
+im create --name my-instance
+im install-apk --name my-instance --apk vanpilot.apk
+im launch-app --name my-instance [--screenshot]
 ```
+
+(`im` is the standalone client wrapper at `instance_manager/bin/im`.
+See `docs/agent-instance-manager-guide.md` for setup.)
 
 ## Launch Mechanism
 
@@ -26,6 +29,11 @@ shows it in the app launcher grid. The launch sequence:
 The DHU uses a **1920×1080 coordinate system** for `tap` commands (matching
 the screenshot resolution). VanPilot appears in the launcher grid at
 approximately row 3, column 1 — coordinates **(200, 390)**.
+
+**Note**: The grid position depends on the number of installed apps and their
+sort order. If apps are added to or removed from the `aa_ready` snapshot,
+VanPilot's position will shift. Use the "Coordinate Discovery" section below
+to find the new position, or override with `launch-app --x <X> --y <Y>`.
 
 ## What Doesn't Work
 

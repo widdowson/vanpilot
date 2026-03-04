@@ -5,13 +5,13 @@ This client requires only grpcio + protobuf (both pip-installable) and
 uses vendored proto stubs — no Bazel needed. Designed for use inside
 Docker sandbox agents.
 
-Usage:
-    python3 standalone_client.py list
-    python3 standalone_client.py create --name my-instance
-    python3 standalone_client.py install-apk --name my-instance --apk vanpilot.apk
-    python3 standalone_client.py launch-app --name my-instance
-    python3 standalone_client.py destroy --name my-instance
-    python3 standalone_client.py screenshot --name my-instance
+Usage (via wrapper script):
+    im list
+    im create --name my-instance
+    im install-apk --name my-instance --apk vanpilot.apk
+    im launch-app --name my-instance
+    im destroy --name my-instance
+    im screenshot --name my-instance
 
 Set IM_ADDR to override the default server address (localhost:50061).
 """
