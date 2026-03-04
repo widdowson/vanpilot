@@ -57,6 +57,17 @@ Golden tests are critical to this project. The project owner reviews PRs primari
 - When you change existing UI behavior, the golden image diffs MUST be part of the PR.
 - Golden tests launch the Android emulator + Android Auto DHU, render the UI, capture a screenshot, and compare pixel-by-pixel against the committed golden.
 - If a golden test fails, it produces a diff image highlighting changed pixels.
+- Use `goldens/golden_diff.py:mask_status_bar()` to blank out the DHU/phone status bar before committing — this eliminates spurious diffs from clocks, battery icons, etc.
+- The visual diff tool for reviewing golden PRs is at `vr.apw.photos/widdowson/vanpilot/pr/{number}`.
+
+## Instance Manager
+
+Agents use the instance manager (gRPC on `mac:50061`) to control emulator + DHU instances. Key rules:
+
+- **Each agent MUST use its own named instance** (e.g., `create --name golden-capturer`). Never use generic names like `test-1`.
+- **Use Bazel for the client**: `bazel run //instance_manager:instance_manager_client -- COMMAND`. Do NOT create standalone/vendored client scripts.
+- **No pre-baked APKs in snapshots** — always build and install the latest APK via `install-apk`.
+- See `docs/agent-instance-manager-guide.md` for full usage and `docs/app-launch.md` for launching VanPilot on the DHU.
 
 ## Proto Files
 
