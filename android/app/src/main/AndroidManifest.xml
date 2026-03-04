@@ -14,8 +14,21 @@
     <application
         android:icon="@mipmap/ic_launcher"
         android:label="VanPilot"
-        android:supportsRtl="true">
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
+        <!-- Phone UI entry point -->
+        <activity
+            android:name="com.vanpilot.phone.PhoneMainActivity"
+            android:exported="true"
+            android:label="VanPilot">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Android Auto entry point -->
         <service
             android:name=".VanPilotCarAppService"
             android:exported="true"
