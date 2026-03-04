@@ -252,6 +252,28 @@ ERROR: StatusCode.INVALID_ARGUMENT — Invalid name '../../bad': must match [a-z
 
 Instance names must match `[a-zA-Z0-9][a-zA-Z0-9._-]*` (letters, digits, dots, hyphens, underscores; must start with alphanumeric).
 
+### Snapshot sentinel file
+
+The `aa_ready` snapshot contains a sentinel file at `/data/local/tmp/.vanpilot_snapshot_sentinel`. During instance creation, after the emulator reports `sys.boot_completed=1`, the instance manager checks for this file:
+
+```bash
+adb -s emulator-<console_port> shell ls /data/local/tmp/.vanpilot_snapshot_sentinel
+```
+
+If the file is missing, the emulator cold-booted instead of resuming the snapshot (e.g. due to a GPU renderer mismatch). The instance is set to ERROR state with the message:
+
+```
+Snapshot sentinel missing on emulator-5554: emulator cold-booted instead of resuming snapshot. Check -gpu flag and AVD snapshot name.
+```
+
+**What to do when you see this error:**
+
+1. Check that the `-gpu` flag matches the renderer used when the snapshot was saved. The instance manager auto-detects this from `snapshot.pb`, but a corrupted or missing snapshot metadata file can cause a mismatch.
+2. Verify the snapshot name exists in the AVD's `snapshots/` directory.
+3. Check the emulator log at `/tmp/emu_<name>.log` for renderer errors.
+
+The sentinel check is skipped when no snapshot is specified (empty `snapshot_name`), since cold boot is the expected behavior in that case.
+
 ## gRPC API
 
 For agents that want to call the gRPC API directly (e.g. from Python) instead of shelling out to the CLI, the service is defined in `proto/vanpilot/v1/instance_manager.proto`:

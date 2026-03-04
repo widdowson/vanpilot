@@ -120,7 +120,8 @@ class EmulatorLifecycle:
             self._wait_for_boot(serial)
 
             # 3b. Verify snapshot sentinel (detects cold-boot vs snapshot resume)
-            self._check_snapshot_sentinel(serial)
+            if snapshot_name:
+                self._check_snapshot_sentinel(serial)
 
             # 3c. Start socat to expose ADB on all interfaces for remote access.
             # The emulator binds ADB to 127.0.0.1 only; socat makes it

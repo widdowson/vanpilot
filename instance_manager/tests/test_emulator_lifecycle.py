@@ -192,6 +192,26 @@ class EmulatorLifecycleTest(unittest.TestCase):
         self.assertIn("cold-booted", str(ctx.exception))
         self.assertEqual(store.get("test").state, ERROR)
 
+    def test_create_skips_sentinel_when_no_snapshot(self):
+        """create() skips the sentinel check when snapshot_name is empty."""
+        store, runner, lifecycle = self._make_lifecycle()
+        ports = self._make_ports()
+        store.create("test", 5554, 5555, 5277, False, 1000, "test_avd")
+
+        with patch.object(lifecycle, "_resolve_gpu_mode", return_value="swiftshader_indirect"):
+            with patch.object(lifecycle, "_wait_for_dhu"):
+                with patch.object(lifecycle, "_wait_for_dhu_screenshot", return_value=b"png"), \
+                     patch.object(lifecycle, "emulator_screenshot_to_bytes", return_value=b"png"):
+                    record = lifecycle.create("test", "test_avd", "", False, ports)
+
+        # No sentinel check should have been issued
+        sentinel_calls = [
+            c for c in runner.run_calls
+            if ".vanpilot_snapshot_sentinel" in " ".join(c[0])
+        ]
+        self.assertEqual(len(sentinel_calls), 0)
+        self.assertEqual(record.state, RUNNING)
+
     def test_destroy_falls_back_to_pid_kill(self):
         """When no Popen handles exist, destroy falls back to kill <pid>."""
         store, runner, lifecycle = self._make_lifecycle()
