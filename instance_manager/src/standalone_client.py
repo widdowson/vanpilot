@@ -8,6 +8,8 @@ Docker sandbox agents.
 Usage:
     python3 standalone_client.py list
     python3 standalone_client.py create --name my-instance
+    python3 standalone_client.py install-apk --name my-instance --apk vanpilot.apk
+    python3 standalone_client.py launch-app --name my-instance
     python3 standalone_client.py destroy --name my-instance
     python3 standalone_client.py screenshot --name my-instance
 
@@ -137,6 +139,38 @@ def cmd_dhu_command(stubs, args):
         print(f"Screenshot: {out_path} ({len(resp.screenshot_png)} bytes)")
 
 
+def cmd_launch_app(stubs, args):
+    import time
+
+    def dhu(command, screenshot=False):
+        req = pb.DhuCommandRequest(
+            name=args.name,
+            command=command,
+            capture_screenshot=screenshot,
+        )
+        return stubs["dhu_command"](req, timeout=30)
+
+    print(f"Launching VanPilot on '{args.name}'...")
+
+    # Step 1: Open the app launcher
+    dhu("keycode home")
+    print("  Opened launcher, waiting for grid...")
+    time.sleep(2)
+
+    # Step 2: Tap VanPilot's icon at (200, 390) in the 1920x1080 grid
+    resp = dhu(f"tap {args.x} {args.y}", screenshot=args.screenshot)
+    print(f"  Tapped ({args.x}, {args.y}), waiting for app init...")
+    time.sleep(args.wait)
+
+    if resp.screenshot_png:
+        out_path = args.output or f"/tmp/{args.name}_launch.png"
+        with open(out_path, "wb") as f:
+            f.write(resp.screenshot_png)
+        print(f"  Screenshot: {out_path} ({len(resp.screenshot_png)} bytes)")
+
+    print("Done — VanPilot should be running.")
+
+
 def cmd_install_apk(stubs, args):
     apk_path = args.apk
     with open(apk_path, "rb") as f:
@@ -230,6 +264,15 @@ def main():
     p_dhu_cmd.add_argument("--output", help="Screenshot output path")
     p_dhu_cmd.add_argument("dhu_words", nargs="+", metavar="command", help="DHU console command")
 
+    p_launch = sub.add_parser("launch-app",
+                               help="Launch VanPilot on the DHU via launcher tap")
+    p_launch.add_argument("--name", required=True)
+    p_launch.add_argument("--x", type=int, default=200, help="Tap X coord (default: 200)")
+    p_launch.add_argument("--y", type=int, default=390, help="Tap Y coord (default: 390)")
+    p_launch.add_argument("--wait", type=int, default=5, help="Seconds to wait after tap")
+    p_launch.add_argument("--screenshot", action="store_true", help="Capture screenshot after tap")
+    p_launch.add_argument("--output", help="Screenshot output path")
+
     p_install = sub.add_parser("install-apk")
     p_install.add_argument("--name", required=True)
     p_install.add_argument("--apk", required=True, help="Path to APK file")
@@ -273,6 +316,7 @@ def main():
         "adb": cmd_adb,
         "adb-push": cmd_push,
         "adb-pull": cmd_pull,
+        "launch-app": cmd_launch_app,
     }
     try:
         dispatch[args.command](stubs, args)

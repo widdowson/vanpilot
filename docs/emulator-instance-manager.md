@@ -18,8 +18,9 @@ The service:
 ## 3. Non-Goals
 
 - **Tailscale setup**: Sandbox workers handle their own Tailscale configuration. This service binds to `0.0.0.0` and relies on Tailscale ACLs for access control.
-- **APK installation**: The `aa_ready` snapshot already has VanPilot installed. If a worker needs a fresh APK, they use `adb install` directly.
 - **Emulator image management**: AVDs are pre-created on the Mac. The service uses existing AVDs by name.
+
+> **Note**: APK installation is now supported via the `InstallApk` RPC. The `aa_ready` snapshot does NOT have VanPilot pre-installed — agents must install the APK after creating an instance.
 
 ## 4. Proto Definition
 
@@ -36,107 +37,24 @@ option java_multiple_files = true;
 // Manages Android emulator + DHU instance pairs on the macOS host.
 // Sandbox workers call this to spin up isolated testing environments.
 service InstanceManagerService {
-  // Create a new emulator + DHU instance pair.
   rpc CreateInstance(CreateInstanceRequest) returns (CreateInstanceResponse);
-
-  // Destroy an existing instance, killing emulator and DHU processes.
   rpc DestroyInstance(DestroyInstanceRequest) returns (DestroyInstanceResponse);
-
-  // List all known instances and their states.
   rpc ListInstances(ListInstancesRequest) returns (ListInstancesResponse);
-
-  // Get details for a single instance by name.
   rpc GetInstance(GetInstanceRequest) returns (GetInstanceResponse);
-
-  // Capture a DHU screenshot from a running instance.
   rpc ScreenshotInstance(ScreenshotInstanceRequest) returns (ScreenshotInstanceResponse);
+  rpc RestartDhu(RestartDhuRequest) returns (RestartDhuResponse);
+  rpc DhuCommand(DhuCommandRequest) returns (DhuCommandResponse);
+  rpc StartVideoCapture(StartVideoCaptureRequest) returns (StartVideoCaptureResponse);
+  rpc StopVideoCapture(StopVideoCaptureRequest) returns (StopVideoCaptureResponse);
+  rpc InstallApk(InstallApkRequest) returns (InstallApkResponse);
+  rpc AdbShell(AdbShellRequest) returns (AdbShellResponse);
+  rpc AdbPush(AdbPushRequest) returns (AdbPushResponse);
+  rpc AdbPull(AdbPullRequest) returns (AdbPullResponse);
 }
 
-message CreateInstanceRequest {
-  // Human-readable instance name (e.g., "coder-agent-1"). Must be unique.
-  string name = 1;
+// See proto/vanpilot/v1/instance_manager.proto for full message definitions.
 
-  // true = GUI emulator window, false = headless (default).
-  bool headful = 2;
-
-  // AVD to use. Default: "vanpilot_pixel9pro_api36".
-  string avd_name = 3;
-
-  // Snapshot to restore on boot. Default: "aa_ready".
-  string snapshot_name = 4;
-}
-
-message CreateInstanceResponse {
-  InstanceInfo instance = 1;
-}
-
-message DestroyInstanceRequest {
-  string name = 1;
-}
-
-message DestroyInstanceResponse {}
-
-message ListInstancesRequest {}
-
-message ListInstancesResponse {
-  repeated InstanceInfo instances = 1;
-}
-
-message GetInstanceRequest {
-  string name = 1;
-}
-
-message GetInstanceResponse {
-  InstanceInfo instance = 1;
-}
-
-message ScreenshotInstanceRequest {
-  string name = 1;
-}
-
-message ScreenshotInstanceResponse {
-  // DHU screenshot as PNG bytes.
-  bytes screenshot_png = 1;
-
-  // When the screenshot was captured (milliseconds since epoch).
-  int64 captured_at_ms = 2;
-}
-
-message InstanceInfo {
-  string name = 1;
-  InstanceState state = 2;
-
-  // Emulator console port (e.g., 5554).
-  int32 emulator_console_port = 3;
-
-  // ADB port (e.g., 5555). Always console_port + 1.
-  int32 adb_port = 4;
-
-  // AA forwarded port (e.g., 5277).
-  int32 aa_forward_port = 5;
-
-  bool headful = 6;
-
-  // Instance creation time (milliseconds since epoch).
-  int64 created_at_ms = 7;
-
-  string avd_name = 8;
-
-  // Most recent DHU screenshot (populated by background refresh loop).
-  // Omitted if no screenshot has been taken yet.
-  bytes last_screenshot_png = 9;
-}
-
-enum InstanceState {
-  INSTANCE_STATE_UNSPECIFIED = 0;
-  CREATING = 1;
-  RUNNING = 2;
-  ERROR = 3;
-  DESTROYING = 4;
-}
 ```
-
-This follows the existing `vanpilot.v1` package conventions from `sync.proto` and `screenshot.proto`.
 
 ## 5. Architecture
 
