@@ -9,6 +9,7 @@ from typing import Optional
 import grpc
 
 from supervisor.src.android_app_client import AndroidAppClient
+from supervisor.src.bitmap_cache_tracker import BitmapCacheTracker
 from supervisor.src.event_store import EventStore
 from supervisor.src.log_tailer import LogTailer
 from supervisor.src.mcp_bridge import BitmapStore, McpBridge
@@ -61,7 +62,8 @@ def create_server(
     """
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=_MAX_WORKERS))
     store = EventStore()
-    bitmap_store = BitmapStore()
+    tracker = BitmapCacheTracker()
+    bitmap_store = BitmapStore(tracker)
     bridge = McpBridge(store, bitmap_store, app_client=app_client)
     add_sync_service_to_server(server, store, bitmap_store)
     log_dir = os.environ.get("AGENT_LOG_DIR", _DEFAULT_LOG_DIR)

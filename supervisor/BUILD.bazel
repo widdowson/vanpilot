@@ -21,6 +21,7 @@ py_library(
     srcs = ["src/mcp_bridge.py"],
     imports = [".."],
     deps = [
+        ":bitmap_cache_tracker",
         ":event_store",
         "//proto/vanpilot/v1:sync_py_proto",
     ],
@@ -92,6 +93,7 @@ py_library(
     imports = [".."],
     deps = [
         ":android_app_client",
+        ":bitmap_cache_tracker",
         ":event_store",
         ":log_tailer",
         ":mcp_bridge",
@@ -277,6 +279,7 @@ py_test(
     main = "tests/test_bitmap_store.py",
     imports = [".."],
     deps = [
+        ":bitmap_cache_tracker",
         ":mcp_bridge",
     ],
 )
