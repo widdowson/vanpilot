@@ -81,13 +81,28 @@ Each instance gets its own ADB port. The `create` output shows it:
 console=5554  adb=5555
 ```
 
+### Local access (on the Mac Studio)
+
 Connect with:
 
 ```bash
 adb -s emulator-5554 shell
 ```
 
-The serial is always `emulator-{console_port}`. Common operations:
+The serial is always `emulator-{console_port}`.
+
+### Remote access (from a Docker sandbox)
+
+The ADB port is exposed on all network interfaces via a `socat` forwarder, so sandbox agents can connect over Tailscale:
+
+```bash
+adb connect mac:5555
+adb -s mac:5555 shell
+```
+
+Replace `mac` with the Tailscale hostname or IP of the Mac Studio. The port is the ADB port shown in the `create` output.
+
+### Common operations
 
 ```bash
 # Install an APK

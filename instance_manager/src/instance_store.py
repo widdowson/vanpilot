@@ -29,6 +29,7 @@ class InstanceRecord:
     emulator_pid: Optional[int] = None
     dhu_pid: Optional[int] = None
     keeper_pid: Optional[int] = None
+    socat_pid: Optional[int] = None
     pipe_path: Optional[str] = None
     log_path: Optional[str] = None
     last_screenshot_png: Optional[bytes] = None
