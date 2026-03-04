@@ -1,7 +1,5 @@
 package com.vanpilot.auto
 
-import androidx.car.app.model.Action
-import androidx.car.app.model.TabTemplate
 import androidx.car.app.navigation.model.NavigationTemplate
 import androidx.car.app.testing.ScreenController
 import androidx.car.app.testing.TestCarContext
@@ -36,54 +34,9 @@ class VanPilotScreenTest {
     }
 
     @Test
-    fun onGetTemplate_returnsTabTemplate() {
+    fun onGetTemplate_returnsNavigationTemplate() {
         val template = screen.onGetTemplate()
-        assertThat(template).isInstanceOf(TabTemplate::class.java)
-    }
-
-    @Test
-    fun onGetTemplate_hasFourTabs() {
-        val template = screen.onGetTemplate()
-        // Visual + Lead Agent + 2 sub-agents from mock data
-        assertThat(template.tabs).hasSize(4)
-    }
-
-    @Test
-    fun onGetTemplate_firstTabTitleIsVisual() {
-        val template = screen.onGetTemplate()
-        assertThat(template.tabs[0].title.toString()).isEqualTo("Visual")
-    }
-
-    @Test
-    fun onGetTemplate_secondTabTitleIsLeadAgent() {
-        val template = screen.onGetTemplate()
-        assertThat(template.tabs[1].title.toString()).isEqualTo("Lead Agent")
-    }
-
-    @Test
-    fun onGetTemplate_visualTabContentIdMatchesConstant() {
-        val template = screen.onGetTemplate()
-        assertThat(template.tabs[0].contentId).isEqualTo(VanPilotScreen.VISUAL_TAB_ID)
-    }
-
-    @Test
-    fun onGetTemplate_leadAgentTabContentIdMatchesConstant() {
-        val template = screen.onGetTemplate()
-        assertThat(template.tabs[1].contentId).isEqualTo(VanPilotScreen.LEAD_AGENT_TAB_ID)
-    }
-
-    @Test
-    fun onGetTemplate_activeTabIsVisualCard() {
-        val template = screen.onGetTemplate()
-        assertThat(template.activeTabContentId).isEqualTo(VanPilotScreen.VISUAL_TAB_ID)
-    }
-
-    @Test
-    fun onGetTemplate_tabContentsHasNavigationTemplate() {
-        val template = screen.onGetTemplate()
-        val contents = template.tabContents
-        assertThat(contents).isNotNull()
-        assertThat(contents!!.template).isInstanceOf(NavigationTemplate::class.java)
+        assertThat(template).isInstanceOf(NavigationTemplate::class.java)
     }
 
     @Test
