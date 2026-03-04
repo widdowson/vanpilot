@@ -15,28 +15,18 @@ _SOURCE_RESCAN_INTERVAL = 5.0
 
 
 def _clean_dhu_line(text: str) -> str | None:
-    """Clean DHU interactive prompt noise, keeping command echoes.
+    """Filter bare DHU prompt lines.
 
-    Returns None for pure-noise lines (just bare prompts like "> " or "> > ").
-    For lines with real content after the prompt, returns the text as-is so the
-    log reads like a terminal transcript:
-
-        Phone reported protocol version 1.7
-        > keycode home
-        > tap 300 430
-        Video focus gained
-
-    The DHU echoes "> " for every pipe write. A bare "> " is noise, but
-    "> keycode home" is a useful command echo we want to keep.
+    Returns None for pure-noise lines (just ``> `` prompts with no content).
+    Everything else passes through unchanged — including ``> command``
+    lines which represent commands sent to the DHU.
     """
     stripped = text.strip()
-    # Pure noise: empty, bare ">", or sequences of "> " with nothing after
     cleaned = stripped
     while cleaned.startswith("> "):
         cleaned = cleaned[2:]
     if cleaned == ">" or cleaned == "":
         return None
-    # Has real content — return the original (preserving "> " prefix for commands)
     return stripped
 
 

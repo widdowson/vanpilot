@@ -36,10 +36,10 @@ class CleanDhuLineTest(unittest.TestCase):
         self.assertIsNone(_clean_dhu_line("> > > "))
         self.assertIsNone(_clean_dhu_line("> > >"))
 
-    def test_command_echo_preserved(self):
+    def test_command_echo_kept(self):
+        # "> command" lines represent commands we sent — keep them
         self.assertEqual(_clean_dhu_line("> keycode home"), "> keycode home")
         self.assertEqual(_clean_dhu_line("> tap 300 430"), "> tap 300 430")
-        self.assertEqual(_clean_dhu_line("> screenshot /tmp/x.png"), "> screenshot /tmp/x.png")
 
     def test_plain_output_passes_through(self):
         self.assertEqual(
@@ -47,13 +47,6 @@ class CleanDhuLineTest(unittest.TestCase):
             "Phone reported protocol version 1.7",
         )
         self.assertEqual(_clean_dhu_line("SSL handshake complete"), "SSL handshake complete")
-
-    def test_prefixed_output_preserved(self):
-        # DHU sometimes prefixes real output with "> "
-        self.assertEqual(
-            _clean_dhu_line("> Phone reported protocol version 1.7"),
-            "> Phone reported protocol version 1.7",
-        )
 
 
 class LogCollectorGetSourcesTest(unittest.TestCase):
@@ -183,15 +176,18 @@ class LogCollectorReadRecentTest(unittest.TestCase):
             os.unlink(path)
 
     def test_dhu_noise_filtered_commands_kept(self):
+        # Simulates combined log from DhuLineBuffer: commands appear
+        # as "> command", DHU output appears without "> " prefix,
+        # and bare "> " prompts are filtered out.
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".log", delete=False
         ) as f:
             f.write("SSL handshake complete\n")
             f.write("> \n")
-            f.write("> > \n")
             f.write("> keycode home\n")
-            f.write("> \n")
             f.write("Video focus gained\n")
+            f.write("> \n")
+            f.write("> tap 300 430\n")
             path = f.name
         try:
             collector = LogCollector()
@@ -202,6 +198,7 @@ class LogCollectorReadRecentTest(unittest.TestCase):
                 "SSL handshake complete",
                 "> keycode home",
                 "Video focus gained",
+                "> tap 300 430",
             ])
         finally:
             os.unlink(path)

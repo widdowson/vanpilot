@@ -36,6 +36,53 @@ class _ProcessHandles:
     dhu: Optional[subprocess.Popen] = None
     keeper: Optional[subprocess.Popen] = None
     socat: Optional[subprocess.Popen] = None
+    dhu_reader: Optional[threading.Thread] = None
+    dhu_buffer: Optional["DhuLineBuffer"] = None
+
+
+class DhuLineBuffer:
+    """Shared buffer for DHU stdout and client commands.
+
+    Both the DHU stdout reader thread and pipe_write() append to this
+    buffer.  Whenever the buffer contains at least one newline, all
+    complete lines (up to and including the last ``\\n``) are flushed
+    to the log file.  The remainder (a partial line, typically the
+    DHU's ``> `` prompt) stays in the buffer.
+
+    Because pipe_write() appends the raw command text (``command\\n``)
+    and the DHU's pending ``> `` prompt is already sitting in the
+    buffer, the flushed line naturally reads ``> command``.
+    """
+
+    def __init__(self, log_path: str) -> None:
+        self._buf = ""
+        self._lock = threading.Lock()
+        self._log_path = log_path
+
+    def append(self, data: str) -> None:
+        with self._lock:
+            self._buf += data
+            last_nl = self._buf.rfind("\n")
+            if last_nl >= 0:
+                to_flush = self._buf[: last_nl + 1]
+                self._buf = self._buf[last_nl + 1 :]
+                with open(self._log_path, "a") as f:
+                    f.write(to_flush)
+
+
+def _dhu_reader_thread(proc: subprocess.Popen, buf: DhuLineBuffer) -> None:
+    """Read DHU stdout in a background thread, feeding the line buffer."""
+    try:
+        while True:
+            chunk = proc.stdout.read(4096)
+            if not chunk:
+                break
+            buf.append(chunk.decode("utf-8", errors="replace"))
+    except (OSError, ValueError):
+        pass
+    finally:
+        # Flush any trailing partial line
+        buf.append("\n")
 
 
 class SubprocessRunner:
@@ -165,16 +212,26 @@ class EmulatorLifecycle:
             dhu_path = os.path.join(
                 android_home, "extras", "google", "auto", "desktop-head-unit"
             )
-            dhu_flags = f"--adb={ports.aa_forward_port}"
+            dhu_args = [dhu_path, f"--adb={ports.aa_forward_port}"]
             if not headful:
-                dhu_flags += " --headless"
+                dhu_args.append("--headless")
             dhu_proc = self._runner.popen(
-                ["bash", "-c", f"{dhu_path} {dhu_flags} < {pipe_path} > {log_path} 2>&1"],
-                stdout=subprocess.DEVNULL,
+                ["bash", "-c", " ".join(dhu_args) + f" < {pipe_path} 2>&1"],
+                stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,
             )
             handles.dhu = dhu_proc
+
+            # Start line buffer + reader thread to merge DHU stdout with commands
+            buf = DhuLineBuffer(log_path)
+            reader = threading.Thread(
+                target=_dhu_reader_thread, args=(dhu_proc, buf),
+                daemon=True,
+            )
+            reader.start()
+            handles.dhu_buffer = buf
+            handles.dhu_reader = reader
 
             self._store.update(
                 name,
@@ -389,24 +446,35 @@ class EmulatorLifecycle:
         dhu_path = os.path.join(
             android_home, "extras", "google", "auto", "desktop-head-unit",
         )
-        dhu_flags = f"--adb={record.aa_forward_port}"
+        dhu_args = [dhu_path, f"--adb={record.aa_forward_port}"]
         if not record.headful:
-            dhu_flags += " --headless"
+            dhu_args.append("--headless")
         dhu_proc = self._runner.popen(
-            ["bash", "-c", f"{dhu_path} {dhu_flags} < {pipe_path} > {log_path} 2>&1"],
-            stdout=subprocess.DEVNULL,
+            ["bash", "-c", " ".join(dhu_args) + f" < {pipe_path} 2>&1"],
+            stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
         )
+
+        # Start line buffer + reader thread
+        buf = DhuLineBuffer(log_path)
+        reader = threading.Thread(
+            target=_dhu_reader_thread, args=(dhu_proc, buf),
+            daemon=True,
+        )
+        reader.start()
 
         # 4. Update handles
         with self._handles_lock:
             if name in self._handles:
                 self._handles[name].dhu = dhu_proc
                 self._handles[name].keeper = keeper_proc
+                self._handles[name].dhu_buffer = buf
+                self._handles[name].dhu_reader = reader
             else:
                 self._handles[name] = _ProcessHandles(
                     dhu=dhu_proc, keeper=keeper_proc,
+                    dhu_buffer=buf, dhu_reader=reader,
                 )
 
         # 5. Update store with new PIDs
@@ -451,6 +519,22 @@ class EmulatorLifecycle:
                 return False
         return True
 
+    def _pipe_write_with_log(
+        self, name: str, pipe_path: str, command: str,
+    ) -> None:
+        """Write a command to the DHU pipe and log it to the line buffer."""
+        with self._handles_lock:
+            handles = self._handles.get(name)
+        buf = handles.dhu_buffer if handles else None
+
+        # Append command text to the buffer; the DHU's pending "> "
+        # prompt is already in the buffer, so the flushed line reads
+        # "> command".
+        if buf:
+            buf.append(command + "\n")
+
+        self._runner.pipe_write(pipe_path, command)
+
     def dhu_command(
         self,
         record: InstanceRecord,
@@ -466,7 +550,7 @@ class EmulatorLifecycle:
                 f"Instance '{record.name}' has no pipe path"
             )
 
-        self._runner.pipe_write(record.pipe_path, command)
+        self._pipe_write_with_log(record.name, record.pipe_path, command)
 
         if capture_screenshot:
             time.sleep(1)  # let UI settle after tap/keycode
@@ -492,7 +576,9 @@ class EmulatorLifecycle:
         )
 
         # Send screenshot command via pipe
-        self._runner.pipe_write(pipe_path, f"screenshot {screenshot_path}")
+        self._pipe_write_with_log(
+            name, pipe_path, f"screenshot {screenshot_path}"
+        )
 
         # Poll for file (check size > 0 to avoid reading a partially-created file)
         deadline = time.time() + _DEFAULT_SCREENSHOT_TIMEOUT
@@ -533,7 +619,9 @@ class EmulatorLifecycle:
         screenshot_path = f"/tmp/dhu_{name}_screenshot.png"
         while time.time() < deadline:
             self._runner.run(["rm", "-f", screenshot_path], capture_output=True)
-            self._runner.pipe_write(pipe_path, f"screenshot {screenshot_path}")
+            self._pipe_write_with_log(
+                name, pipe_path, f"screenshot {screenshot_path}"
+            )
             time.sleep(interval)
             if os.path.exists(screenshot_path) and os.path.getsize(screenshot_path) > 0:
                 with open(screenshot_path, "rb") as f:
