@@ -55,6 +55,11 @@ instance_manager/bin/im list
 | `im dhu-command --name my-emu keycode home` | Send DHU console command |
 | `im dhu-command --name my-emu --screenshot tap 300 430` | Send command + capture screenshot |
 | `im restart-dhu --name my-emu` | Restart DHU without killing emulator |
+| `im install-apk --name my-emu --apk app.apk` | Install APK + restart DHU |
+| `im launch-app --name my-emu` | Launch VanPilot on the DHU |
+| `im adb --name my-emu pm list packages` | Run adb shell command via gRPC |
+| `im adb-push --name my-emu --file f --remote /path` | Push file to emulator via gRPC |
+| `im adb-pull --name my-emu --remote /path` | Pull file from emulator via gRPC |
 
 ## Instance Lifecycle
 
@@ -126,7 +131,28 @@ adb -s mac:5555 shell
 
 Replace `mac` with the Tailscale hostname or IP of the Mac Studio. The port is the ADB port shown in the `create` output.
 
-### Common operations
+### Common operations (via gRPC — preferred for sandbox agents)
+
+The `adb`, `adb-push`, and `adb-pull` commands proxy ADB operations through gRPC, so sandbox agents don't need a direct ADB connection:
+
+```bash
+# Install an APK (restarts DHU automatically)
+im install-apk --name coder-1 --apk /path/to/app.apk
+
+# Run a shell command
+im adb --name coder-1 pm list packages
+
+# View logcat
+im adb --name coder-1 logcat -d -s VanPilot:*
+
+# Push a file (max ~4MB due to gRPC message size limit)
+im adb-push --name coder-1 --file local.txt --remote /sdcard/local.txt
+
+# Pull a file
+im adb-pull --name coder-1 --remote /sdcard/file.txt --output file.txt
+```
+
+### Common operations (via direct ADB — on the Mac Studio)
 
 ```bash
 # Install an APK
@@ -230,34 +256,58 @@ When `--screenshot` is used, the captured image also updates the web dashboard c
 | `rotate left` | Rotate knob left |
 | `rotate right` | Rotate knob right |
 
-### Typical workflow: launch app and interact
+### Full workflow: build, install, launch VanPilot
 
 ```bash
-# 1. Create instance
+# 1. Create instance (boots from aa_ready snapshot — VanPilot NOT pre-installed)
 im create --name test-1
 
-# 2. Go to home screen
-im dhu-command --name test-1 keycode home
+# 2. Build the APK
+bazel build //android/app:vanpilot
 
-# 3. Open the app launcher (bottom-left grid icon)
-im dhu-command --name test-1 --screenshot tap 27 515
+# 3. Install APK (restarts DHU so Android Auto discovers the new app)
+im install-apk --name test-1 --apk bazel-bin/android/app/vanpilot.apk
 
-# 4. Tap your app
-im dhu-command --name test-1 --screenshot tap 300 200
+# 4. Launch VanPilot (opens launcher, taps VanPilot icon)
+im launch-app --name test-1 --screenshot
 
-# 5. Interact with your app's UI
+# 5. Interact with VanPilot's UI
 im dhu-command --name test-1 --screenshot tap 480 300
 
 # 6. When done, tear down
 im destroy --name test-1
 ```
 
-## Restarting the DHU
+The `launch-app` command:
+1. Sends `keycode home` to open the app launcher grid
+2. Waits 2 seconds for the launcher to render
+3. Taps VanPilot's icon at (200, 390) in the 1920x1080 coordinate system
+4. Waits for app initialization
 
-After installing or updating an APK, Android Auto needs to rediscover the app. Restart the DHU (the emulator stays running):
+Override the tap coordinates with `--x` and `--y` if the grid layout changes. See `docs/app-launch.md` for the full launcher grid coordinate map and troubleshooting.
+
+## APK Installation
+
+The `aa_ready` snapshot does NOT have VanPilot pre-installed. Install the APK after creating an instance:
 
 ```bash
-adb -s emulator-5554 install my-app.apk
+# Install APK + restart DHU in one command
+im install-apk --name coder-1 --apk vanpilot.apk
+
+# Or install without restarting DHU
+im install-apk --name coder-1 --apk vanpilot.apk --no-restart-dhu
+```
+
+The `install-apk` command:
+1. Pushes the APK to the emulator via `adb install`
+2. Restarts the DHU (by default) so Android Auto discovers the new app
+3. Returns the updated instance info with fresh screenshots
+
+## Restarting the DHU
+
+If you need to restart the DHU independently (e.g., after changing Android Auto settings):
+
+```bash
 im restart-dhu --name coder-1
 ```
 
@@ -312,6 +362,12 @@ GetInstance(name) → InstanceInfo
 ScreenshotInstance(name) → {dhu_screenshot_png, emulator_screenshot_png, captured_at_ms}
 RestartDhu(name) → InstanceInfo
 DhuCommand(name, command, capture_screenshot?) → {executed_at_ms, screenshot_png}
+InstallApk(name, apk_data, restart_dhu?) → InstanceInfo
+AdbShell(name, args[], timeout_s?) → {exit_code, stdout, stderr}
+AdbPush(name, data, remote_path) → {}
+AdbPull(name, remote_path) → {data}
+StartVideoCapture(name, target_fps?, max_duration_s?) → {capture_id}
+StopVideoCapture(name) → {video_mp4, frame_count, actual_fps, duration_ms, capture_id}
 ```
 
 Use `grpc.insecure_channel("localhost:50061")` to connect. See `instance_manager/src/client.py` for a working example of building stubs without codegen, or `instance_manager/src/standalone_client.py` for a version that works without Bazel.

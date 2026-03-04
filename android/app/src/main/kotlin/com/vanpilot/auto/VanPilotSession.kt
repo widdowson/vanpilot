@@ -34,7 +34,14 @@ class VanPilotSession(
     override fun onCreateScreen(intent: Intent): Screen {
         // Use injected channel for tests, or create one from endpoint config.
         // Tailscale provides the encrypted tunnel, so plaintext is safe here.
-        channel = channelOverride ?: ChannelFactory.createChannel(endpointConfig)
+        // Channel creation may fail if grpc-okhttp is not on the classpath
+        // (e.g., during DHU testing without a supervisor). The app still
+        // renders its default teal surface in that case.
+        channel = channelOverride ?: try {
+            ChannelFactory.createChannel(endpointConfig)
+        } catch (_: Exception) {
+            null
+        }
 
         // Shut down the channel when the session is destroyed.
         lifecycle.addObserver(object : DefaultLifecycleObserver {
