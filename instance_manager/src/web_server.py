@@ -9,7 +9,6 @@ import threading
 import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
-from typing import Optional
 from urllib.parse import urlparse, parse_qs
 
 from instance_manager.src.instance_store import InstanceStore
@@ -32,8 +31,8 @@ class _ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
 class DashboardHandler(BaseHTTPRequestHandler):
     """HTTP handler for the instance manager dashboard."""
 
-    store: Optional[InstanceStore] = None
-    log_collector: Optional[LogCollector] = None
+    store: InstanceStore | None = None
+    log_collector: LogCollector | None = None
 
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -311,7 +310,7 @@ filters.forEach(function(cb){
 def start_web_server(
     store: InstanceStore,
     port: int = 8080,
-    log_collector: Optional[LogCollector] = None,
+    log_collector: LogCollector | None = None,
 ) -> tuple[HTTPServer, threading.Thread]:
     """Start the HTTP dashboard server in a daemon thread.
 
