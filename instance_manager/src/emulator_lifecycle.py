@@ -168,7 +168,7 @@ class EmulatorLifecycle:
             dhu_args = [dhu_path, f"--adb={ports.aa_forward_port}"]
             if not headful:
                 dhu_args.append("--headless")
-            dhu_cmd = " ".join(dhu_args) + f" < {pipe_path} > {log_path} 2>&1"
+            dhu_cmd = " ".join(dhu_args) + f" < {pipe_path} >> {log_path} 2>&1"
             dhu_proc = self._runner.popen(
                 ["bash", "-c", dhu_cmd],
                 stdout=subprocess.DEVNULL,
@@ -400,7 +400,7 @@ class EmulatorLifecycle:
         if not record.headful:
             dhu_args.append("--headless")
         dhu_proc = self._runner.popen(
-            ["bash", "-c", " ".join(dhu_args) + f" < {pipe_path} > {log_path} 2>&1"],
+            ["bash", "-c", " ".join(dhu_args) + f" < {pipe_path} >> {log_path} 2>&1"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
@@ -476,6 +476,14 @@ class EmulatorLifecycle:
             raise RuntimeError(
                 f"Instance '{record.name}' has no pipe path"
             )
+
+        # Echo command to DHU log file so the dashboard log viewer shows it.
+        if record.log_path:
+            try:
+                with open(record.log_path, "a") as f:
+                    f.write(f"> {command}\n")
+            except OSError:
+                pass
 
         self._pipe_write(record.pipe_path, command)
 

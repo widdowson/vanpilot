@@ -56,7 +56,7 @@ class FakeRunner(SubprocessRunner):
         proc.wait.return_value = 0
 
         # When DHU is launched, create the log file that _wait_for_dhu reads.
-        # The real DHU writes to this file via bash redirect (> log 2>&1).
+        # The real DHU writes to this file via bash redirect (>> log 2>&1).
         if args and args[0] == "bash" and len(args) > 2:
             cmd_str = args[-1]
             if "desktop-head-unit" in cmd_str:
