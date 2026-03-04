@@ -33,6 +33,7 @@ def _make_stubs(channel):
         "screenshot": _stub("ScreenshotInstance", pb.ScreenshotInstanceRequest, pb.ScreenshotInstanceResponse),
         "restart_dhu": _stub("RestartDhu", pb.RestartDhuRequest, pb.RestartDhuResponse),
         "dhu_command": _stub("DhuCommand", pb.DhuCommandRequest, pb.DhuCommandResponse),
+        "install_apk": _stub("InstallApk", pb.InstallApkRequest, pb.InstallApkResponse),
     }
 
 
@@ -125,6 +126,22 @@ def cmd_dhu_command(stubs, args):
         print(f"Screenshot: {out_path} ({len(resp.screenshot_png)} bytes)")
 
 
+def cmd_install_apk(stubs, args):
+    pb = instance_manager_pb2
+    apk_path = args.apk
+    with open(apk_path, "rb") as f:
+        apk_data = f.read()
+    print(f"Installing {apk_path} ({len(apk_data)} bytes) on '{args.name}'...")
+    req = pb.InstallApkRequest(
+        name=args.name,
+        apk_data=apk_data,
+        restart_dhu=args.restart_dhu,
+    )
+    resp = stubs["install_apk"](req, timeout=args.timeout)
+    print("OK")
+    _print_instance(resp.instance)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Instance manager CLI")
     parser.add_argument("--addr", default="localhost:50061", help="gRPC server address")
@@ -160,6 +177,15 @@ def main():
     p_dhu_cmd.add_argument("--output", help="Screenshot output path")
     p_dhu_cmd.add_argument("dhu_words", nargs="+", metavar="command", help="DHU console command")
 
+    p_install = sub.add_parser("install-apk")
+    p_install.add_argument("--name", required=True)
+    p_install.add_argument("--apk", required=True, help="Path to APK file")
+    p_install.add_argument("--restart-dhu", action="store_true", default=True,
+                           help="Restart DHU after install (default: true)")
+    p_install.add_argument("--no-restart-dhu", dest="restart_dhu", action="store_false",
+                           help="Skip DHU restart after install")
+    p_install.add_argument("--timeout", type=int, default=180)
+
     args = parser.parse_args()
     channel = grpc.insecure_channel(args.addr)
     stubs = _make_stubs(channel)
@@ -172,6 +198,7 @@ def main():
         "screenshot": cmd_screenshot,
         "restart-dhu": cmd_restart_dhu,
         "dhu-command": cmd_dhu_command,
+        "install-apk": cmd_install_apk,
     }
     try:
         dispatch[args.command](stubs, args)

@@ -601,6 +601,85 @@ class EmulatorLifecycleTest(unittest.TestCase):
         self.assertIn("no pipe path", str(ctx.exception))
 
 
+class InstallApkTest(unittest.TestCase):
+    """Tests for EmulatorLifecycle.install_apk."""
+
+    def _make_lifecycle(self, runner=None):
+        store = InstanceStore()
+        if runner is None:
+            runner = FakeSubprocessRunner()
+        lifecycle = EmulatorLifecycle(
+            store, runner, boot_timeout=2, dhu_timeout=2,
+        )
+        return store, runner, lifecycle
+
+    def _make_record(self, store, name="test"):
+        store.create(name, 5554, 5555, 5277, False, 1000, "test_avd")
+        store.update(name, state=RUNNING, pipe_path="/tmp/dhu_test_pipe")
+        return store.get(name)
+
+    def test_install_apk_calls_adb_install(self):
+        """install_apk runs 'adb -s <serial> install -r <path>'."""
+        store, runner, lifecycle = self._make_lifecycle()
+        record = self._make_record(store)
+
+        lifecycle.install_apk(record, b"fake-apk-contents")
+
+        install_calls = [
+            c for c in runner.run_calls
+            if len(c[0]) >= 4 and "install" in c[0]
+        ]
+        self.assertEqual(len(install_calls), 1)
+        args = install_calls[0][0]
+        self.assertEqual(args[0], "adb")
+        self.assertEqual(args[1], "-s")
+        self.assertEqual(args[2], "emulator-5554")
+        self.assertEqual(args[3], "install")
+        self.assertEqual(args[4], "-r")
+        self.assertTrue(args[5].endswith(".apk"))
+
+    def test_install_apk_cleans_up_temp_file(self):
+        """install_apk removes the temp file after completion."""
+        store, runner, lifecycle = self._make_lifecycle()
+        record = self._make_record(store)
+
+        lifecycle.install_apk(record, b"PK\x03\x04fake-apk")
+
+        install_calls = [
+            c for c in runner.run_calls
+            if len(c[0]) >= 4 and "install" in c[0]
+        ]
+        temp_path = install_calls[0][0][5]
+        self.assertFalse(os.path.exists(temp_path))
+
+    def test_install_apk_cleans_up_on_failure(self):
+        """install_apk cleans up temp file even when adb install fails."""
+
+        class FailingInstallRunner(FakeSubprocessRunner):
+            def run(self, args, **kwargs):
+                result = super().run(args, **kwargs)
+                if "install" in args:
+                    result.returncode = 1
+                    result.stderr = "Failure [INSTALL_FAILED]"
+                return result
+
+        store, runner, lifecycle = self._make_lifecycle(runner=FailingInstallRunner())
+        record = self._make_record(store)
+
+        with self.assertRaises(RuntimeError) as ctx:
+            lifecycle.install_apk(record, b"fake-apk")
+        self.assertIn("adb install failed", str(ctx.exception))
+
+    def test_install_apk_empty_bytes_raises(self):
+        """install_apk raises ValueError when apk_data is empty."""
+        store, runner, lifecycle = self._make_lifecycle()
+        record = self._make_record(store)
+
+        with self.assertRaises(ValueError) as ctx:
+            lifecycle.install_apk(record, b"")
+        self.assertIn("empty", str(ctx.exception).lower())
+
+
 class ResolveGpuModeTest(unittest.TestCase):
     """Unit tests for EmulatorLifecycle._resolve_gpu_mode."""
 

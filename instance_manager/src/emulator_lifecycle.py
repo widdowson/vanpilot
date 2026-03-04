@@ -6,6 +6,7 @@ import logging
 import os
 import signal
 import subprocess
+import tempfile
 import threading
 import time
 from dataclasses import dataclass
@@ -491,6 +492,40 @@ class EmulatorLifecycle:
             return self.screenshot_to_bytes(record.name, record.pipe_path)
 
         return b""
+
+    def install_apk(self, record: InstanceRecord, apk_data: bytes) -> None:
+        """Install an APK on the emulator via adb install.
+
+        Writes the APK bytes to a temp file, runs adb install -r, and
+        cleans up the temp file regardless of outcome.
+
+        Raises:
+            ValueError: If apk_data is empty.
+            RuntimeError: If adb install returns a non-zero exit code.
+        """
+        if not apk_data:
+            raise ValueError("apk_data is empty")
+
+        serial = f"emulator-{record.emulator_console_port}"
+        fd, tmp_path = tempfile.mkstemp(suffix=".apk")
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(apk_data)
+
+            result = self._runner.run(
+                ["adb", "-s", serial, "install", "-r", tmp_path],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(
+                    f"adb install failed (rc={result.returncode}): {result.stderr}"
+                )
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
     def screenshot(self, record: InstanceRecord) -> bytes:
         """Capture a DHU screenshot and return PNG bytes."""
