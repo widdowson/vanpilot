@@ -19,6 +19,30 @@ bazel run //instance_manager:instance_manager_client --
 
 If the server is on a different host (e.g. you're in a Docker sandbox talking over Tailscale), pass `--addr <host>:50061`.
 
+### Sandbox usage (no Bazel)
+
+Inside a Docker sandbox agent where Bazel isn't available, use the standalone client:
+
+```bash
+# Requires: pip install grpcio protobuf
+instance_manager/bin/im list
+instance_manager/bin/im create --name my-emu
+instance_manager/bin/im --addr mac:50061 list
+```
+
+Or invoke directly:
+
+```bash
+python3 instance_manager/src/standalone_client.py --help
+```
+
+Set the `IM_ADDR` environment variable to avoid passing `--addr` every time:
+
+```bash
+export IM_ADDR=mac:50061
+instance_manager/bin/im list
+```
+
 ## Quick Reference
 
 | Command | What it does |
@@ -290,4 +314,4 @@ RestartDhu(name) → InstanceInfo
 DhuCommand(name, command, capture_screenshot?) → {executed_at_ms, screenshot_png}
 ```
 
-Use `grpc.insecure_channel("localhost:50061")` to connect. See `instance_manager/src/client.py` for a working example of building stubs without codegen.
+Use `grpc.insecure_channel("localhost:50061")` to connect. See `instance_manager/src/client.py` for a working example of building stubs without codegen, or `instance_manager/src/standalone_client.py` for a version that works without Bazel.

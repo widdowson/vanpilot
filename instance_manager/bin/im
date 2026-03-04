@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Standalone instance manager CLI wrapper.
+# Works without Bazel — only requires pip-installed grpcio + protobuf.
+#
+# Usage:
+#   im list
+#   im create --name my-instance
+#   im destroy --name my-instance
+#   im screenshot --name my-instance
+#
+# Set IM_ADDR to override the default server address (localhost:50061).
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CLIENT="${SCRIPT_DIR}/../src/standalone_client.py"
+
+exec python3 "$CLIENT" "$@"

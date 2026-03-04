@@ -12,6 +12,7 @@ from concurrent import futures
 
 import grpc
 
+from instance_manager.src.cleanup import kill_orphan_emulators, shutdown_all_instances
 from instance_manager.src.emulator_lifecycle import EmulatorLifecycle, SubprocessRunner
 from instance_manager.src.instance_manager_service import (
     add_instance_manager_service_to_server,
@@ -69,11 +70,11 @@ def create_server(
     max_slots: int = 8,
     runner: SubprocessRunner | None = None,
     service_log_path: str | None = None,
-) -> tuple[grpc.Server, threading.Thread, InstanceStore]:
+) -> tuple[grpc.Server, threading.Thread, InstanceStore, EmulatorLifecycle]:
     """Create and configure the instance manager servers.
 
     Returns:
-        (grpc_server, http_thread, instance_store)
+        (grpc_server, http_thread, instance_store, lifecycle)
     """
     store = InstanceStore()
     port_allocator = PortAllocator(max_slots=max_slots)
@@ -97,7 +98,7 @@ def create_server(
     )
     refresh_thread.start()
 
-    return server, http_thread, store
+    return server, http_thread, store, lifecycle
 
 
 def _check_port_free(port: int) -> None:
@@ -127,12 +128,22 @@ def main():
     logging.getLogger().addHandler(fh)
     logging.getLogger().setLevel(logging.INFO)
 
-    server, http_thread, store = create_server(
+    kill_orphan_emulators()
+
+    server, http_thread, store, lifecycle = create_server(
         service_log_path=_DEFAULT_SERVICE_LOG,
     )
     server.start()
     print("Instance manager gRPC on :50061, HTTP dashboard on :8080", flush=True)
-    signal.signal(signal.SIGTERM, lambda *_: (server.stop(5), sys.exit(0)))
+
+    def _handle_shutdown(*_):
+        log.info("Received shutdown signal, cleaning up instances...")
+        shutdown_all_instances(store, lifecycle)
+        server.stop(5)
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, _handle_shutdown)
+    signal.signal(signal.SIGINT, _handle_shutdown)
     server.wait_for_termination()
 
 
