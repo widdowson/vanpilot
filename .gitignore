@@ -1,8 +1,5 @@
 # Bazel output directories (symlinks)
-/bazel-bin
-/bazel-out
-/bazel-testlogs
-/bazel-vanpilot
+/bazel-*/
 
 # Git worktrees (see PARALLEL_STRATEGY.md)
 /worktrees/
