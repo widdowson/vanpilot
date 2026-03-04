@@ -1012,3 +1012,95 @@ android_local_test(
         "@robolectric//bazel:android-all",
     ],
 )
+
+# ============================================================================
+# Phone UI library
+# ============================================================================
+
+kt_android_library(
+    name = "phone_lib",
+    srcs = glob(["app/src/main/kotlin/com/vanpilot/phone/**/*.kt"]),
+    custom_package = "com.vanpilot.auto",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
+    deps = [
+        ":vanpilot_lib",
+    ],
+)
+
+# ============================================================================
+# Phone UI test libraries
+# ============================================================================
+
+kt_jvm_library(
+    name = "phone_main_activity_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/phone/PhoneMainActivityTest.kt"],
+    deps = [
+        ":phone_lib",
+        ":vanpilot_lib",
+        "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_robolectric_robolectric",
+    ],
+)
+
+kt_jvm_library(
+    name = "visual_card_fragment_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/phone/VisualCardFragmentTest.kt"],
+    deps = [
+        ":phone_lib",
+        ":vanpilot_lib",
+        "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_robolectric_robolectric",
+    ],
+)
+
+kt_jvm_library(
+    name = "conversation_fragment_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/phone/ConversationFragmentTest.kt"],
+    deps = [
+        ":phone_lib",
+        ":vanpilot_lib",
+        "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_robolectric_robolectric",
+    ],
+)
+
+# ============================================================================
+# Phone UI test targets
+# ============================================================================
+
+android_local_test(
+    name = "phone_main_activity_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
+    test_class = "com.vanpilot.phone.PhoneMainActivityTest",
+    deps = [
+        ":phone_main_activity_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_local_test(
+    name = "visual_card_fragment_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
+    test_class = "com.vanpilot.phone.VisualCardFragmentTest",
+    deps = [
+        ":visual_card_fragment_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_local_test(
+    name = "conversation_fragment_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
+    test_class = "com.vanpilot.phone.ConversationFragmentTest",
+    deps = [
+        ":conversation_fragment_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
