@@ -114,7 +114,7 @@ maven.install(
 
         # Testing
         "junit:junit:4.13.2",
-        "com.google.truth:truth:1.4.4",
+        "com.google.truth:truth:1.4.5",
         "androidx.test:core:1.6.1",
         "androidx.test.ext:junit:1.2.1",
         "org.robolectric:robolectric:4.14.1",
