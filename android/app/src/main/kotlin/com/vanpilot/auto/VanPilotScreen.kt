@@ -1,5 +1,6 @@
 package com.vanpilot.auto
 
+import androidx.car.app.AppManager
 import androidx.car.app.CarContext
 import androidx.car.app.Screen
 import androidx.car.app.model.Action
@@ -27,6 +28,9 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
 
     val surfaceCallback = VanPilotSurfaceCallback()
     val tabManager = ConversationTabManager.createWithMockData()
+
+    /** Whether the surface callback has been registered with the host. */
+    private var surfaceCallbackRegistered = false
 
     /** Tracks the current dark mode state. */
     var currentIsDarkMode: Boolean = false
@@ -61,6 +65,15 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
     }
 
     override fun onGetTemplate(): TabTemplate {
+        // Register the surface callback on first template request.
+        // Cannot do this in onCreateScreen() — the host connection
+        // isn't established yet ("Could not retrieve host").
+        if (!surfaceCallbackRegistered) {
+            carContext.getCarService(AppManager::class.java)
+                .setSurfaceCallback(surfaceCallback)
+            surfaceCallbackRegistered = true
+        }
+
         // Read dark mode state from the host on every template refresh.
         // onGetTemplate() is called on configuration changes, so this
         // picks up dark mode toggling automatically.
