@@ -17,6 +17,7 @@ from instance_manager.src.instance_store import (
     RUNNING,
     ERROR,
 )
+from instance_manager.src.log_collector import emu_log_path
 from instance_manager.src.port_allocator import PortSlot
 
 log = logging.getLogger(__name__)
@@ -108,8 +109,8 @@ class EmulatorLifecycle:
             if not headful:
                 emu_args.append("-no-window")
 
-            emu_log_path = f"/tmp/emu_{name}.log"
-            emu_log_file = open(emu_log_path, "w")
+            emu_log = emu_log_path(name)
+            emu_log_file = open(emu_log, "w")
             try:
                 emu_proc = self._runner.popen(
                     emu_args,
@@ -249,8 +250,7 @@ class EmulatorLifecycle:
         )
 
         # Clean up files
-        emu_log_path = f"/tmp/emu_{record.name}.log"
-        for path in [record.pipe_path, record.log_path, emu_log_path]:
+        for path in [record.pipe_path, record.log_path, emu_log_path(record.name)]:
             if path:
                 self._runner.run(
                     ["rm", "-f", path], capture_output=True
@@ -458,10 +458,6 @@ class EmulatorLifecycle:
                 return False
         return True
 
-    def _pipe_write(self, pipe_path: str, command: str) -> None:
-        """Write a command to the DHU named pipe."""
-        self._runner.pipe_write(pipe_path, command)
-
     def dhu_command(
         self,
         record: InstanceRecord,
@@ -478,6 +474,9 @@ class EmulatorLifecycle:
             )
 
         # Echo command to DHU log file so the dashboard log viewer shows it.
+        # Safe to append concurrently with the DHU process: both writers
+        # open with O_APPEND and each write is well under PIPE_BUF (4096),
+        # so the kernel guarantees atomic, non-interleaved appends.
         if record.log_path:
             try:
                 with open(record.log_path, "a") as f:
@@ -485,7 +484,7 @@ class EmulatorLifecycle:
             except OSError:
                 pass
 
-        self._pipe_write(record.pipe_path, command)
+        self._runner.pipe_write(record.pipe_path, command)
 
         if capture_screenshot:
             time.sleep(1)  # let UI settle after tap/keycode
@@ -511,7 +510,7 @@ class EmulatorLifecycle:
         )
 
         # Send screenshot command via pipe
-        self._pipe_write(pipe_path, f"screenshot {screenshot_path}")
+        self._runner.pipe_write(pipe_path, f"screenshot {screenshot_path}")
 
         # Poll for file (check size > 0 to avoid reading a partially-created file)
         deadline = time.time() + _DEFAULT_SCREENSHOT_TIMEOUT
@@ -552,7 +551,7 @@ class EmulatorLifecycle:
         screenshot_path = f"/tmp/dhu_{name}_screenshot.png"
         while time.time() < deadline:
             self._runner.run(["rm", "-f", screenshot_path], capture_output=True)
-            self._pipe_write(pipe_path, f"screenshot {screenshot_path}")
+            self._runner.pipe_write(pipe_path, f"screenshot {screenshot_path}")
             time.sleep(interval)
             if os.path.exists(screenshot_path) and os.path.getsize(screenshot_path) > 0:
                 with open(screenshot_path, "rb") as f:

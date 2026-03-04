@@ -29,6 +29,7 @@ class WebServerLogsApiTest(unittest.TestCase):
 
     def tearDown(self):
         self.http_server.shutdown()
+        self.http_server.server_close()
         for path in self._tmp_files:
             try:
                 os.unlink(path)
@@ -78,6 +79,7 @@ class WebServerLogsApiTest(unittest.TestCase):
 
         # Restart server with the custom collector
         self.http_server.shutdown()
+        self.http_server.server_close()
         self.http_server, self.thread = start_web_server(
             self.store, port=0, log_collector=collector,
         )
@@ -108,6 +110,7 @@ class WebServerLogViewerTest(unittest.TestCase):
 
     def tearDown(self):
         self.http_server.shutdown()
+        self.http_server.server_close()
 
     def test_log_viewer_page(self):
         self.store.create("view1", 5554, 5555, 5277, False, 1000, "avd")
@@ -150,6 +153,7 @@ class WebServerLogStreamTest(unittest.TestCase):
 
     def tearDown(self):
         self.http_server.shutdown()
+        self.http_server.server_close()
         for path in self._tmp_files:
             try:
                 os.unlink(path)
@@ -205,12 +209,8 @@ class WebServerLogStreamTest(unittest.TestCase):
         reader = threading.Thread(target=read_events, daemon=True)
         reader.start()
 
-        # Poll until the SSE handler is connected (up to 2s)
-        deadline = time.monotonic() + 2.0
-        while time.monotonic() < deadline:
-            time.sleep(0.1)
-            if time.monotonic() - deadline + 2.0 > 0.3:
-                break
+        # Give the SSE handler time to connect before writing data.
+        time.sleep(0.3)
 
         with open(dhu_path, "a") as f:
             f.write("streamed line 1\n")

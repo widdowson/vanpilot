@@ -212,7 +212,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         try:
             last_event = time.monotonic()
-            for entry in collector.tail(record, sources=source_filter,
+            for entry in collector.tail(self.store, name,
+                                        sources=source_filter,
                                         poll_interval=0.5):
                 if entry is None:
                     # Keepalive: send SSE comment every ~15s of silence

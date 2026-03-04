@@ -6,7 +6,7 @@ import threading
 import time
 import unittest
 
-from instance_manager.src.instance_store import InstanceRecord, RUNNING
+from instance_manager.src.instance_store import InstanceRecord, InstanceStore, RUNNING
 from instance_manager.src.log_collector import LogCollector, LogEntry, _clean_dhu_line
 
 
@@ -230,12 +230,14 @@ class LogCollectorTailTest(unittest.TestCase):
             f.flush()
             dhu_path = f.name
 
+        store = InstanceStore()
+        store.create("tail1", 5554, 5555, 5277, False, 1000, "avd")
+        store.update("tail1", state=RUNNING, log_path=dhu_path)
         results = []
 
         def tail_thread():
             collector = LogCollector()
-            record = _make_record(log_path=dhu_path)
-            for entry in collector.tail(record, poll_interval=0.1):
+            for entry in collector.tail(store, "tail1", poll_interval=0.1):
                 if entry is None:
                     continue
                 results.append(entry)
@@ -270,12 +272,14 @@ class LogCollectorTailTest(unittest.TestCase):
             f.flush()
             dhu_path = f.name
 
+        store = InstanceStore()
+        store.create("tail2", 5554, 5555, 5277, False, 1000, "avd")
+        store.update("tail2", state=RUNNING, log_path=dhu_path)
         results = []
 
         def tail_thread():
             collector = LogCollector()
-            record = _make_record(log_path=dhu_path)
-            for entry in collector.tail(record, poll_interval=0.1):
+            for entry in collector.tail(store, "tail2", poll_interval=0.1):
                 if entry is None:
                     continue
                 results.append(entry)
@@ -312,13 +316,15 @@ class LogCollectorTailTest(unittest.TestCase):
             f.flush()
             dhu_path = f.name
 
+        store = InstanceStore()
+        store.create("tail3", 5554, 5555, 5277, False, 1000, "avd")
+        store.update("tail3", state=RUNNING, log_path=dhu_path)
         results = []
 
         def tail_thread():
             collector = LogCollector()
-            record = _make_record(log_path=dhu_path)
             count = 0
-            for entry in collector.tail(record, poll_interval=0.1):
+            for entry in collector.tail(store, "tail3", poll_interval=0.1):
                 results.append(entry)
                 count += 1
                 if count >= 3:

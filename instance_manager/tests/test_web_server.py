@@ -18,6 +18,7 @@ class WebServerTest(unittest.TestCase):
 
     def tearDown(self):
         self.http_server.shutdown()
+        self.http_server.server_close()
 
     def test_dashboard_empty(self):
         resp = urllib.request.urlopen(f"{self.base_url}/")

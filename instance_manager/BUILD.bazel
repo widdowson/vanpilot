@@ -25,6 +25,7 @@ py_library(
     imports = [".."],
     deps = [
         ":instance_store",
+        ":log_collector",
         ":port_allocator",
     ],
 )
