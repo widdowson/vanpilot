@@ -550,14 +550,26 @@ class EmulatorLifecycleTest(unittest.TestCase):
             "test",
             state=RUNNING,
             pipe_path="/tmp/dhu_test_pipe",
+            log_path="/tmp/dhu_test_cmd_echo.log",
         )
         record = store.get("test")
+
+        # Seed the log file so we can verify the append
+        os.makedirs("/tmp", exist_ok=True)
+        with open("/tmp/dhu_test_cmd_echo.log", "w") as f:
+            f.write("DHU connected\n")
 
         with patch.object(runner, "pipe_write") as mock_pw:
             result = lifecycle.dhu_command(record, "keycode home", False)
 
         self.assertEqual(result, b"")
         mock_pw.assert_called_once_with("/tmp/dhu_test_pipe", "keycode home")
+
+        # Verify command was echoed to the log file
+        with open("/tmp/dhu_test_cmd_echo.log") as f:
+            content = f.read()
+        self.assertIn("> keycode home", content)
+        os.remove("/tmp/dhu_test_cmd_echo.log")
 
     def test_dhu_command_with_screenshot(self):
         """dhu_command captures a screenshot when requested."""

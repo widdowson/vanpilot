@@ -17,6 +17,7 @@ from instance_manager.src.instance_store import (
     RUNNING,
     ERROR,
 )
+from instance_manager.src.log_collector import emu_log_path
 from instance_manager.src.port_allocator import PortSlot
 
 log = logging.getLogger(__name__)
@@ -108,11 +109,16 @@ class EmulatorLifecycle:
             if not headful:
                 emu_args.append("-no-window")
 
-            emu_proc = self._runner.popen(
-                emu_args,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
+            emu_log = emu_log_path(name)
+            emu_log_file = open(emu_log, "w")
+            try:
+                emu_proc = self._runner.popen(
+                    emu_args,
+                    stdout=emu_log_file,
+                    stderr=emu_log_file,
+                )
+            finally:
+                emu_log_file.close()
             handles.emulator = emu_proc
             self._store.update(name, emulator_pid=emu_proc.pid)
 
@@ -160,16 +166,23 @@ class EmulatorLifecycle:
             dhu_path = os.path.join(
                 android_home, "extras", "google", "auto", "desktop-head-unit"
             )
-            dhu_flags = f"--adb={ports.aa_forward_port}"
+            dhu_args = [dhu_path, f"--adb={ports.aa_forward_port}"]
             if not headful:
-                dhu_flags += " --headless"
+                dhu_args.append("--headless")
+            dhu_cmd = " ".join(dhu_args) + f" < {pipe_path} >> {log_path} 2>&1"
             dhu_proc = self._runner.popen(
-                ["bash", "-c", f"{dhu_path} {dhu_flags} < {pipe_path} > {log_path} 2>&1"],
+                ["bash", "-c", dhu_cmd],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,
             )
             handles.dhu = dhu_proc
+
+            # NOTE: The DHU writes to the log file via bash redirect
+            # (NOT subprocess.PIPE) because the DHU's C library fully-
+            # buffers stdout on a pipe — SSL handshake output never
+            # arrives until the process exits, causing _wait_for_dhu()
+            # to time out.
 
             self._store.update(
                 name,
@@ -237,7 +250,7 @@ class EmulatorLifecycle:
         )
 
         # Clean up files
-        for path in [record.pipe_path, record.log_path]:
+        for path in [record.pipe_path, record.log_path, emu_log_path(record.name)]:
             if path:
                 self._runner.run(
                     ["rm", "-f", path], capture_output=True
@@ -383,11 +396,11 @@ class EmulatorLifecycle:
         dhu_path = os.path.join(
             android_home, "extras", "google", "auto", "desktop-head-unit",
         )
-        dhu_flags = f"--adb={record.aa_forward_port}"
+        dhu_args = [dhu_path, f"--adb={record.aa_forward_port}"]
         if not record.headful:
-            dhu_flags += " --headless"
+            dhu_args.append("--headless")
         dhu_proc = self._runner.popen(
-            ["bash", "-c", f"{dhu_path} {dhu_flags} < {pipe_path} > {log_path} 2>&1"],
+            ["bash", "-c", " ".join(dhu_args) + f" < {pipe_path} >> {log_path} 2>&1"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
@@ -459,6 +472,17 @@ class EmulatorLifecycle:
             raise RuntimeError(
                 f"Instance '{record.name}' has no pipe path"
             )
+
+        # Echo command to DHU log file so the dashboard log viewer shows it.
+        # Safe to append concurrently with the DHU process: both writers
+        # open with O_APPEND and each write is well under PIPE_BUF (4096),
+        # so the kernel guarantees atomic, non-interleaved appends.
+        if record.log_path:
+            try:
+                with open(record.log_path, "a") as f:
+                    f.write(f"> {command}\n")
+            except OSError:
+                pass
 
         self._runner.pipe_write(record.pipe_path, command)
 
