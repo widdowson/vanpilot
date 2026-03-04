@@ -17,6 +17,7 @@ from instance_manager.src.instance_store import (
     DESTROYING,
 )
 from instance_manager.src.port_allocator import PortAllocator
+from instance_manager.src.video_capture import VideoCaptureManager
 
 _DEFAULT_AVD = "vanpilot_pixel9pro_api36"
 _DEFAULT_SNAPSHOT = "aa_ready"
@@ -51,10 +52,12 @@ class InstanceManagerServicer:
         store: InstanceStore,
         lifecycle: EmulatorLifecycle,
         port_allocator: PortAllocator,
+        video_capture: VideoCaptureManager | None = None,
     ) -> None:
         self._store = store
         self._lifecycle = lifecycle
         self._port_allocator = port_allocator
+        self._video_capture = video_capture or VideoCaptureManager()
 
     def CreateInstance(self, request, context):
         name = request.name
@@ -248,6 +251,94 @@ class InstanceManagerServicer:
         except Exception as e:
             context.abort(grpc.StatusCode.INTERNAL, str(e))
 
+    def InstallApk(self, request, context):
+        if not request.apk_data:
+            context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT, "apk_data is required"
+            )
+
+        record = self._store.get(request.name)
+        if record is None:
+            context.abort(
+                grpc.StatusCode.NOT_FOUND,
+                f"Instance '{request.name}' not found",
+            )
+        if record.state != RUNNING:
+            context.abort(
+                grpc.StatusCode.FAILED_PRECONDITION,
+                f"Instance '{request.name}' is not running (state={record.state})",
+            )
+
+        try:
+            self._lifecycle.install_apk(record, request.apk_data)
+
+            if request.restart_dhu:
+                record = self._lifecycle.restart_dhu(record)
+            else:
+                record = self._store.get(request.name)
+
+            return instance_manager_pb2.InstallApkResponse(
+                instance=_record_to_proto(record),
+            )
+        except Exception as e:
+            context.abort(grpc.StatusCode.INTERNAL, str(e))
+
+    def StartVideoCapture(self, request, context):
+        record = self._store.get(request.name)
+        if record is None:
+            context.abort(
+                grpc.StatusCode.NOT_FOUND,
+                f"Instance '{request.name}' not found",
+            )
+        if record.state != RUNNING:
+            context.abort(
+                grpc.StatusCode.FAILED_PRECONDITION,
+                f"Instance '{request.name}' is not running (state={record.state})",
+            )
+        if not record.pipe_path:
+            context.abort(
+                grpc.StatusCode.FAILED_PRECONDITION,
+                f"Instance '{request.name}' has no pipe path",
+            )
+
+        try:
+            capture_id = self._video_capture.start(
+                instance_name=request.name,
+                pipe_path=record.pipe_path,
+                target_fps=request.target_fps,
+                max_duration_s=request.max_duration_s,
+            )
+            return instance_manager_pb2.StartVideoCaptureResponse(
+                capture_id=capture_id,
+            )
+        except RuntimeError as e:
+            context.abort(grpc.StatusCode.ALREADY_EXISTS, str(e))
+        except Exception as e:
+            context.abort(grpc.StatusCode.INTERNAL, str(e))
+
+    def StopVideoCapture(self, request, context):
+        record = self._store.get(request.name)
+        if record is None:
+            context.abort(
+                grpc.StatusCode.NOT_FOUND,
+                f"Instance '{request.name}' not found",
+            )
+
+        result = self._video_capture.stop(request.name)
+        if result is None:
+            context.abort(
+                grpc.StatusCode.NOT_FOUND,
+                f"No active video capture for '{request.name}'",
+            )
+
+        return instance_manager_pb2.StopVideoCaptureResponse(
+            video_mp4=result.video_mp4,
+            frame_count=result.frame_count,
+            actual_fps=result.actual_fps,
+            duration_ms=result.duration_ms,
+            capture_id=result.capture_id,
+        )
+
 
 def add_instance_manager_service_to_server(
     server: grpc.Server,
@@ -309,6 +400,24 @@ class _InstanceManagerGenericHandler(grpc.GenericRpcHandler):
                     servicer.DhuCommand,
                     request_deserializer=instance_manager_pb2.DhuCommandRequest.FromString,
                     response_serializer=instance_manager_pb2.DhuCommandResponse.SerializeToString,
+                ),
+            f"/{self._SERVICE}/InstallApk":
+                grpc.unary_unary_rpc_method_handler(
+                    servicer.InstallApk,
+                    request_deserializer=instance_manager_pb2.InstallApkRequest.FromString,
+                    response_serializer=instance_manager_pb2.InstallApkResponse.SerializeToString,
+                ),
+            f"/{self._SERVICE}/StartVideoCapture":
+                grpc.unary_unary_rpc_method_handler(
+                    servicer.StartVideoCapture,
+                    request_deserializer=instance_manager_pb2.StartVideoCaptureRequest.FromString,
+                    response_serializer=instance_manager_pb2.StartVideoCaptureResponse.SerializeToString,
+                ),
+            f"/{self._SERVICE}/StopVideoCapture":
+                grpc.unary_unary_rpc_method_handler(
+                    servicer.StopVideoCapture,
+                    request_deserializer=instance_manager_pb2.StopVideoCaptureRequest.FromString,
+                    response_serializer=instance_manager_pb2.StopVideoCaptureResponse.SerializeToString,
                 ),
         }
 

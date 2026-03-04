@@ -30,6 +30,18 @@ service InstanceManagerService {
   // Send a console command to the DHU (e.g. "tap 300 430", "keycode home", "day").
   // Optionally captures a screenshot after the command executes.
   rpc DhuCommand(DhuCommandRequest) returns (DhuCommandResponse);
+
+  // Start capturing DHU video via screenshot polling.
+  // At most one capture per instance at a time. Frames are captured at the
+  // requested FPS and stitched into MP4 with ffmpeg when stopped.
+  rpc StartVideoCapture(StartVideoCaptureRequest) returns (StartVideoCaptureResponse);
+
+  // Stop an active video capture and return the stitched MP4 video.
+  rpc StopVideoCapture(StopVideoCaptureRequest) returns (StopVideoCaptureResponse);
+
+  // Install an APK on a running emulator instance via adb install.
+  // Optionally restarts the DHU afterwards so Android Auto discovers the new app.
+  rpc InstallApk(InstallApkRequest) returns (InstallApkResponse);
 }
 
 message CreateInstanceRequest {
@@ -138,6 +150,60 @@ message InstanceInfo {
 
   // Most recent emulator phone screen (adb screencap).
   bytes last_emulator_screenshot_png = 10;
+}
+
+message StartVideoCaptureRequest {
+  // Instance name (must be running).
+  string name = 1;
+
+  // Target frames per second (clamped to 1-5, default 2).
+  int32 target_fps = 2;
+
+  // Auto-stop after this many seconds (default 30).
+  int32 max_duration_s = 3;
+}
+
+message StartVideoCaptureResponse {
+  // Unique identifier for this capture session.
+  string capture_id = 1;
+}
+
+message StopVideoCaptureRequest {
+  // Instance name.
+  string name = 1;
+}
+
+message StopVideoCaptureResponse {
+  // Stitched MP4 video bytes. Empty if no frames were captured.
+  bytes video_mp4 = 1;
+
+  // Number of frames captured.
+  int32 frame_count = 2;
+
+  // Achieved frame rate.
+  float actual_fps = 3;
+
+  // Total capture duration in milliseconds.
+  int32 duration_ms = 4;
+
+  // Capture session ID.
+  string capture_id = 5;
+}
+
+message InstallApkRequest {
+  // Instance name (must be running).
+  string name = 1;
+
+  // APK file contents.
+  bytes apk_data = 2;
+
+  // If true, restart the DHU after install so Android Auto
+  // discovers the updated app.
+  bool restart_dhu = 3;
+}
+
+message InstallApkResponse {
+  InstanceInfo instance = 1;
 }
 
 enum InstanceState {

@@ -1,5 +1,6 @@
 """Tests for InstanceManagerServicer with in-process gRPC."""
 
+import time
 import unittest
 from concurrent import futures
 from unittest.mock import MagicMock, patch
@@ -14,6 +15,10 @@ from instance_manager.src.instance_manager_service import (
 )
 from instance_manager.src.instance_store import InstanceStore, RUNNING, CREATING
 from instance_manager.src.port_allocator import PortAllocator
+from instance_manager.src.video_capture import (
+    CaptureResult,
+    VideoCaptureManager,
+)
 
 
 class InstanceManagerServiceTest(unittest.TestCase):
@@ -56,6 +61,9 @@ class InstanceManagerServiceTest(unittest.TestCase):
             "ScreenshotInstance": instance_manager_pb2.ScreenshotInstanceResponse,
             "RestartDhu": instance_manager_pb2.RestartDhuResponse,
             "DhuCommand": instance_manager_pb2.DhuCommandResponse,
+            "StartVideoCapture": instance_manager_pb2.StartVideoCaptureResponse,
+            "StopVideoCapture": instance_manager_pb2.StopVideoCaptureResponse,
+            "InstallApk": instance_manager_pb2.InstallApkResponse,
         }
         resp_type = resp_map[method]
         return self.channel.unary_unary(
@@ -279,6 +287,181 @@ class InstanceManagerServiceTest(unittest.TestCase):
                 "DhuCommand",
                 instance_manager_pb2.DhuCommandRequest(
                     name="empty-cmd", command="",
+                ),
+            )
+        self.assertEqual(ctx.exception.code(), grpc.StatusCode.INVALID_ARGUMENT)
+
+    def test_start_video_capture(self):
+        self._call(
+            "CreateInstance",
+            instance_manager_pb2.CreateInstanceRequest(name="video-test"),
+        )
+        self.store.update("video-test", pipe_path="/tmp/fake_pipe")
+
+        resp = self._call(
+            "StartVideoCapture",
+            instance_manager_pb2.StartVideoCaptureRequest(
+                name="video-test", target_fps=2,
+            ),
+        )
+        self.assertIsInstance(resp.capture_id, str)
+        self.assertGreater(len(resp.capture_id), 0)
+
+    def test_start_video_capture_nonexistent(self):
+        with self.assertRaises(grpc.RpcError) as ctx:
+            self._call(
+                "StartVideoCapture",
+                instance_manager_pb2.StartVideoCaptureRequest(name="nope"),
+            )
+        self.assertEqual(ctx.exception.code(), grpc.StatusCode.NOT_FOUND)
+
+    def test_start_video_capture_not_running(self):
+        self.store.create("creating", 5554, 5555, 5277, False, 1000, "avd")
+        with self.assertRaises(grpc.RpcError) as ctx:
+            self._call(
+                "StartVideoCapture",
+                instance_manager_pb2.StartVideoCaptureRequest(name="creating"),
+            )
+        self.assertEqual(ctx.exception.code(), grpc.StatusCode.FAILED_PRECONDITION)
+
+    def test_start_video_capture_duplicate(self):
+        self._call(
+            "CreateInstance",
+            instance_manager_pb2.CreateInstanceRequest(name="dup-video"),
+        )
+        self.store.update("dup-video", pipe_path="/tmp/fake_pipe")
+
+        self._call(
+            "StartVideoCapture",
+            instance_manager_pb2.StartVideoCaptureRequest(name="dup-video"),
+        )
+        with self.assertRaises(grpc.RpcError) as ctx:
+            self._call(
+                "StartVideoCapture",
+                instance_manager_pb2.StartVideoCaptureRequest(name="dup-video"),
+            )
+        self.assertEqual(ctx.exception.code(), grpc.StatusCode.ALREADY_EXISTS)
+
+    def test_stop_video_capture_nonexistent(self):
+        with self.assertRaises(grpc.RpcError) as ctx:
+            self._call(
+                "StopVideoCapture",
+                instance_manager_pb2.StopVideoCaptureRequest(name="nope"),
+            )
+        self.assertEqual(ctx.exception.code(), grpc.StatusCode.NOT_FOUND)
+
+    def test_stop_video_capture_not_started(self):
+        self._call(
+            "CreateInstance",
+            instance_manager_pb2.CreateInstanceRequest(name="no-video"),
+        )
+        with self.assertRaises(grpc.RpcError) as ctx:
+            self._call(
+                "StopVideoCapture",
+                instance_manager_pb2.StopVideoCaptureRequest(name="no-video"),
+            )
+        self.assertEqual(ctx.exception.code(), grpc.StatusCode.NOT_FOUND)
+
+    def test_start_stop_video_capture_roundtrip(self):
+        self._call(
+            "CreateInstance",
+            instance_manager_pb2.CreateInstanceRequest(name="roundtrip"),
+        )
+        self.store.update("roundtrip", pipe_path="/tmp/fake_pipe")
+
+        start_resp = self._call(
+            "StartVideoCapture",
+            instance_manager_pb2.StartVideoCaptureRequest(
+                name="roundtrip", target_fps=2,
+            ),
+        )
+        time.sleep(0.1)
+
+        stop_resp = self._call(
+            "StopVideoCapture",
+            instance_manager_pb2.StopVideoCaptureRequest(name="roundtrip"),
+        )
+        self.assertEqual(stop_resp.capture_id, start_resp.capture_id)
+        self.assertGreaterEqual(stop_resp.duration_ms, 0)
+
+    # ---- InstallApk tests ----
+
+    def test_install_apk_with_restart(self):
+        """InstallApk installs and restarts DHU when restart_dhu=True."""
+        self.lifecycle.install_apk = MagicMock()
+
+        def fake_restart(record):
+            return self.store.get(record.name)
+        self.lifecycle.restart_dhu = MagicMock(side_effect=fake_restart)
+
+        self._call(
+            "CreateInstance",
+            instance_manager_pb2.CreateInstanceRequest(name="apk-test"),
+        )
+        resp = self._call(
+            "InstallApk",
+            instance_manager_pb2.InstallApkRequest(
+                name="apk-test",
+                apk_data=b"fake-apk-bytes",
+                restart_dhu=True,
+            ),
+        )
+        self.assertEqual(resp.instance.name, "apk-test")
+        self.lifecycle.install_apk.assert_called_once()
+        self.lifecycle.restart_dhu.assert_called_once()
+
+    def test_install_apk_without_restart(self):
+        """InstallApk skips DHU restart when restart_dhu=False."""
+        self.lifecycle.install_apk = MagicMock()
+        self.lifecycle.restart_dhu = MagicMock()
+
+        self._call(
+            "CreateInstance",
+            instance_manager_pb2.CreateInstanceRequest(name="no-restart"),
+        )
+        resp = self._call(
+            "InstallApk",
+            instance_manager_pb2.InstallApkRequest(
+                name="no-restart",
+                apk_data=b"fake-apk",
+                restart_dhu=False,
+            ),
+        )
+        self.assertEqual(resp.instance.name, "no-restart")
+        self.lifecycle.install_apk.assert_called_once()
+        self.lifecycle.restart_dhu.assert_not_called()
+
+    def test_install_apk_nonexistent(self):
+        with self.assertRaises(grpc.RpcError) as ctx:
+            self._call(
+                "InstallApk",
+                instance_manager_pb2.InstallApkRequest(
+                    name="nope", apk_data=b"apk",
+                ),
+            )
+        self.assertEqual(ctx.exception.code(), grpc.StatusCode.NOT_FOUND)
+
+    def test_install_apk_not_running(self):
+        self.store.create("creating", 5556, 5557, 5278, False, 1000, "avd")
+        with self.assertRaises(grpc.RpcError) as ctx:
+            self._call(
+                "InstallApk",
+                instance_manager_pb2.InstallApkRequest(
+                    name="creating", apk_data=b"apk",
+                ),
+            )
+        self.assertEqual(ctx.exception.code(), grpc.StatusCode.FAILED_PRECONDITION)
+
+    def test_install_apk_empty_data(self):
+        self._call(
+            "CreateInstance",
+            instance_manager_pb2.CreateInstanceRequest(name="empty-apk"),
+        )
+        with self.assertRaises(grpc.RpcError) as ctx:
+            self._call(
+                "InstallApk",
+                instance_manager_pb2.InstallApkRequest(
+                    name="empty-apk", apk_data=b"",
                 ),
             )
         self.assertEqual(ctx.exception.code(), grpc.StatusCode.INVALID_ARGUMENT)
