@@ -19,6 +19,7 @@ from mcp.src.handlers import (
     handle_display_bitmap,
     handle_submit_bitmap,
     handle_get_screenshot,
+    handle_calibrate_display,
 )
 
 SERVER_INFO = {
@@ -33,6 +34,7 @@ _HANDLERS = {
     "display_bitmap": handle_display_bitmap,
     "submit_bitmap": handle_submit_bitmap,
     "get_screenshot": handle_get_screenshot,
+    "calibrate_display": handle_calibrate_display,
 }
 
 

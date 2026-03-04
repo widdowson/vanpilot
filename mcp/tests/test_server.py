@@ -65,11 +65,11 @@ class ToolsListTest(unittest.TestCase):
         response = handle_request(request)
         self.assertEqual(response["id"], 2)
         tools = response["result"]["tools"]
-        self.assertEqual(len(tools), 3)
+        self.assertEqual(len(tools), 4)
         tool_names = {t["name"] for t in tools}
         self.assertEqual(
             tool_names,
-            {"display_bitmap", "submit_bitmap", "get_screenshot"},
+            {"display_bitmap", "submit_bitmap", "get_screenshot", "calibrate_display"},
         )
 
 

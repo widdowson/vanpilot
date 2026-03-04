@@ -10,6 +10,7 @@ import time
 from typing import Callable, Optional
 
 from mcp.src.png_util import png_cache_key, make_teal_display
+from mcp.src.calibrate import generate_calibration_pattern
 
 # Module-level bitmap cache: cache_key -> raw PNG bytes
 _cache: dict[str, bytes] = {}
@@ -180,4 +181,41 @@ def handle_get_screenshot() -> dict:
 
     return {
         "screenshot": base64.b64encode(png_bytes).decode(),
+    }
+
+
+def handle_calibrate_display(
+    pattern_width: int = 1024, pattern_height: int = 600
+) -> dict:
+    """Handle the calibrate_display tool call.
+
+    Generates a calibration pattern, submits it to the bitmap cache, and
+    displays it. Returns the cache key and pattern dimensions so agents
+    can later capture a DHU screenshot and run marker detection.
+    """
+    pattern_png = generate_calibration_pattern(pattern_width, pattern_height)
+    image_b64 = base64.b64encode(pattern_png).decode()
+
+    submit_result = handle_submit_bitmap(image_data=image_b64)
+    cache_key = submit_result["cache_key"]
+
+    display_result = handle_display_bitmap(cache_key=cache_key)
+
+    return {
+        "success": display_result.get("success", False),
+        "cache_key": cache_key,
+        "pattern_width": pattern_width,
+        "pattern_height": pattern_height,
+        "marker_size": 50,
+        "marker_colors": {
+            "top_left": "red (#FF0000)",
+            "top_right": "green (#00FF00)",
+            "bottom_left": "blue (#0000FF)",
+            "bottom_right": "yellow (#FFFF00)",
+        },
+        "next_step": (
+            "Capture a DHU screenshot with get_screenshot, then use the "
+            "calibrate module's detect_calibration_markers() and "
+            "compute_transform() to get the coordinate mapping."
+        ),
     }

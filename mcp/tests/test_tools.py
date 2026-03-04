@@ -13,7 +13,7 @@ class ToolDefinitionsTest(unittest.TestCase):
     """Tests that tool definitions are well-formed and complete."""
 
     def test_three_tools_defined(self):
-        self.assertEqual(len(TOOL_DEFINITIONS), 3)
+        self.assertEqual(len(TOOL_DEFINITIONS), 4)
 
     def test_display_bitmap_definition(self):
         tool = get_tool_by_name("display_bitmap")
