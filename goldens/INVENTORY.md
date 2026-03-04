@@ -13,18 +13,31 @@ a golden screenshot. Derived from source code analysis of the Kotlin UI layer.
 
 ---
 
-## 1. Visual Card Tab (NavigationTemplate + SurfaceCallback)
+## Architecture Note
 
-The Visual tab uses a `NavigationTemplate` with a raw `Surface` rendered by
+As of commit 3078421, `VanPilotScreen` uses `NavigationTemplate` directly as the
+root template (not inside `TabTemplate`). The surface layer drawn by
+`VanPilotSurfaceCallback` is only visible in DHU screenshots when
+`NavigationTemplate` is the root. Tab-based conversation views (Lead Agent,
+Sub-Agent) will be re-added as pushed screens in a future PR.
+
+Sections 2–4 (Lead Agent, Sub-Agent, Tab Bar) are therefore **BLOCKED** on the
+pushed-screen implementation.
+
+---
+
+## 1. Visual Card (NavigationTemplate + SurfaceCallback)
+
+The main screen uses a `NavigationTemplate` with a raw `Surface` rendered by
 `VanPilotSurfaceCallback`. Two rendering modes exist: solid-color default and
 bitmap display.
 
 | # | State | File | Status | Notes |
 |---|-------|------|--------|-------|
-| 1.1 | Default teal — light mode | `phase3/solid_teal_800x480.png` | GENERATED | Synthetic 800x480 PNG, color `#1A8A7D`. Not a real DHU capture. |
-| 1.2 | Default teal — dark mode | `phase3/solid_dark_teal_800x480.png` | GENERATED | Synthetic 800x480 PNG, color `#0D4540`. Not a real DHU capture. |
-| 1.3 | Default teal — DHU light mode | — | MISSING | Full DHU screenshot with tab bar, status bar, AA chrome. |
-| 1.4 | Default teal — DHU dark mode | — | MISSING | Same as 1.3 but in dark mode. |
+| 1.1 | Default teal — light mode (synthetic) | `phase3/solid_teal_800x480.png` | GENERATED | Synthetic 800x480 PNG, color `#1A8A7D`. Not a real DHU capture. |
+| 1.2 | Default teal — dark mode (synthetic) | `phase3/solid_dark_teal_800x480.png` | GENERATED | Synthetic 800x480 PNG, color `#0D4540`. Not a real DHU capture. |
+| 1.3 | Default teal — DHU day mode | `captured/visual_card_day.png` | **HAS** | 1840x1080 DHU screenshot. Surface RGB(35,151,123). Cropped: left 80px AA chrome removed. |
+| 1.4 | Default teal — DHU night mode | `captured/visual_card_night.png` | **HAS** | 1840x1080 DHU screenshot. Surface RGB(16,75,62). 64% pixel difference from day. |
 | 1.5 | Custom bitmap displayed | — | MISSING | After `displayBitmap()` is called with a cached bitmap. |
 | 1.6 | Bitmap cleared (return to teal) | — | MISSING | After `clearBitmap()` — should return to solid teal. |
 
@@ -33,84 +46,71 @@ bitmap display.
 
 ---
 
-## 2. Lead Agent Tab (ListTemplate)
+## 2. Lead Agent Conversation (ListTemplate) — BLOCKED
 
-The Lead Agent tab shows a `ListTemplate` with conversation messages rendered as
-`Row` items. Each row has a title (message text) and secondary text (sender).
+The Lead Agent conversation shows a `ListTemplate` with messages rendered as
+`Row` items. **Blocked**: tabs removed from `VanPilotScreen`; conversation views
+will be re-added as pushed screens.
 
 | # | State | File | Status | Notes |
 |---|-------|------|--------|-------|
-| 2.1 | Empty conversation | — | MISSING | Shows "No messages yet" placeholder row. |
-| 2.2 | Populated conversation (mock data) | — | MISSING | 3 mock messages from `createWithMockData()`. |
-| 2.3 | Max messages (100) | — | MISSING | Verify scroll/truncation at `MAX_MESSAGES_PER_TAB = 100`. |
+| 2.1 | Empty conversation | — | MISSING | Blocked on pushed-screen implementation. |
+| 2.2 | Populated conversation (mock data) | — | MISSING | Blocked on pushed-screen implementation. |
+| 2.3 | Max messages (100) | — | MISSING | Blocked on pushed-screen implementation. |
 
-**Source**: `VanPilotScreen.kt` lines 118-121, 141-169.
-**Mock data**: `ConversationTabManager.kt` lines 33-42 — 3 lead agent messages.
+**Source**: `ConversationTabManager.kt`.
 
 ---
 
-## 3. Sub-Agent Tabs (ListTemplate)
+## 3. Sub-Agent Conversations (ListTemplate) — BLOCKED
 
-Each sub-agent gets its own tab. Maximum 2 sub-agent tabs (4 tabs total limit).
+Each sub-agent gets its own conversation view. **Blocked**: same as section 2.
 
 | # | State | File | Status | Notes |
 |---|-------|------|--------|-------|
-| 3.1 | Single sub-agent — "Researcher" | — | MISSING | 2 mock messages for "researcher" agent. |
-| 3.2 | Second sub-agent — "Coder" | — | MISSING | 1 mock message for "coder" agent. |
-| 3.3 | Sub-agent with empty conversation | — | MISSING | "No messages yet" placeholder. |
-
-**Source**: `VanPilotScreen.kt` lines 93-105, 122-127.
-**Mock data**: `ConversationTabManager.kt` lines 45-62 — researcher (2 msgs), coder (1 msg).
+| 3.1 | Single sub-agent — "Researcher" | — | MISSING | Blocked on pushed-screen implementation. |
+| 3.2 | Second sub-agent — "Coder" | — | MISSING | Blocked on pushed-screen implementation. |
+| 3.3 | Sub-agent with empty conversation | — | MISSING | Blocked on pushed-screen implementation. |
 
 ---
 
-## 4. Tab Bar States
+## 4. Tab Bar / Navigation States — BLOCKED
 
-The `TabTemplate` shows up to 4 tabs. Tab switching changes the active tab highlight
-and swaps the content area.
+Tab bar was removed when `NavigationTemplate` became root. Navigation between
+views will use pushed screens in a future PR.
 
 | # | State | File | Status | Notes |
 |---|-------|------|--------|-------|
-| 4.1 | Visual tab selected (default) | — | MISSING | Visual tab active, others inactive. |
-| 4.2 | Lead Agent tab selected | — | MISSING | Lead Agent tab active, content = message list. |
-| 4.3 | Sub-agent tab selected | — | MISSING | Sub-agent tab active. |
-| 4.4 | All 4 tabs visible | — | MISSING | Visual + Lead + 2 sub-agents at max capacity. |
-| 4.5 | 2 tabs only (no sub-agents) | — | MISSING | Only Visual + Lead Agent when no sub-agents registered. |
-| 4.6 | Stale tab fallback | — | MISSING | `activeTabId` not in `validTabIds` — falls back to Visual. |
-
-**Source**: `VanPilotScreen.kt` lines 63-135 — `onGetTemplate()`.
+| 4.1 | Visual card active (default) | — | MISSING | Blocked on pushed-screen implementation. |
+| 4.2 | Lead Agent view active | — | MISSING | Blocked on pushed-screen implementation. |
+| 4.3 | Sub-agent view active | — | MISSING | Blocked on pushed-screen implementation. |
+| 4.4 | All views accessible | — | MISSING | Blocked on pushed-screen implementation. |
 
 ---
 
 ## 5. Connection State Indicators
 
-The `ConnectionState` enum defines visual indicators for connectivity. Per AC-9.2,
-a disconnect indicator should be visible in the tab bar when offline.
+The `ConnectionState` enum defines visual indicators for connectivity.
 
 | # | State | File | Status | Notes |
 |---|-------|------|--------|-------|
-| 5.1 | Connected (no indicator) | — | MISSING | Normal state — no disconnect badge. |
-| 5.2 | Disconnected indicator | — | MISSING | `showDisconnectIndicator = true`. |
-| 5.3 | Reconnecting indicator | — | MISSING | Same visual as disconnected per current enum. |
+| 5.1 | Connected (no indicator) | — | MISSING | Blocked on UI wiring. |
+| 5.2 | Disconnected indicator | — | MISSING | Blocked on UI wiring. |
+| 5.3 | Reconnecting indicator | — | MISSING | Blocked on UI wiring. |
 
-**Source**: `ConnectionState.kt` lines 14-29.
-**Note**: The disconnect indicator UI rendering is not yet visible in `VanPilotScreen.kt`.
-These goldens may be blocked until the indicator is wired into the tab template.
+**Source**: `ConnectionState.kt`.
 
 ---
 
 ## 6. Surface Lifecycle States
 
 The `SurfaceCallback` tracks visible area and stable area insets from the host.
-Different head units report different dimensions.
 
 | # | State | File | Status | Notes |
 |---|-------|------|--------|-------|
-| 6.1 | Standard DHU surface (800x480) | `phase9/emulator_screenshot.png` | HAS | Single emulator capture exists. |
+| 6.1 | Standard DHU surface | `phase9/emulator_screenshot.png` | HAS | Legacy single emulator capture. |
 | 6.2 | Wide surface (1024x480) | — | MISSING | Wide-aspect head unit. |
 | 6.3 | Visible area insets applied | — | MISSING | When `onVisibleAreaChanged` constrains rendering. |
-
-**Source**: `VanPilotSurfaceCallback.kt` lines 59-76.
 
 ---
 
@@ -121,40 +121,34 @@ Android Auto can toggle dark mode via configuration change. `onGetTemplate()` re
 
 | # | State | File | Status | Notes |
 |---|-------|------|--------|-------|
-| 7.1 | Light to Dark transition | — | MISSING | Before/after pair showing theme change. |
-| 7.2 | Dark to Light transition | — | MISSING | Before/after pair showing theme change. |
-
-**Source**: `VanPilotScreen.kt` lines 36-39, 67.
+| 7.1 | Light to Dark transition | — | MISSING | Covered by 1.3 + 1.4 pair. Low priority. |
+| 7.2 | Dark to Light transition | — | MISSING | Covered by 1.3 + 1.4 pair. Low priority. |
 
 ---
 
 ## Summary
 
-| Category | Total States | Existing | Missing |
-|----------|-------------|----------|---------|
-| Visual Card Tab | 6 | 2 (synthetic) | 4 |
-| Lead Agent Tab | 3 | 0 | 3 |
-| Sub-Agent Tabs | 3 | 0 | 3 |
-| Tab Bar States | 6 | 0 | 6 |
-| Connection States | 3 | 0 | 3 |
-| Surface Lifecycle | 3 | 1 | 2 |
-| Dark Mode Transitions | 2 | 0 | 2 |
-| **Total** | **26** | **3** | **23** |
+| Category | Total States | HAS | GENERATED | MISSING |
+|----------|-------------|-----|-----------|---------|
+| Visual Card | 6 | **2** | 2 | 2 |
+| Lead Agent | 3 | 0 | 0 | 3 (blocked) |
+| Sub-Agent | 3 | 0 | 0 | 3 (blocked) |
+| Tab Bar / Nav | 4 | 0 | 0 | 4 (blocked) |
+| Connection States | 3 | 0 | 0 | 3 (blocked) |
+| Surface Lifecycle | 3 | 1 | 0 | 2 |
+| Dark Mode Transitions | 2 | 0 | 0 | 2 (low pri) |
+| **Total** | **24** | **3** | **2** | **19** |
 
-### Priority for capture
+### What we have
 
-1. **P0 — Core states** (must have before any PR review is meaningful):
-   - 1.3, 1.4 (DHU teal, light/dark)
-   - 2.2 (lead agent with messages)
-   - 3.1 (sub-agent with messages)
-   - 4.4 (all 4 tabs visible)
+- **2 real DHU goldens**: `visual_card_day.png` and `visual_card_night.png` — 64% pixel difference, distinct day/night themes confirmed
+- **2 synthetic goldens**: Phase 3 solid color PNGs (not from emulator)
+- **1 legacy emulator screenshot**: Phase 9 capture
 
-2. **P1 — Edge cases** (important for regression):
-   - 1.5 (bitmap displayed)
-   - 2.1 (empty conversation)
-   - 4.5 (2 tabs only)
+### What's blocked and why
 
-3. **P2 — Advanced** (nice to have):
-   - Connection indicators (blocked on UI wiring)
-   - Surface size variations
-   - Dark mode transitions
+Most missing goldens (13 of 19) are **blocked on pushed-screen implementation**.
+The root cause: `NavigationTemplate`'s `SurfaceCallback` surface layer is not
+visible in DHU screenshots when embedded inside `TabTemplate`. The fix was to make
+`NavigationTemplate` the root template, which removed tab-based navigation.
+Conversation views will be re-added as pushed screens in a future PR.
