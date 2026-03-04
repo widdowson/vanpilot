@@ -283,6 +283,88 @@ class InstanceManagerServicer:
         except Exception as e:
             context.abort(grpc.StatusCode.INTERNAL, str(e))
 
+    def AdbShell(self, request, context):
+        if not request.args:
+            context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT, "args is required"
+            )
+
+        record = self._store.get(request.name)
+        if record is None:
+            context.abort(
+                grpc.StatusCode.NOT_FOUND,
+                f"Instance '{request.name}' not found",
+            )
+        if record.state != RUNNING:
+            context.abort(
+                grpc.StatusCode.FAILED_PRECONDITION,
+                f"Instance '{request.name}' is not running (state={record.state})",
+            )
+
+        try:
+            exit_code, stdout, stderr = self._lifecycle.adb_shell(
+                record, list(request.args), request.timeout_s,
+            )
+            return instance_manager_pb2.AdbShellResponse(
+                exit_code=exit_code,
+                stdout=stdout,
+                stderr=stderr,
+            )
+        except Exception as e:
+            context.abort(grpc.StatusCode.INTERNAL, str(e))
+
+    def AdbPush(self, request, context):
+        if not request.data:
+            context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT, "data is required"
+            )
+        if not request.remote_path:
+            context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT, "remote_path is required"
+            )
+
+        record = self._store.get(request.name)
+        if record is None:
+            context.abort(
+                grpc.StatusCode.NOT_FOUND,
+                f"Instance '{request.name}' not found",
+            )
+        if record.state != RUNNING:
+            context.abort(
+                grpc.StatusCode.FAILED_PRECONDITION,
+                f"Instance '{request.name}' is not running (state={record.state})",
+            )
+
+        try:
+            self._lifecycle.adb_push(record, request.data, request.remote_path)
+            return instance_manager_pb2.AdbPushResponse()
+        except Exception as e:
+            context.abort(grpc.StatusCode.INTERNAL, str(e))
+
+    def AdbPull(self, request, context):
+        if not request.remote_path:
+            context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT, "remote_path is required"
+            )
+
+        record = self._store.get(request.name)
+        if record is None:
+            context.abort(
+                grpc.StatusCode.NOT_FOUND,
+                f"Instance '{request.name}' not found",
+            )
+        if record.state != RUNNING:
+            context.abort(
+                grpc.StatusCode.FAILED_PRECONDITION,
+                f"Instance '{request.name}' is not running (state={record.state})",
+            )
+
+        try:
+            data = self._lifecycle.adb_pull(record, request.remote_path)
+            return instance_manager_pb2.AdbPullResponse(data=data)
+        except Exception as e:
+            context.abort(grpc.StatusCode.INTERNAL, str(e))
+
     def StartVideoCapture(self, request, context):
         record = self._store.get(request.name)
         if record is None:
@@ -406,6 +488,24 @@ class _InstanceManagerGenericHandler(grpc.GenericRpcHandler):
                     servicer.InstallApk,
                     request_deserializer=instance_manager_pb2.InstallApkRequest.FromString,
                     response_serializer=instance_manager_pb2.InstallApkResponse.SerializeToString,
+                ),
+            f"/{self._SERVICE}/AdbShell":
+                grpc.unary_unary_rpc_method_handler(
+                    servicer.AdbShell,
+                    request_deserializer=instance_manager_pb2.AdbShellRequest.FromString,
+                    response_serializer=instance_manager_pb2.AdbShellResponse.SerializeToString,
+                ),
+            f"/{self._SERVICE}/AdbPush":
+                grpc.unary_unary_rpc_method_handler(
+                    servicer.AdbPush,
+                    request_deserializer=instance_manager_pb2.AdbPushRequest.FromString,
+                    response_serializer=instance_manager_pb2.AdbPushResponse.SerializeToString,
+                ),
+            f"/{self._SERVICE}/AdbPull":
+                grpc.unary_unary_rpc_method_handler(
+                    servicer.AdbPull,
+                    request_deserializer=instance_manager_pb2.AdbPullRequest.FromString,
+                    response_serializer=instance_manager_pb2.AdbPullResponse.SerializeToString,
                 ),
             f"/{self._SERVICE}/StartVideoCapture":
                 grpc.unary_unary_rpc_method_handler(

@@ -493,6 +493,68 @@ class EmulatorLifecycle:
 
         return b""
 
+    def adb_shell(
+        self,
+        record: InstanceRecord,
+        args: list[str],
+        timeout_s: int = 30,
+    ) -> tuple[int, str, str]:
+        """Run `adb -s <serial> shell <args>` and return (exit_code, stdout, stderr)."""
+        serial = f"emulator-{record.emulator_console_port}"
+        if not timeout_s:
+            timeout_s = 30
+        timeout_s = max(1, min(timeout_s, 300))
+        result = self._runner.run(
+            ["adb", "-s", serial, "shell"] + args,
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+        )
+        return result.returncode, result.stdout, result.stderr
+
+    def adb_push(self, record: InstanceRecord, data: bytes, remote_path: str) -> None:
+        """Write data to a temp file and `adb push` it to remote_path."""
+        serial = f"emulator-{record.emulator_console_port}"
+        fd, tmp = tempfile.mkstemp()
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(data)
+            result = self._runner.run(
+                ["adb", "-s", serial, "push", tmp, remote_path],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(f"adb push failed: {result.stderr}")
+        finally:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+
+    def adb_pull(self, record: InstanceRecord, remote_path: str) -> bytes:
+        """Pull a file from the emulator and return its bytes."""
+        serial = f"emulator-{record.emulator_console_port}"
+        fd, tmp = tempfile.mkstemp()
+        os.close(fd)
+        try:
+            result = self._runner.run(
+                ["adb", "-s", serial, "pull", remote_path, tmp],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(f"adb pull failed: {result.stderr}")
+            with open(tmp, "rb") as f:
+                return f.read()
+        finally:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+
     def install_apk(self, record: InstanceRecord, apk_data: bytes) -> None:
         """Install an APK on the emulator via adb install.
 

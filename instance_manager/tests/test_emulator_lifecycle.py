@@ -601,6 +601,184 @@ class EmulatorLifecycleTest(unittest.TestCase):
         self.assertIn("no pipe path", str(ctx.exception))
 
 
+class AdbProxyTest(unittest.TestCase):
+    """Tests for adb_shell, adb_push, adb_pull."""
+
+    def _make_lifecycle(self, runner=None):
+        store = InstanceStore()
+        if runner is None:
+            runner = FakeSubprocessRunner()
+        lifecycle = EmulatorLifecycle(
+            store, runner, boot_timeout=2, dhu_timeout=2,
+        )
+        return store, runner, lifecycle
+
+    def _make_record(self, store, name="test"):
+        store.create(name, 5554, 5555, 5277, False, 1000, "test_avd")
+        store.update(name, state=RUNNING, pipe_path="/tmp/dhu_test_pipe")
+        return store.get(name)
+
+    def test_adb_shell_passes_args_and_returns_output(self):
+        """adb_shell runs 'adb -s <serial> shell <args>' and returns output."""
+
+        class ShellRunner(FakeSubprocessRunner):
+            def run(self, args, **kwargs):
+                result = super().run(args, **kwargs)
+                if "shell" in args:
+                    result.returncode = 0
+                    result.stdout = "com.vanpilot.auto\n"
+                    result.stderr = ""
+                return result
+
+        store, runner, lifecycle = self._make_lifecycle(runner=ShellRunner())
+        record = self._make_record(store)
+
+        exit_code, stdout, stderr = lifecycle.adb_shell(
+            record, ["pm", "list", "packages"]
+        )
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(stdout, "com.vanpilot.auto\n")
+        self.assertEqual(stderr, "")
+
+        # Verify correct adb command was constructed
+        shell_calls = [
+            c for c in runner.run_calls
+            if len(c[0]) >= 4 and "shell" in c[0]
+        ]
+        self.assertEqual(len(shell_calls), 1)
+        args = shell_calls[0][0]
+        self.assertEqual(args[:4], ["adb", "-s", "emulator-5554", "shell"])
+        self.assertEqual(args[4:], ["pm", "list", "packages"])
+        # Verify timeout kwarg
+        self.assertEqual(shell_calls[0][1].get("timeout"), 30)
+
+    def test_adb_shell_clamps_timeout(self):
+        """adb_shell clamps timeout to 1-300; 0 means use default (30)."""
+        store, runner, lifecycle = self._make_lifecycle()
+        record = self._make_record(store)
+
+        # 0 is the protobuf default (unset) → use default 30
+        lifecycle.adb_shell(record, ["echo", "hi"], timeout_s=0)
+        self.assertEqual(runner.run_calls[-1][1].get("timeout"), 30)
+
+        # Explicit large value gets clamped to 300
+        lifecycle.adb_shell(record, ["echo", "hi"], timeout_s=999)
+        self.assertEqual(runner.run_calls[-1][1].get("timeout"), 300)
+
+    def test_adb_push_writes_temp_and_calls_adb(self):
+        """adb_push writes data to temp file and calls 'adb push'."""
+        store, runner, lifecycle = self._make_lifecycle()
+        record = self._make_record(store)
+
+        lifecycle.adb_push(record, b"hello world", "/sdcard/test.txt")
+
+        push_calls = [
+            c for c in runner.run_calls
+            if len(c[0]) >= 4 and "push" in c[0]
+        ]
+        self.assertEqual(len(push_calls), 1)
+        args = push_calls[0][0]
+        self.assertEqual(args[0], "adb")
+        self.assertEqual(args[1], "-s")
+        self.assertEqual(args[2], "emulator-5554")
+        self.assertEqual(args[3], "push")
+        # args[4] is the temp file path, args[5] is the remote path
+        self.assertEqual(args[5], "/sdcard/test.txt")
+        # Temp file should be cleaned up
+        self.assertFalse(os.path.exists(args[4]))
+
+    def test_adb_push_cleans_up_on_failure(self):
+        """adb_push cleans up temp file even when adb push fails."""
+
+        class FailingPushRunner(FakeSubprocessRunner):
+            def run(self, args, **kwargs):
+                result = super().run(args, **kwargs)
+                if "push" in args:
+                    result.returncode = 1
+                    result.stderr = "error: device not found"
+                return result
+
+        store, runner, lifecycle = self._make_lifecycle(runner=FailingPushRunner())
+        record = self._make_record(store)
+
+        with self.assertRaises(RuntimeError) as ctx:
+            lifecycle.adb_push(record, b"data", "/sdcard/test.txt")
+        self.assertIn("adb push failed", str(ctx.exception))
+
+    def test_adb_pull_calls_adb_and_returns_bytes(self):
+        """adb_pull calls 'adb pull' and returns file contents."""
+
+        class PullRunner(FakeSubprocessRunner):
+            def run(self, args, **kwargs):
+                result = super().run(args, **kwargs)
+                if "pull" in args:
+                    # Simulate adb pull writing to the temp file
+                    local_path = args[5]  # adb -s serial pull remote local
+                    with open(local_path, "wb") as f:
+                        f.write(b"pulled content")
+                    result.returncode = 0
+                return result
+
+        store, runner, lifecycle = self._make_lifecycle(runner=PullRunner())
+        record = self._make_record(store)
+
+        data = lifecycle.adb_pull(record, "/sdcard/test.txt")
+        self.assertEqual(data, b"pulled content")
+
+        # Verify correct adb command
+        pull_calls = [
+            c for c in runner.run_calls
+            if len(c[0]) >= 4 and "pull" in c[0]
+        ]
+        self.assertEqual(len(pull_calls), 1)
+        args = pull_calls[0][0]
+        self.assertEqual(args[:4], ["adb", "-s", "emulator-5554", "pull"])
+        self.assertEqual(args[4], "/sdcard/test.txt")
+        # Temp file should be cleaned up
+        self.assertFalse(os.path.exists(args[5]))
+
+    def test_adb_shell_timeout_propagates(self):
+        """adb_shell propagates subprocess.TimeoutExpired."""
+
+        class TimeoutRunner(FakeSubprocessRunner):
+            def run(self, args, **kwargs):
+                if "shell" in args:
+                    raise subprocess.TimeoutExpired(args, kwargs.get("timeout", 30))
+                return super().run(args, **kwargs)
+
+        store, runner, lifecycle = self._make_lifecycle(runner=TimeoutRunner())
+        record = self._make_record(store)
+
+        with self.assertRaises(subprocess.TimeoutExpired):
+            lifecycle.adb_shell(record, ["sleep", "999"], timeout_s=1)
+
+    def test_adb_shell_negative_timeout_clamps_to_1(self):
+        """adb_shell clamps negative timeout to 1."""
+        store, runner, lifecycle = self._make_lifecycle()
+        record = self._make_record(store)
+
+        lifecycle.adb_shell(record, ["echo", "hi"], timeout_s=-5)
+        self.assertEqual(runner.run_calls[-1][1].get("timeout"), 1)
+
+    def test_adb_pull_failure_raises(self):
+        """adb_pull raises RuntimeError when adb pull fails."""
+
+        class FailingPullRunner(FakeSubprocessRunner):
+            def run(self, args, **kwargs):
+                result = super().run(args, **kwargs)
+                if "pull" in args:
+                    result.returncode = 1
+                    result.stderr = "remote object does not exist"
+                return result
+
+        store, runner, lifecycle = self._make_lifecycle(runner=FailingPullRunner())
+        record = self._make_record(store)
+
+        with self.assertRaises(RuntimeError) as ctx:
+            lifecycle.adb_pull(record, "/sdcard/nonexistent.txt")
+        self.assertIn("adb pull failed", str(ctx.exception))
+
+
 class InstallApkTest(unittest.TestCase):
     """Tests for EmulatorLifecycle.install_apk."""
 
