@@ -170,7 +170,7 @@ def cmd_push(stubs, args):
         data=data,
         remote_path=args.remote,
     )
-    stubs["adb_push"](req, timeout=60)
+    stubs["adb_push"](req, timeout=args.timeout)
     print("OK")
 
 
@@ -181,7 +181,7 @@ def cmd_pull(stubs, args):
         name=args.name,
         remote_path=args.remote,
     )
-    resp = stubs["adb_pull"](req, timeout=60)
+    resp = stubs["adb_pull"](req, timeout=args.timeout)
     out_path = args.output or os.path.basename(args.remote)
     with open(out_path, "wb") as f:
         f.write(resp.data)
@@ -237,15 +237,18 @@ def main():
     p_adb.add_argument("--timeout", type=int, default=30)
     p_adb.add_argument("shell_args", nargs="+", metavar="arg", help="adb shell command + args")
 
-    p_push = sub.add_parser("push")
+    p_push = sub.add_parser("adb-push")
     p_push.add_argument("--name", required=True)
-    p_push.add_argument("--file", required=True, help="Local file to push")
+    p_push.add_argument("--file", required=True,
+                         help="Local file to push (max ~4MB due to gRPC message size limit)")
     p_push.add_argument("--remote", required=True, help="Remote path on emulator")
+    p_push.add_argument("--timeout", type=int, default=60)
 
-    p_pull = sub.add_parser("pull")
+    p_pull = sub.add_parser("adb-pull")
     p_pull.add_argument("--name", required=True)
     p_pull.add_argument("--remote", required=True, help="Remote path on emulator")
     p_pull.add_argument("--output", help="Local output path (default: basename of remote)")
+    p_pull.add_argument("--timeout", type=int, default=60)
 
     args = parser.parse_args()
     channel = grpc.insecure_channel(args.addr)
@@ -261,8 +264,8 @@ def main():
         "dhu-command": cmd_dhu_command,
         "install-apk": cmd_install_apk,
         "adb": cmd_adb,
-        "push": cmd_push,
-        "pull": cmd_pull,
+        "adb-push": cmd_push,
+        "adb-pull": cmd_pull,
     }
     try:
         dispatch[args.command](stubs, args)

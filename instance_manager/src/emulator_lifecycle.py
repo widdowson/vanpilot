@@ -505,7 +505,7 @@ class EmulatorLifecycle:
             timeout_s = 30
         timeout_s = max(1, min(timeout_s, 300))
         result = self._runner.run(
-            ["adb", "-s", serial, "shell"] + list(args),
+            ["adb", "-s", serial, "shell"] + args,
             capture_output=True,
             text=True,
             timeout=timeout_s,
@@ -523,6 +523,7 @@ class EmulatorLifecycle:
                 ["adb", "-s", serial, "push", tmp, remote_path],
                 capture_output=True,
                 text=True,
+                timeout=60,
             )
             if result.returncode != 0:
                 raise RuntimeError(f"adb push failed: {result.stderr}")
@@ -542,6 +543,7 @@ class EmulatorLifecycle:
                 ["adb", "-s", serial, "pull", remote_path, tmp],
                 capture_output=True,
                 text=True,
+                timeout=60,
             )
             if result.returncode != 0:
                 raise RuntimeError(f"adb pull failed: {result.stderr}")

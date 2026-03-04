@@ -737,6 +737,29 @@ class AdbProxyTest(unittest.TestCase):
         # Temp file should be cleaned up
         self.assertFalse(os.path.exists(args[5]))
 
+    def test_adb_shell_timeout_propagates(self):
+        """adb_shell propagates subprocess.TimeoutExpired."""
+
+        class TimeoutRunner(FakeSubprocessRunner):
+            def run(self, args, **kwargs):
+                if "shell" in args:
+                    raise subprocess.TimeoutExpired(args, kwargs.get("timeout", 30))
+                return super().run(args, **kwargs)
+
+        store, runner, lifecycle = self._make_lifecycle(runner=TimeoutRunner())
+        record = self._make_record(store)
+
+        with self.assertRaises(subprocess.TimeoutExpired):
+            lifecycle.adb_shell(record, ["sleep", "999"], timeout_s=1)
+
+    def test_adb_shell_negative_timeout_clamps_to_1(self):
+        """adb_shell clamps negative timeout to 1."""
+        store, runner, lifecycle = self._make_lifecycle()
+        record = self._make_record(store)
+
+        lifecycle.adb_shell(record, ["echo", "hi"], timeout_s=-5)
+        self.assertEqual(runner.run_calls[-1][1].get("timeout"), 1)
+
     def test_adb_pull_failure_raises(self):
         """adb_pull raises RuntimeError when adb pull fails."""
 

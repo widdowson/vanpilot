@@ -44,6 +44,7 @@ service InstanceManagerService {
   rpc InstallApk(InstallApkRequest) returns (InstallApkResponse);
 
   // Run an arbitrary `adb shell` command on a running instance.
+  // SECURITY: Callers must be trusted (sandbox agents only).
   rpc AdbShell(AdbShellRequest) returns (AdbShellResponse);
 
   // Push a file from the caller to the emulator's filesystem.

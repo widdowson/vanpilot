@@ -284,6 +284,11 @@ class InstanceManagerServicer:
             context.abort(grpc.StatusCode.INTERNAL, str(e))
 
     def AdbShell(self, request, context):
+        if not request.args:
+            context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT, "args is required"
+            )
+
         record = self._store.get(request.name)
         if record is None:
             context.abort(
