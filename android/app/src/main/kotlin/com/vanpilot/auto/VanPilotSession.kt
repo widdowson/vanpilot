@@ -1,6 +1,7 @@
 package com.vanpilot.auto
 
 import android.content.Intent
+import android.content.res.Configuration
 import androidx.car.app.Screen
 import androidx.car.app.Session
 import androidx.lifecycle.DefaultLifecycleObserver
@@ -50,7 +51,18 @@ class VanPilotSession(
             }
         })
 
-        return VanPilotScreen(carContext)
+        val vanPilotScreen = VanPilotScreen(carContext)
+        screen = vanPilotScreen
+        return vanPilotScreen
+    }
+
+    private var screen: VanPilotScreen? = null
+
+    override fun onCarConfigurationChanged(newConfiguration: Configuration) {
+        super.onCarConfigurationChanged(newConfiguration)
+        // The host toggled day/night mode. Invalidate the screen so
+        // onGetTemplate() re-reads carContext.isDarkMode.
+        screen?.invalidate()
     }
 
     /** Shuts down the gRPC channel. Safe to call multiple times. */
