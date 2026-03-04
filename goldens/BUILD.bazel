@@ -65,6 +65,17 @@ py_binary(
     imports = [".."],
 )
 
+py_binary(
+    name = "capture_all",
+    srcs = ["capture_all.py"],
+    main = "capture_all.py",
+    imports = [".."],
+    deps = [
+        ":golden_test_harness",
+        requirement("grpcio"),
+    ],
+)
+
 # ============================================================================
 # Tests — fine-grained, one per test module
 # ============================================================================
@@ -334,6 +345,149 @@ py_test(
     args = ["EmulatorScreenshotGoldenTest"],
     data = glob(
         ["phase9/*.png"],
+        allow_empty = True,
+    ),
+    deps = [":golden_test_harness"],
+    size = "enormous",
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+    timeout = "eternal",
+)
+
+# ============================================================================
+# Multi-state golden tests — one per UI state (see goldens/INVENTORY.md)
+# Require a running instance manager; tagged "manual" and "exclusive".
+#
+# Usage:
+#   bazel test //goldens:visual_card_light_golden_test \
+#     --test_env=INSTANCE_MANAGER_ADDR=localhost:50061 \
+#     --test_env=VANPILOT_APK=bazel-bin/android/vanpilot.apk
+# ============================================================================
+
+py_test(
+    name = "visual_card_light_golden_test",
+    srcs = ["test_multi_state_golden.py"],
+    main = "test_multi_state_golden.py",
+    imports = [".."],
+    args = ["VisualCardLightGoldenTest"],
+    data = glob(
+        ["captured/*.png"],
+        allow_empty = True,
+    ),
+    deps = [":golden_test_harness"],
+    size = "enormous",
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+    timeout = "eternal",
+)
+
+py_test(
+    name = "visual_card_dark_golden_test",
+    srcs = ["test_multi_state_golden.py"],
+    main = "test_multi_state_golden.py",
+    imports = [".."],
+    args = ["VisualCardDarkGoldenTest"],
+    data = glob(
+        ["captured/*.png"],
+        allow_empty = True,
+    ),
+    deps = [":golden_test_harness"],
+    size = "enormous",
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+    timeout = "eternal",
+)
+
+py_test(
+    name = "lead_agent_populated_golden_test",
+    srcs = ["test_multi_state_golden.py"],
+    main = "test_multi_state_golden.py",
+    imports = [".."],
+    args = ["LeadAgentPopulatedGoldenTest"],
+    data = glob(
+        ["captured/*.png"],
+        allow_empty = True,
+    ),
+    deps = [":golden_test_harness"],
+    size = "enormous",
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+    timeout = "eternal",
+)
+
+py_test(
+    name = "sub_agent_researcher_golden_test",
+    srcs = ["test_multi_state_golden.py"],
+    main = "test_multi_state_golden.py",
+    imports = [".."],
+    args = ["SubAgentResearcherGoldenTest"],
+    data = glob(
+        ["captured/*.png"],
+        allow_empty = True,
+    ),
+    deps = [":golden_test_harness"],
+    size = "enormous",
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+    timeout = "eternal",
+)
+
+py_test(
+    name = "sub_agent_coder_golden_test",
+    srcs = ["test_multi_state_golden.py"],
+    main = "test_multi_state_golden.py",
+    imports = [".."],
+    args = ["SubAgentCoderGoldenTest"],
+    data = glob(
+        ["captured/*.png"],
+        allow_empty = True,
+    ),
+    deps = [":golden_test_harness"],
+    size = "enormous",
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+    timeout = "eternal",
+)
+
+py_test(
+    name = "all_tabs_overview_golden_test",
+    srcs = ["test_multi_state_golden.py"],
+    main = "test_multi_state_golden.py",
+    imports = [".."],
+    args = ["AllTabsOverviewGoldenTest"],
+    data = glob(
+        ["captured/*.png"],
+        allow_empty = True,
+    ),
+    deps = [":golden_test_harness"],
+    size = "enormous",
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+    timeout = "eternal",
+)
+
+py_test(
+    name = "lead_agent_dark_golden_test",
+    srcs = ["test_multi_state_golden.py"],
+    main = "test_multi_state_golden.py",
+    imports = [".."],
+    args = ["LeadAgentDarkGoldenTest"],
+    data = glob(
+        ["captured/*.png"],
         allow_empty = True,
     ),
     deps = [":golden_test_harness"],
