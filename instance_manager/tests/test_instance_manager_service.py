@@ -64,6 +64,9 @@ class InstanceManagerServiceTest(unittest.TestCase):
             "StartVideoCapture": instance_manager_pb2.StartVideoCaptureResponse,
             "StopVideoCapture": instance_manager_pb2.StopVideoCaptureResponse,
             "InstallApk": instance_manager_pb2.InstallApkResponse,
+            "AdbShell": instance_manager_pb2.AdbShellResponse,
+            "AdbPush": instance_manager_pb2.AdbPushResponse,
+            "AdbPull": instance_manager_pb2.AdbPullResponse,
         }
         resp_type = resp_map[method]
         return self.channel.unary_unary(
@@ -462,6 +465,114 @@ class InstanceManagerServiceTest(unittest.TestCase):
                 "InstallApk",
                 instance_manager_pb2.InstallApkRequest(
                     name="empty-apk", apk_data=b"",
+                ),
+            )
+        self.assertEqual(ctx.exception.code(), grpc.StatusCode.INVALID_ARGUMENT)
+
+
+    # ---- AdbShell / AdbPush / AdbPull tests ----
+
+    def test_adb_shell_returns_stdout_stderr(self):
+        """AdbShell returns exit_code, stdout, and stderr from lifecycle."""
+        self.lifecycle.adb_shell = MagicMock(return_value=(0, "package:com.vanpilot.auto\n", ""))
+        self._call(
+            "CreateInstance",
+            instance_manager_pb2.CreateInstanceRequest(name="adb-test"),
+        )
+        resp = self._call(
+            "AdbShell",
+            instance_manager_pb2.AdbShellRequest(
+                name="adb-test",
+                args=["pm", "list", "packages"],
+                timeout_s=10,
+            ),
+        )
+        self.assertEqual(resp.exit_code, 0)
+        self.assertEqual(resp.stdout, "package:com.vanpilot.auto\n")
+        self.assertEqual(resp.stderr, "")
+        self.lifecycle.adb_shell.assert_called_once()
+
+    def test_adb_shell_rejects_missing_instance(self):
+        """AdbShell returns NOT_FOUND for nonexistent instance."""
+        with self.assertRaises(grpc.RpcError) as ctx:
+            self._call(
+                "AdbShell",
+                instance_manager_pb2.AdbShellRequest(
+                    name="nope", args=["echo", "hi"],
+                ),
+            )
+        self.assertEqual(ctx.exception.code(), grpc.StatusCode.NOT_FOUND)
+
+    def test_adb_shell_rejects_not_running(self):
+        """AdbShell returns FAILED_PRECONDITION if instance not running."""
+        self.store.create("creating", 5556, 5557, 5278, False, 1000, "avd")
+        with self.assertRaises(grpc.RpcError) as ctx:
+            self._call(
+                "AdbShell",
+                instance_manager_pb2.AdbShellRequest(
+                    name="creating", args=["echo", "hi"],
+                ),
+            )
+        self.assertEqual(ctx.exception.code(), grpc.StatusCode.FAILED_PRECONDITION)
+
+    def test_adb_push_and_pull(self):
+        """AdbPush and AdbPull round-trip through the service."""
+        self.lifecycle.adb_push = MagicMock()
+        self.lifecycle.adb_pull = MagicMock(return_value=b"file-contents")
+
+        self._call(
+            "CreateInstance",
+            instance_manager_pb2.CreateInstanceRequest(name="push-pull"),
+        )
+
+        # Push
+        self._call(
+            "AdbPush",
+            instance_manager_pb2.AdbPushRequest(
+                name="push-pull",
+                data=b"file-contents",
+                remote_path="/sdcard/test.txt",
+            ),
+        )
+        self.lifecycle.adb_push.assert_called_once()
+
+        # Pull
+        resp = self._call(
+            "AdbPull",
+            instance_manager_pb2.AdbPullRequest(
+                name="push-pull",
+                remote_path="/sdcard/test.txt",
+            ),
+        )
+        self.assertEqual(resp.data, b"file-contents")
+        self.lifecycle.adb_pull.assert_called_once()
+
+    def test_adb_push_empty_data(self):
+        """AdbPush rejects empty data."""
+        self._call(
+            "CreateInstance",
+            instance_manager_pb2.CreateInstanceRequest(name="empty-push"),
+        )
+        with self.assertRaises(grpc.RpcError) as ctx:
+            self._call(
+                "AdbPush",
+                instance_manager_pb2.AdbPushRequest(
+                    name="empty-push", data=b"", remote_path="/sdcard/x",
+                ),
+            )
+        self.assertEqual(ctx.exception.code(), grpc.StatusCode.INVALID_ARGUMENT)
+
+    def test_adb_pull_empty_path(self):
+        """AdbPull rejects empty remote_path."""
+        self._call(
+            "CreateInstance",
+            instance_manager_pb2.CreateInstanceRequest(name="empty-pull"),
+        )
+        with self.assertRaises(grpc.RpcError) as ctx:
+            self._call(
+                "AdbPull",
+                instance_manager_pb2.AdbPullRequest(
+                    name="empty-pull", remote_path="",
                 ),
             )
         self.assertEqual(ctx.exception.code(), grpc.StatusCode.INVALID_ARGUMENT)

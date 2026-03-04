@@ -34,6 +34,9 @@ def _make_stubs(channel):
         "restart_dhu": _stub("RestartDhu", pb.RestartDhuRequest, pb.RestartDhuResponse),
         "dhu_command": _stub("DhuCommand", pb.DhuCommandRequest, pb.DhuCommandResponse),
         "install_apk": _stub("InstallApk", pb.InstallApkRequest, pb.InstallApkResponse),
+        "adb_shell": _stub("AdbShell", pb.AdbShellRequest, pb.AdbShellResponse),
+        "adb_push": _stub("AdbPush", pb.AdbPushRequest, pb.AdbPushResponse),
+        "adb_pull": _stub("AdbPull", pb.AdbPullRequest, pb.AdbPullResponse),
     }
 
 
@@ -142,6 +145,49 @@ def cmd_install_apk(stubs, args):
     _print_instance(resp.instance)
 
 
+def cmd_adb(stubs, args):
+    pb = instance_manager_pb2
+    req = pb.AdbShellRequest(
+        name=args.name,
+        args=args.shell_args,
+        timeout_s=args.timeout,
+    )
+    resp = stubs["adb_shell"](req, timeout=args.timeout + 5)
+    if resp.stdout:
+        sys.stdout.write(resp.stdout)
+    if resp.stderr:
+        sys.stderr.write(resp.stderr)
+    sys.exit(resp.exit_code)
+
+
+def cmd_push(stubs, args):
+    pb = instance_manager_pb2
+    with open(args.file, "rb") as f:
+        data = f.read()
+    print(f"Pushing {args.file} ({len(data)} bytes) to {args.remote} on '{args.name}'...")
+    req = pb.AdbPushRequest(
+        name=args.name,
+        data=data,
+        remote_path=args.remote,
+    )
+    stubs["adb_push"](req, timeout=60)
+    print("OK")
+
+
+def cmd_pull(stubs, args):
+    pb = instance_manager_pb2
+    print(f"Pulling {args.remote} from '{args.name}'...")
+    req = pb.AdbPullRequest(
+        name=args.name,
+        remote_path=args.remote,
+    )
+    resp = stubs["adb_pull"](req, timeout=60)
+    out_path = args.output or os.path.basename(args.remote)
+    with open(out_path, "wb") as f:
+        f.write(resp.data)
+    print(f"OK — {len(resp.data)} bytes written to {out_path}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Instance manager CLI")
     parser.add_argument("--addr", default="localhost:50061", help="gRPC server address")
@@ -186,6 +232,21 @@ def main():
                            help="Skip DHU restart after install")
     p_install.add_argument("--timeout", type=int, default=180)
 
+    p_adb = sub.add_parser("adb")
+    p_adb.add_argument("--name", required=True)
+    p_adb.add_argument("--timeout", type=int, default=30)
+    p_adb.add_argument("shell_args", nargs="+", metavar="arg", help="adb shell command + args")
+
+    p_push = sub.add_parser("push")
+    p_push.add_argument("--name", required=True)
+    p_push.add_argument("--file", required=True, help="Local file to push")
+    p_push.add_argument("--remote", required=True, help="Remote path on emulator")
+
+    p_pull = sub.add_parser("pull")
+    p_pull.add_argument("--name", required=True)
+    p_pull.add_argument("--remote", required=True, help="Remote path on emulator")
+    p_pull.add_argument("--output", help="Local output path (default: basename of remote)")
+
     args = parser.parse_args()
     channel = grpc.insecure_channel(args.addr)
     stubs = _make_stubs(channel)
@@ -199,6 +260,9 @@ def main():
         "restart-dhu": cmd_restart_dhu,
         "dhu-command": cmd_dhu_command,
         "install-apk": cmd_install_apk,
+        "adb": cmd_adb,
+        "push": cmd_push,
+        "pull": cmd_pull,
     }
     try:
         dispatch[args.command](stubs, args)
