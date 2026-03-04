@@ -270,7 +270,7 @@ Snapshot sentinel missing on emulator-5554: emulator cold-booted instead of resu
 
 1. Check that the `-gpu` flag matches the renderer used when the snapshot was saved. The instance manager auto-detects this from `snapshot.pb`, but a corrupted or missing snapshot metadata file can cause a mismatch.
 2. Verify the snapshot name exists in the AVD's `snapshots/` directory.
-3. Check the emulator log at `/tmp/emu_<name>.log` for renderer errors.
+3. Check the emulator's kernel log via `adb -s emulator-<port> shell dmesg` or logcat via `adb -s emulator-<port> logcat -d` for renderer errors.
 
 The sentinel check is skipped when no snapshot is specified (empty `snapshot_name`), since cold boot is the expected behavior in that case.
 
