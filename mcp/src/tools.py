@@ -67,6 +67,30 @@ TOOL_DEFINITIONS = [
             "properties": {},
         },
     },
+    {
+        "name": "calibrate_display",
+        "description": (
+            "Run coordinate calibration to determine where the VanPilot app "
+            "appears within the DHU screenshot. Displays a calibration pattern "
+            "with colored corner markers, then returns the pattern info needed "
+            "to compute the app-to-DHU coordinate transform."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "pattern_width": {
+                    "type": "integer",
+                    "description": "Width of the calibration pattern in pixels. Default: 1024.",
+                    "default": 1024,
+                },
+                "pattern_height": {
+                    "type": "integer",
+                    "description": "Height of the calibration pattern in pixels. Default: 600.",
+                    "default": 600,
+                },
+            },
+        },
+    },
 ]
 
 
