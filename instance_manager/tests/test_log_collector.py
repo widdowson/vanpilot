@@ -7,7 +7,7 @@ import time
 import unittest
 
 from instance_manager.src.instance_store import InstanceRecord, RUNNING
-from instance_manager.src.log_collector import LogCollector, LogEntry
+from instance_manager.src.log_collector import LogCollector, LogEntry, _clean_dhu_line
 
 
 def _make_record(name="test-inst", log_path=None):
@@ -22,6 +22,38 @@ def _make_record(name="test-inst", log_path=None):
         avd_name="test_avd",
         log_path=log_path,
     )
+
+
+class CleanDhuLineTest(unittest.TestCase):
+
+    def test_bare_prompt_is_noise(self):
+        self.assertIsNone(_clean_dhu_line("> "))
+        self.assertIsNone(_clean_dhu_line(">"))
+        self.assertIsNone(_clean_dhu_line(""))
+
+    def test_nested_prompts_are_noise(self):
+        self.assertIsNone(_clean_dhu_line("> > "))
+        self.assertIsNone(_clean_dhu_line("> > > "))
+        self.assertIsNone(_clean_dhu_line("> > >"))
+
+    def test_command_echo_preserved(self):
+        self.assertEqual(_clean_dhu_line("> keycode home"), "> keycode home")
+        self.assertEqual(_clean_dhu_line("> tap 300 430"), "> tap 300 430")
+        self.assertEqual(_clean_dhu_line("> screenshot /tmp/x.png"), "> screenshot /tmp/x.png")
+
+    def test_plain_output_passes_through(self):
+        self.assertEqual(
+            _clean_dhu_line("Phone reported protocol version 1.7"),
+            "Phone reported protocol version 1.7",
+        )
+        self.assertEqual(_clean_dhu_line("SSL handshake complete"), "SSL handshake complete")
+
+    def test_prefixed_output_preserved(self):
+        # DHU sometimes prefixes real output with "> "
+        self.assertEqual(
+            _clean_dhu_line("> Phone reported protocol version 1.7"),
+            "> Phone reported protocol version 1.7",
+        )
 
 
 class LogCollectorGetSourcesTest(unittest.TestCase):
@@ -147,6 +179,30 @@ class LogCollectorReadRecentTest(unittest.TestCase):
             record = _make_record(log_path=path)
             entries = collector.read_recent(record)
             self.assertEqual(entries, [])
+        finally:
+            os.unlink(path)
+
+    def test_dhu_noise_filtered_commands_kept(self):
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".log", delete=False
+        ) as f:
+            f.write("SSL handshake complete\n")
+            f.write("> \n")
+            f.write("> > \n")
+            f.write("> keycode home\n")
+            f.write("> \n")
+            f.write("Video focus gained\n")
+            path = f.name
+        try:
+            collector = LogCollector()
+            record = _make_record(log_path=path)
+            entries = collector.read_recent(record)
+            texts = [e.text for e in entries]
+            self.assertEqual(texts, [
+                "SSL handshake complete",
+                "> keycode home",
+                "Video focus gained",
+            ])
         finally:
             os.unlink(path)
 
