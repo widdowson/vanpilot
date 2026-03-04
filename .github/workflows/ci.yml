@@ -39,8 +39,11 @@ jobs:
         env:
           BAZEL_REMOTE_CACHE_URL: ${{ secrets.BAZEL_REMOTE_CACHE_URL }}
 
-      - name: Build all targets
-        run: bazel build //... --config=ci ${{ steps.cache.outputs.flag }}
+      - name: Run all tests
+        run: bazel test //... --build_tests_only --config=ci ${{ steps.cache.outputs.flag }}
+
+      - name: Build APK
+        run: bazel build //android:vanpilot --config=ci ${{ steps.cache.outputs.flag }}
 
       - name: Upload APK
         if: always()
@@ -50,9 +53,6 @@ jobs:
           path: bazel-bin/android/vanpilot.apk
           if-no-files-found: ignore
           retention-days: 30
-
-      - name: Run all tests
-        run: bazel test //... --config=ci ${{ steps.cache.outputs.flag }}
 
       - name: Upload test logs (on failure)
         if: failure()
