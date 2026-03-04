@@ -85,7 +85,7 @@ class E2ETest(unittest.TestCase):
         )
         self._gpu_patch.start()
 
-        self.grpc_server, self.http_thread, self.store = create_server(
+        self.grpc_server, self.http_thread, self.store, self._lifecycle = create_server(
             grpc_port=free_port, http_port=0, max_slots=4, runner=FakeRunner(),
         )
         self.grpc_server.start()
