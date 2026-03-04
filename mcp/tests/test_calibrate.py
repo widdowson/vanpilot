@@ -6,15 +6,15 @@ TDD: These tests are written BEFORE the implementation in mcp/src/calibrate.py.
 import io
 import unittest
 
-from PIL import Image
-
 
 class PatternGeneratorTest(unittest.TestCase):
     """Tests for generate_calibration_pattern()."""
 
     def setUp(self):
+        from PIL import Image
         from mcp.src.calibrate import generate_calibration_pattern
 
+        self.Image = Image
         self.generate = generate_calibration_pattern
 
     def test_returns_valid_png(self):
@@ -22,46 +22,46 @@ class PatternGeneratorTest(unittest.TestCase):
         # PNG signature check
         self.assertTrue(data[:8] == b"\x89PNG\r\n\x1a\n")
         # Should be loadable by Pillow
-        img = Image.open(io.BytesIO(data))
+        img = self.Image.open(io.BytesIO(data))
         self.assertEqual(img.format, "PNG")
 
     def test_correct_dimensions(self):
         data = self.generate(1024, 600)
-        img = Image.open(io.BytesIO(data))
+        img = self.Image.open(io.BytesIO(data))
         self.assertEqual(img.size, (1024, 600))
 
     def test_magenta_background(self):
         data = self.generate(1024, 600)
-        img = Image.open(io.BytesIO(data)).convert("RGB")
+        img = self.Image.open(io.BytesIO(data)).convert("RGB")
         # Center pixel should be magenta
         cx, cy = 512, 300
         self.assertEqual(img.getpixel((cx, cy)), (255, 0, 255))
 
     def test_top_left_marker_red(self):
         data = self.generate(1024, 600)
-        img = Image.open(io.BytesIO(data)).convert("RGB")
+        img = self.Image.open(io.BytesIO(data)).convert("RGB")
         # Inside the 50x50 top-left marker
         self.assertEqual(img.getpixel((10, 10)), (255, 0, 0))
 
     def test_top_right_marker_green(self):
         data = self.generate(1024, 600)
-        img = Image.open(io.BytesIO(data)).convert("RGB")
+        img = self.Image.open(io.BytesIO(data)).convert("RGB")
         self.assertEqual(img.getpixel((1024 - 10, 10)), (0, 255, 0))
 
     def test_bottom_left_marker_blue(self):
         data = self.generate(1024, 600)
-        img = Image.open(io.BytesIO(data)).convert("RGB")
+        img = self.Image.open(io.BytesIO(data)).convert("RGB")
         self.assertEqual(img.getpixel((10, 600 - 10)), (0, 0, 255))
 
     def test_bottom_right_marker_yellow(self):
         data = self.generate(1024, 600)
-        img = Image.open(io.BytesIO(data)).convert("RGB")
+        img = self.Image.open(io.BytesIO(data)).convert("RGB")
         self.assertEqual(img.getpixel((1024 - 10, 600 - 10)), (255, 255, 0))
 
     def test_marker_boundaries(self):
         """Pixels just outside markers should be magenta."""
         data = self.generate(1024, 600)
-        img = Image.open(io.BytesIO(data)).convert("RGB")
+        img = self.Image.open(io.BytesIO(data)).convert("RGB")
         magenta = (255, 0, 255)
         # Just outside top-left marker
         self.assertEqual(img.getpixel((51, 25)), magenta)
@@ -69,7 +69,7 @@ class PatternGeneratorTest(unittest.TestCase):
 
     def test_different_dimensions(self):
         data = self.generate(800, 480)
-        img = Image.open(io.BytesIO(data)).convert("RGB")
+        img = self.Image.open(io.BytesIO(data)).convert("RGB")
         self.assertEqual(img.size, (800, 480))
         # Markers still at corners
         self.assertEqual(img.getpixel((10, 10)), (255, 0, 0))
@@ -82,19 +82,21 @@ class PatternDetectorTest(unittest.TestCase):
     """Tests for detect_calibration_markers()."""
 
     def setUp(self):
+        from PIL import Image
         from mcp.src.calibrate import (
             generate_calibration_pattern,
             detect_calibration_markers,
         )
 
+        self.Image = Image
         self.generate = generate_calibration_pattern
         self.detect = detect_calibration_markers
 
     def _composite_pattern_on_screenshot(self, offset_x, offset_y, pat_w, pat_h):
         """Create a 1920x1080 screenshot with calibration pattern composited at offset."""
-        screenshot = Image.new("RGB", (1920, 1080), (0, 0, 0))
+        screenshot = self.Image.new("RGB", (1920, 1080), (0, 0, 0))
         pattern_data = self.generate(pat_w, pat_h)
-        pattern_img = Image.open(io.BytesIO(pattern_data))
+        pattern_img = self.Image.open(io.BytesIO(pattern_data))
         screenshot.paste(pattern_img, (offset_x, offset_y))
         buf = io.BytesIO()
         screenshot.save(buf, format="PNG")

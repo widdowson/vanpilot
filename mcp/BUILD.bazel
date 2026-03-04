@@ -19,10 +19,19 @@ py_library(
 )
 
 py_library(
+    name = "calibrate",
+    srcs = ["src/calibrate.py"],
+    imports = [".."],
+)
+
+py_library(
     name = "handlers",
     srcs = ["src/handlers.py"],
     imports = [".."],
-    deps = [":png_util"],
+    deps = [
+        ":calibrate",
+        ":png_util",
+    ],
 )
 
 py_library(
@@ -105,4 +114,13 @@ py_test(
     main = "tests/test_handlers_blocking.py",
     imports = [".."],
     deps = [":handlers"],
+)
+
+py_test(
+    name = "calibrate_test",
+    srcs = ["tests/test_calibrate.py"],
+    main = "tests/test_calibrate.py",
+    imports = [".."],
+    deps = [":calibrate"],
+    tags = ["requires-pillow"],
 )

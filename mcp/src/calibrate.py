@@ -3,11 +3,12 @@
 Agents see DHU screenshots (1920x1080) but the VanPilot app occupies only a
 portion of the display. This module generates a calibration pattern, detects
 it in a screenshot, and computes the coordinate transform.
+
+Pillow (PIL) is imported lazily inside functions to avoid breaking transitive
+importers when Pillow is not available in the Bazel hermetic Python toolchain.
 """
 
 import io
-
-from PIL import Image
 
 # Marker size in pixels
 MARKER_SIZE = 50
@@ -37,6 +38,8 @@ def generate_calibration_pattern(width: int, height: int) -> bytes:
     Returns:
         Raw PNG bytes.
     """
+    from PIL import Image
+
     img = Image.new("RGB", (width, height), MAGENTA)
 
     # Draw corner markers
@@ -64,6 +67,8 @@ def detect_calibration_markers(screenshot_png: bytes) -> dict:
         {"red_tl": (x, y), "green_tr": (x, y),
          "blue_bl": (x, y), "yellow_br": (x, y)}
     """
+    from PIL import Image
+
     img = Image.open(io.BytesIO(screenshot_png)).convert("RGB")
 
     markers = {
@@ -126,7 +131,7 @@ def compute_transform(markers: dict, pattern_size: tuple) -> dict:
 
 
 def _fill_rect(
-    img: Image.Image, x: int, y: int, w: int, h: int, color: tuple
+    img, x: int, y: int, w: int, h: int, color: tuple
 ) -> None:
     """Fill a rectangle in the image."""
     for py in range(y, y + h):
@@ -139,7 +144,7 @@ def _color_distance(c1: tuple, c2: tuple) -> float:
     return sum((a - b) ** 2 for a, b in zip(c1, c2)) ** 0.5
 
 
-def _find_marker_center(img: Image.Image, target_color: tuple) -> tuple:
+def _find_marker_center(img, target_color: tuple) -> tuple:
     """Find the center of a marker region by scanning for matching pixels.
 
     Uses a sampling strategy for performance: scan every 2nd pixel to find
