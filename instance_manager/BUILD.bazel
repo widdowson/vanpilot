@@ -110,6 +110,12 @@ filegroup(
 )
 
 py_library(
+    name = "standalone_client_lib",
+    srcs = ["src/standalone_client.py"],
+    imports = [".."],
+)
+
+py_library(
     name = "client_lib",
     srcs = ["src/client.py"],
     imports = [".."],
@@ -236,6 +242,14 @@ py_test(
         ":emulator_lifecycle",
         ":instance_store",
     ],
+)
+
+py_test(
+    name = "standalone_client_args_test",
+    srcs = ["tests/test_standalone_client_args.py"],
+    main = "tests/test_standalone_client_args.py",
+    imports = [".."],
+    deps = [":standalone_client_lib"],
 )
 
 py_test(
