@@ -187,9 +187,13 @@ def cmd_install_apk(stubs, args):
 
 
 def cmd_adb(stubs, args):
+    shell_args = args.shell_args
+    # REMAINDER includes "--" when used as separator; strip it
+    if shell_args and shell_args[0] == "--":
+        shell_args = shell_args[1:]
     req = pb.AdbShellRequest(
         name=args.name,
-        args=args.shell_args,
+        args=shell_args,
         timeout_s=args.timeout,
     )
     resp = stubs["adb_shell"](req, timeout=args.timeout + 5)
@@ -226,7 +230,8 @@ def cmd_pull(stubs, args):
     print(f"OK — {len(resp.data)} bytes written to {out_path}")
 
 
-def main():
+def build_parser():
+    """Build and return the argument parser."""
     parser = argparse.ArgumentParser(
         description="Instance manager CLI (standalone, no Bazel needed)",
     )
@@ -285,7 +290,8 @@ def main():
     p_adb = sub.add_parser("adb")
     p_adb.add_argument("--name", required=True)
     p_adb.add_argument("--timeout", type=int, default=30)
-    p_adb.add_argument("shell_args", nargs="+", metavar="arg", help="adb shell command + args")
+    p_adb.add_argument("shell_args", nargs=argparse.REMAINDER, metavar="arg",
+                        help="adb shell command + args (use -- before args starting with -)")
 
     p_push = sub.add_parser("adb-push")
     p_push.add_argument("--name", required=True)
@@ -300,6 +306,11 @@ def main():
     p_pull.add_argument("--output", help="Local output path (default: basename of remote)")
     p_pull.add_argument("--timeout", type=int, default=60)
 
+    return parser
+
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
     channel = grpc.insecure_channel(args.addr)
     stubs = _make_stubs(channel)

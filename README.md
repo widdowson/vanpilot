@@ -142,7 +142,7 @@ All development and testing can be done from the Mac Studio using Android Studio
 ## Weaknesses
 
 - **No real Android Auto testing**: Development relies on the Desktop Head Unit (DHU) emulator; no testing on actual vehicle head unit hardware
-- **NavigationTemplate is root (no tabs)**: `SurfaceCallback` surface is invisible in DHU screenshots when inside `TabTemplate`, forcing `NavigationTemplate` as root. Conversation tabs are removed; pushed-screen navigation is not yet implemented.
+- **Visual tab blank on DHU**: `SurfaceCallback` surface renders correctly in unit tests but appears blank when embedded inside `TabTemplate` on the DHU — a suspected Android Auto limitation (see #122)
 - **Instance manager complexity**: The emulator instance management system is elaborate but tightly coupled to specific Android SDK paths and emulator versions
 - **Golden test fragility**: Pixel-exact golden tests are sensitive to emulator version, GPU driver, and display density changes
 - **DHU day/night mode stuck**: The DHU `day`/`night` commands don't actually change the Android Auto theme — a DHU emulator limitation
@@ -152,7 +152,7 @@ All development and testing can be done from the Mac Studio using Android Studio
 
 ## Opportunities for Improvement
 
-- **Pushed-screen navigation**: Re-add conversation views (Lead Agent, Sub-Agent) as pushed screens from `NavigationTemplate`, restoring tab-like navigation
+- **Fix Visual tab surface rendering**: Investigate why `SurfaceCallback` content is invisible inside `TabTemplate` on DHU; may require switching to `NavigationTemplate` as root with pushed-screen navigation for conversation views
 - **Branch cleanup**: Delete 12+ stale remote branches, remove 3 stale worktrees, clear 18 stash entries
 - **Real vehicle testing**: Test on actual Android Auto head unit hardware to validate touch input and display rendering
 - **Bandwidth profiling**: Measure actual Starlink Mini bandwidth consumption during typical agent sessions
