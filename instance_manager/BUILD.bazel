@@ -103,6 +103,12 @@ py_binary(
     deps = [":server"],
 )
 
+filegroup(
+    name = "instance_manager_zip",
+    srcs = [":instance_manager"],
+    output_group = "python_zip_file",
+)
+
 py_library(
     name = "client_lib",
     srcs = ["src/client.py"],
@@ -119,6 +125,12 @@ py_binary(
     main = "src/client.py",
     imports = [".."],
     deps = [":client_lib"],
+)
+
+filegroup(
+    name = "instance_manager_client_zip",
+    srcs = [":instance_manager_client"],
+    output_group = "python_zip_file",
 )
 
 # ============================================================================
