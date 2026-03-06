@@ -22,6 +22,9 @@ py_library(
     name = "calibrate",
     srcs = ["src/calibrate.py"],
     imports = [".."],
+    deps = [
+        "@pip//pillow",
+    ],
 )
 
 py_library(
@@ -121,6 +124,9 @@ py_test(
     srcs = ["tests/test_calibrate.py"],
     main = "tests/test_calibrate.py",
     imports = [".."],
-    deps = [":calibrate"],
+    deps = [
+        ":calibrate",
+        "@pip//pillow",
+    ],
     tags = ["requires-pillow"],
 )
