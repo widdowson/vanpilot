@@ -346,4 +346,4 @@ StartVideoCapture(name, target_fps?, max_duration_s?) → {capture_id}
 StopVideoCapture(name) → {video_mp4, frame_count, actual_fps, duration_ms, capture_id}
 ```
 
-Use `grpc.insecure_channel("localhost:50061")` to connect. See `instance_manager/src/client.py` for a working example of building stubs without codegen.
+Use `grpc.insecure_channel("mac:50061")` to connect. See `instance_manager/src/client.py` for a working example of building stubs without codegen.
