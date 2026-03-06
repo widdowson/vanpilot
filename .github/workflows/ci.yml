@@ -160,7 +160,7 @@ jobs:
           BAZEL_REMOTE_CACHE_URL: ${{ secrets.BAZEL_REMOTE_CACHE_URL }}
 
       - name: Run Python tests
-        run: bazel test //supervisor/... //mcp/... //instance_manager/... //e2e/... --config=ci --build_tests_only ${{ steps.cache.outputs.flag }}
+        run: bazel test //supervisor/... //mcp/... //goldens/... //instance_manager/... //e2e/... --config=ci --build_tests_only ${{ steps.cache.outputs.flag }}
 
       - name: Upload test logs (on failure)
         if: failure()
