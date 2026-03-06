@@ -1,5 +1,5 @@
 # Bazel output directories (symlinks)
-/bazel-*/
+bazel-*
 
 # Git worktrees (see PARALLEL_STRATEGY.md)
 /worktrees/

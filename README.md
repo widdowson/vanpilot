@@ -139,6 +139,27 @@ vanpilot/
 
 All development and testing can be done from the Mac Studio using Android Studio's emulators. See [DESIGN.md](./DESIGN.md) for the full local development setup.
 
+## Weaknesses
+
+- **No real Android Auto testing**: Development relies on the Desktop Head Unit (DHU) emulator; no testing on actual vehicle head unit hardware
+- **NavigationTemplate is root (no tabs)**: `SurfaceCallback` surface is invisible in DHU screenshots when inside `TabTemplate`, forcing `NavigationTemplate` as root. Conversation tabs are removed; pushed-screen navigation is not yet implemented.
+- **Instance manager complexity**: The emulator instance management system is elaborate but tightly coupled to specific Android SDK paths and emulator versions
+- **Golden test fragility**: Pixel-exact golden tests are sensitive to emulator version, GPU driver, and display density changes
+- **DHU day/night mode stuck**: The DHU `day`/`night` commands don't actually change the Android Auto theme — a DHU emulator limitation
+- **Stale branches and worktrees**: 12+ remote branches from merged PRs not deleted; 3 stale worktrees; 18 stash entries from old work
+- **blocking display_bitmap not wired**: `display_bitmap(blocking=true)` code exists but is not connected end-to-end to a real Android app
+- **Tailscale not deployed**: Configurable gRPC endpoints exist but actual Tailscale tunnel setup is untested
+
+## Opportunities for Improvement
+
+- **Pushed-screen navigation**: Re-add conversation views (Lead Agent, Sub-Agent) as pushed screens from `NavigationTemplate`, restoring tab-like navigation
+- **Branch cleanup**: Delete 12+ stale remote branches, remove 3 stale worktrees, clear 18 stash entries
+- **Real vehicle testing**: Test on actual Android Auto head unit hardware to validate touch input and display rendering
+- **Bandwidth profiling**: Measure actual Starlink Mini bandwidth consumption during typical agent sessions
+- **CI golden test stability**: Containerize golden tests to eliminate environment-dependent pixel differences
+- **CI optimization**: Implement PR #113's workflow changes to reduce GitHub Actions minutes (issue #111)
+- **Video capture windowing**: Implement AC-4.2 — capture only the last N seconds before golden frame, not entire session
+
 ## License
 
 TBD
