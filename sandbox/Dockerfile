@@ -4,8 +4,9 @@ FROM claude-sandbox-base:latest
 USER root
 
 # Build toolchain (gcc/g++ needed for native Bazel deps)
+# python3-venv enables PEP 668 venvs for pip installs without --break-system-packages
 RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends \
-    gcc g++ \
+    gcc g++ python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
 # x86_64 emulation for Android SDK build-tools (aapt2) and platform-tools (adb).
