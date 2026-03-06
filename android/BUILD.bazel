@@ -54,6 +54,7 @@ kt_android_library(
         ":grpc_endpoint_lib",
         ":voice_lib",
         "@maven//:androidx_car_app_app",
+        "@maven//:androidx_fragment_fragment",
     ],
 )
 
