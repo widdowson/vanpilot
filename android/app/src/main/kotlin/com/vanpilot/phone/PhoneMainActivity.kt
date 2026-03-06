@@ -1,11 +1,12 @@
 package com.vanpilot.phone
 
-import android.app.Activity
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
 import android.widget.Button
 import android.widget.LinearLayout
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentActivity
 import com.vanpilot.auto.ConversationTabManager
 import com.vanpilot.auto.R
 
@@ -17,9 +18,9 @@ import com.vanpilot.auto.R
  * - Lead Agent tab: conversation feed from the lead agent
  * - Sub-Agent tabs: conversation feeds for active sub-agents (up to 2)
  *
- * Uses framework Activity and Fragment to avoid adding new Maven deps.
+ * Uses AndroidX FragmentActivity and Fragment for lifecycle-safe fragment management.
  */
-class PhoneMainActivity : Activity() {
+class PhoneMainActivity : FragmentActivity() {
 
     val tabManager = ConversationTabManager.createWithMockData()
 
@@ -94,9 +95,8 @@ class PhoneMainActivity : Activity() {
         }
     }
 
-    @Suppress("DEPRECATION")
     private fun showFragment(tabId: String) {
-        val fragment: android.app.Fragment = when (tabId) {
+        val fragment: Fragment = when (tabId) {
             VISUAL_TAB_ID -> VisualCardFragment()
             LEAD_AGENT_TAB_ID -> ConversationFragment.newInstance(
                 "Lead Agent",
@@ -111,7 +111,7 @@ class PhoneMainActivity : Activity() {
             }
         }
 
-        fragmentManager.beginTransaction()
+        supportFragmentManager.beginTransaction()
             .replace(R.id.fragment_container, fragment)
             .commit()
     }

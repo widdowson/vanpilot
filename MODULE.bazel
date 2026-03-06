@@ -101,6 +101,9 @@ maven.install(
         "androidx.car.app:app-projected:1.7.0",
         "androidx.car.app:app-testing:1.7.0",
 
+        # AndroidX Fragment (used by phone UI — already a transitive dep of car-app)
+        "androidx.fragment:fragment:1.3.6",
+
         # gRPC for Android (use -lite variants for Android)
         "io.grpc:grpc-okhttp:1.78.0",
         "io.grpc:grpc-stub:1.78.0",

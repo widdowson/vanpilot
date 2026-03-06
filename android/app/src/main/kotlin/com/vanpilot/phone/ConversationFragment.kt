@@ -1,6 +1,6 @@
 package com.vanpilot.phone
 
-import android.app.Fragment
+import androidx.fragment.app.Fragment
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -17,7 +17,6 @@ import com.vanpilot.auto.R
  * Replaces the Android Auto ListTemplate rows with standard Android
  * TextViews in a ScrollView. Each message shows the sender and text.
  */
-@Suppress("DEPRECATION")
 class ConversationFragment : Fragment() {
 
     companion object {
@@ -64,7 +63,7 @@ class ConversationFragment : Fragment() {
         container.removeAllViews()
 
         if (senders.isEmpty()) {
-            val placeholder = TextView(activity).apply {
+            val placeholder = TextView(requireActivity()).apply {
                 text = "No messages yet"
                 setPadding(16, 16, 16, 16)
             }
@@ -78,7 +77,7 @@ class ConversationFragment : Fragment() {
     }
 
     private fun buildMessageView(sender: String, text: String): LinearLayout {
-        return LinearLayout(activity).apply {
+        return LinearLayout(requireActivity()).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(8, 8, 8, 8)
 
