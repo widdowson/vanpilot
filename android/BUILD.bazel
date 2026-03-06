@@ -53,6 +53,7 @@ kt_android_library(
             "app/src/main/kotlin/com/vanpilot/auto/cache/**",
             "app/src/main/kotlin/com/vanpilot/auto/sync/**",
             "app/src/main/kotlin/com/vanpilot/auto/connectivity/**",
+            "app/src/main/kotlin/com/vanpilot/phone/**",
         ],
     ),
     custom_package = "com.vanpilot.auto",
@@ -404,7 +405,7 @@ kt_jvm_library(
     name = "connection_state_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/connectivity/ConnectionStateTest.kt"],
     deps = [
-        ":grpc_lib",
+        ":connectivity_lib",
         "@maven//:junit_junit",
         "@maven//:com_google_truth_truth",
     ],
@@ -414,7 +415,7 @@ kt_jvm_library(
     name = "connection_monitor_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/connectivity/ConnectionMonitorTest.kt"],
     deps = [
-        ":grpc_lib",
+        ":connectivity_lib",
         "@maven//:junit_junit",
         "@maven//:com_google_truth_truth",
     ],
@@ -629,6 +630,20 @@ android_local_test(
     test_class = "com.vanpilot.auto.VanPilotSurfaceCallbackTest",
     deps = [
         ":surface_callback_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+# ---- Connection indicator test target ----
+
+android_local_test(
+    size = "small",
+    name = "screen_connection_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
+    test_class = "com.vanpilot.auto.VanPilotScreenConnectionTest",
+    deps = [
+        ":screen_connection_test_lib",
         "@robolectric//bazel:android-all",
     ],
 )
