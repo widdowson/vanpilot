@@ -263,10 +263,10 @@ When `--screenshot` is used, the captured image also updates the web dashboard c
 im create --name test-1
 
 # 2. Build the APK
-bazel build //android/app:vanpilot
+bazel build //android:vanpilot
 
 # 3. Install APK (restarts DHU so Android Auto discovers the new app)
-im install-apk --name test-1 --apk bazel-bin/android/app/vanpilot.apk
+im install-apk --name test-1 --apk bazel-bin/android/vanpilot.apk
 
 # 4. Launch VanPilot (opens launcher, taps VanPilot icon)
 im launch-app --name test-1 --screenshot
