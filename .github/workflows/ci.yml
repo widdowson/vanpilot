@@ -29,12 +29,14 @@ jobs:
           filters: |
             android:
               - 'android/**'
+              - 'tools/**'
               - 'MODULE.bazel'
               - 'BUILD.bazel'
               - '.bazelrc'
             python:
               - 'supervisor/**'
               - 'mcp/**'
+              - 'goldens/**'
               - 'instance_manager/**'
               - 'e2e/**'
               - 'requirements.txt'
