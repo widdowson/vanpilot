@@ -28,3 +28,8 @@ build --host_features=-layering_check
 # grpcs://remote.buildbuddy.io) and CI will pass --remote_cache automatically.
 build:ci --remote_accept_cached
 build:ci --remote_upload_local_results
+
+# CI resource tuning — GitHub-hosted ubuntu runners have 4 vCPUs / 16 GB RAM
+build:ci --jobs=auto
+build:ci --local_ram_resources=HOST_RAM*.8
+build:ci --local_cpu_resources=HOST_CPUS
