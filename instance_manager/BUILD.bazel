@@ -239,6 +239,21 @@ py_test(
 )
 
 py_test(
+    name = "snapshot_test",
+    srcs = ["tests/test_snapshot.py"],
+    main = "tests/test_snapshot.py",
+    imports = [".."],
+    deps = [
+        ":emulator_lifecycle",
+        ":instance_manager_service",
+        ":instance_store",
+        ":port_allocator",
+        "//proto/vanpilot/v1:instance_manager_py_proto",
+        requirement("grpcio"),
+    ],
+)
+
+py_test(
     name = "e2e_test",
     srcs = ["tests/test_e2e.py"],
     main = "tests/test_e2e.py",

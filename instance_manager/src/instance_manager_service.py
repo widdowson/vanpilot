@@ -277,7 +277,62 @@ class InstanceManagerServicer:
             else:
                 record = self._store.get(request.name)
 
+            if request.save_snapshot:
+                if not _SAFE_NAME_RE.match(request.save_snapshot):
+                    context.abort(
+                        grpc.StatusCode.INVALID_ARGUMENT,
+                        f"Invalid save_snapshot name '{request.save_snapshot}'",
+                    )
+                self._lifecycle.save_snapshot(record, request.save_snapshot)
+
             return instance_manager_pb2.InstallApkResponse(
+                instance=_record_to_proto(record),
+            )
+        except Exception as e:
+            context.abort(grpc.StatusCode.INTERNAL, str(e))
+
+    def _validate_snapshot_request(self, request, context):
+        """Validate snapshot_name and return the running InstanceRecord."""
+        if not request.snapshot_name:
+            context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT, "snapshot_name is required"
+            )
+        if not _SAFE_NAME_RE.match(request.snapshot_name):
+            context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT,
+                f"Invalid snapshot_name '{request.snapshot_name}'",
+            )
+
+        record = self._store.get(request.name)
+        if record is None:
+            context.abort(
+                grpc.StatusCode.NOT_FOUND,
+                f"Instance '{request.name}' not found",
+            )
+        if record.state != RUNNING:
+            context.abort(
+                grpc.StatusCode.FAILED_PRECONDITION,
+                f"Instance '{request.name}' is not running (state={record.state})",
+            )
+        return record
+
+    def SaveSnapshot(self, request, context):
+        record = self._validate_snapshot_request(request, context)
+
+        try:
+            self._lifecycle.save_snapshot(record, request.snapshot_name)
+            return instance_manager_pb2.SaveSnapshotResponse(
+                instance=_record_to_proto(record),
+            )
+        except Exception as e:
+            context.abort(grpc.StatusCode.INTERNAL, str(e))
+
+    def LoadSnapshot(self, request, context):
+        record = self._validate_snapshot_request(request, context)
+
+        try:
+            self._lifecycle.load_snapshot(record, request.snapshot_name)
+            return instance_manager_pb2.LoadSnapshotResponse(
                 instance=_record_to_proto(record),
             )
         except Exception as e:
@@ -488,6 +543,18 @@ class _InstanceManagerGenericHandler(grpc.GenericRpcHandler):
                     servicer.InstallApk,
                     request_deserializer=instance_manager_pb2.InstallApkRequest.FromString,
                     response_serializer=instance_manager_pb2.InstallApkResponse.SerializeToString,
+                ),
+            f"/{self._SERVICE}/SaveSnapshot":
+                grpc.unary_unary_rpc_method_handler(
+                    servicer.SaveSnapshot,
+                    request_deserializer=instance_manager_pb2.SaveSnapshotRequest.FromString,
+                    response_serializer=instance_manager_pb2.SaveSnapshotResponse.SerializeToString,
+                ),
+            f"/{self._SERVICE}/LoadSnapshot":
+                grpc.unary_unary_rpc_method_handler(
+                    servicer.LoadSnapshot,
+                    request_deserializer=instance_manager_pb2.LoadSnapshotRequest.FromString,
+                    response_serializer=instance_manager_pb2.LoadSnapshotResponse.SerializeToString,
                 ),
             f"/{self._SERVICE}/AdbShell":
                 grpc.unary_unary_rpc_method_handler(
