@@ -19,6 +19,8 @@ import com.vanpilot.auto.cache.BitmapCache
 import com.vanpilot.auto.cache.DisplayHistory
 import com.vanpilot.auto.connectivity.ConnectionMonitor
 import com.vanpilot.auto.connectivity.ConnectionState
+import com.vanpilot.auto.voice.VoiceState
+import com.vanpilot.auto.voice.VoiceStateMachine
 
 /**
  * The main screen of the VanPilot Android Auto app.
@@ -31,8 +33,24 @@ import com.vanpilot.auto.connectivity.ConnectionState
  */
 class VanPilotScreen(
     carContext: CarContext,
-    val connectionMonitor: ConnectionMonitor = ConnectionMonitor()
+    val connectionMonitor: ConnectionMonitor = ConnectionMonitor(),
+    val voiceStateMachine: VoiceStateMachine? = null
 ) : Screen(carContext) {
+
+    /**
+     * Called when STT produces a final transcript. External code should
+     * set this to trigger the gRPC SendUserInput call.
+     *
+     * The setter forwards the callback to [voiceStateMachine]. If
+     * [voiceStateMachine] is null (voice disabled), the assignment to the
+     * state machine is silently ignored — the backing field is still updated
+     * so the callback can be retrieved, but no STT events will fire.
+     */
+    var onTranscriptionReady: ((String) -> Unit)? = null
+        set(value) {
+            field = value
+            voiceStateMachine?.onTranscriptionReady = value
+        }
 
     init {
         connectionMonitor.addListener { invalidate() }
@@ -139,7 +157,12 @@ class VanPilotScreen(
                     .build()
                 val actionStripBuilder = ActionStrip.Builder()
                     .addAction(indicatorAction)
-                    .addAction(Action.PAN)
+                if (voiceStateMachine != null) {
+                    actionStripBuilder.addAction(buildMicAction(voiceStateMachine))
+                } else {
+                    actionStripBuilder.addAction(Action.PAN)
+                }
+                actionStripBuilder
                     .addAction(buildBackAction())
                     .addAction(buildForwardAction())
                 val navTemplate = NavigationTemplate.Builder()
@@ -206,6 +229,29 @@ class VanPilotScreen(
         val bitmap = BitmapFactory.decodeByteArray(pngData, 0, pngData.size) ?: return
         surfaceCallback.displayBitmap(key, bitmap)
         invalidate()
+    }
+
+    // TODO: Replace Unicode emoji icons (\uD83C\uDF99 mic, \u23F9 stop) with proper
+    //  drawable icon resources — emoji render inconsistently across Android Auto head units.
+    private fun buildMicAction(vsm: VoiceStateMachine): Action {
+        val state = vsm.currentState
+        val isIdle = state == VoiceState.IDLE
+        val isListening = state == VoiceState.LISTENING
+        val enabled = isIdle || isListening
+        val title = if (isListening) "\u23F9" else "\uD83C\uDF99"
+
+        return Action.Builder()
+            .setTitle(title)
+            .setEnabled(enabled)
+            .setOnClickListener {
+                if (isListening) {
+                    vsm.cancelListening()
+                } else if (isIdle) {
+                    vsm.activateVoice()
+                }
+                invalidate()
+            }
+            .build()
     }
 
     private fun buildBackAction(): Action {
