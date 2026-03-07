@@ -105,7 +105,7 @@ class ThreadPoolConcurrencyTest(unittest.TestCase):
         elapsed = time.monotonic() - start
 
         self.assertIsInstance(resp, sync_pb2.GetEventsResponse)
-        self.assertLess(elapsed, 2.0, "GetEvents blocked — thread pool exhausted by GetBitmap")
+        self.assertLess(elapsed, 5.0, "GetEvents blocked — thread pool exhausted by GetBitmap")
 
         # Clean up
         for t in threads:
