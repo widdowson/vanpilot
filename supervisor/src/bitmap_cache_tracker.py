@@ -23,11 +23,27 @@ class BitmapCacheTracker:
         self._bitmaps: dict[str, bytes] = {}
         # client_id -> set of cache keys sent to that client
         self._sent: dict[str, set[str]] = {}
+        # Notifies blocked GetBitmap callers when a new bitmap is stored.
+        self._new_bitmap_event = threading.Event()
 
     def store_bitmap(self, cache_key: str, image_data: bytes) -> None:
-        """Store a bitmap by cache key."""
+        """Store a bitmap by cache key and wake any blocked waiters."""
         with self._lock:
             self._bitmaps[cache_key] = image_data
+        # Wake all threads blocked in wait_for_new_bitmap().
+        self._new_bitmap_event.set()
+
+    def wait_for_new_bitmap(self, timeout: float) -> bool:
+        """Block until a new bitmap is stored or timeout expires.
+
+        Returns True if woken by a new bitmap, False on timeout.
+        """
+        result = self._new_bitmap_event.wait(timeout=timeout)
+        # Clear the event so future waits block again. There's a benign
+        # race where a concurrent put() re-sets the event immediately,
+        # which just means the next wait returns instantly — no harm.
+        self._new_bitmap_event.clear()
+        return result
 
     def get_bitmap(self, cache_key: str) -> bytes | None:
         """Retrieve a bitmap by cache key, or None if not found."""
