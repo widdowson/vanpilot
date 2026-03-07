@@ -49,7 +49,6 @@ class VanPilotScreen(
 
     init {
         connectionMonitor.addListener { invalidate() }
-        voiceStateMachine?.onTranscriptionReady = onTranscriptionReady
     }
 
     val surfaceCallback = VanPilotSurfaceCallback()
