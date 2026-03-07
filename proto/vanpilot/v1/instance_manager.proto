@@ -56,6 +56,10 @@ service InstanceManagerService {
   // Save the current emulator state as a named snapshot.
   // Useful after APK install so future creates can skip the install step.
   rpc SaveSnapshot(SaveSnapshotRequest) returns (SaveSnapshotResponse);
+
+  // Load (restore) a previously saved snapshot on a running instance.
+  // The emulator reverts to the saved state; DHU connection is preserved.
+  rpc LoadSnapshot(LoadSnapshotRequest) returns (LoadSnapshotResponse);
 }
 
 message CreateInstanceRequest {
@@ -278,6 +282,19 @@ message SaveSnapshotRequest {
 }
 
 message SaveSnapshotResponse {
+  InstanceInfo instance = 1;
+}
+
+message LoadSnapshotRequest {
+  // Instance name (must be RUNNING).
+  string name = 1;
+
+  // Snapshot name to load (e.g., "post_install_vanpilot").
+  // Must match [a-zA-Z0-9][a-zA-Z0-9._-]*.
+  string snapshot_name = 2;
+}
+
+message LoadSnapshotResponse {
   InstanceInfo instance = 1;
 }
 

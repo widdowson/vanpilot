@@ -37,6 +37,7 @@ def _make_stubs(channel):
         "adb_push": _stub("AdbPush", pb.AdbPushRequest, pb.AdbPushResponse),
         "adb_pull": _stub("AdbPull", pb.AdbPullRequest, pb.AdbPullResponse),
         "save_snapshot": _stub("SaveSnapshot", pb.SaveSnapshotRequest, pb.SaveSnapshotResponse),
+        "load_snapshot": _stub("LoadSnapshot", pb.LoadSnapshotRequest, pb.LoadSnapshotResponse),
     }
 
 
@@ -158,6 +159,18 @@ def cmd_save_snapshot(stubs, args):
     _print_instance(resp.instance)
 
 
+def cmd_load_snapshot(stubs, args):
+    pb = instance_manager_pb2
+    req = pb.LoadSnapshotRequest(
+        name=args.name,
+        snapshot_name=args.snapshot_name,
+    )
+    print(f"Loading snapshot '{args.snapshot_name}' for '{args.name}'...")
+    resp = stubs["load_snapshot"](req, timeout=args.timeout)
+    print("OK")
+    _print_instance(resp.instance)
+
+
 def cmd_adb(stubs, args):
     pb = instance_manager_pb2
     req = pb.AdbShellRequest(
@@ -253,6 +266,12 @@ def main():
                              help="Name for the saved snapshot")
     p_save_snap.add_argument("--timeout", type=int, default=180)
 
+    p_load_snap = sub.add_parser("load-snapshot")
+    p_load_snap.add_argument("--name", required=True)
+    p_load_snap.add_argument("--snapshot-name", required=True,
+                             help="Name of the snapshot to load/restore")
+    p_load_snap.add_argument("--timeout", type=int, default=180)
+
     p_adb = sub.add_parser("adb")
     p_adb.add_argument("--name", required=True)
     p_adb.add_argument("--timeout", type=int, default=30)
@@ -285,6 +304,7 @@ def main():
         "dhu-command": cmd_dhu_command,
         "install-apk": cmd_install_apk,
         "save-snapshot": cmd_save_snapshot,
+        "load-snapshot": cmd_load_snapshot,
         "adb": cmd_adb,
         "adb-push": cmd_push,
         "adb-pull": cmd_pull,

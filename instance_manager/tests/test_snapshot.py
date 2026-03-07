@@ -267,5 +267,177 @@ class SaveSnapshotServiceTest(unittest.TestCase):
         self.lifecycle.save_snapshot.assert_not_called()
 
 
+# ---------------------------------------------------------------------------
+# Lifecycle tests for load_snapshot
+# ---------------------------------------------------------------------------
+
+class LoadSnapshotLifecycleTest(unittest.TestCase):
+    """Tests for EmulatorLifecycle.load_snapshot."""
+
+    def _make_lifecycle(self, runner=None):
+        store = InstanceStore()
+        if runner is None:
+            runner = FakeSubprocessRunner()
+        lifecycle = EmulatorLifecycle(
+            store, runner, boot_timeout=2, dhu_timeout=2,
+        )
+        return store, runner, lifecycle
+
+    def _make_record(self, store, name="test"):
+        store.create(name, 5554, 5555, 5277, False, 1000, "test_avd")
+        store.update(name, state=RUNNING, pipe_path="/tmp/dhu_test_pipe")
+        return store.get(name)
+
+    def test_load_snapshot_runs_adb_emu_command(self):
+        """load_snapshot runs 'adb emu avd snapshot load <name>'."""
+        store, runner, lifecycle = self._make_lifecycle()
+        record = self._make_record(store)
+
+        lifecycle.load_snapshot(record, "post_install")
+
+        snapshot_calls = [
+            c for c in runner.run_calls
+            if "snapshot" in c[0] and "load" in c[0]
+        ]
+        self.assertEqual(len(snapshot_calls), 1)
+        args = snapshot_calls[0][0]
+        self.assertEqual(args, [
+            "adb", "-s", "emulator-5554",
+            "emu", "avd", "snapshot", "load", "post_install",
+        ])
+
+    def test_load_snapshot_failure_raises(self):
+        """load_snapshot raises RuntimeError when adb command fails."""
+
+        class FailingLoadRunner(FakeSubprocessRunner):
+            def run(self, args, **kwargs):
+                result = super().run(args, **kwargs)
+                if "snapshot" in args and "load" in args:
+                    result.returncode = 1
+                    result.stderr = "snapshot load failed"
+                return result
+
+        store, runner, lifecycle = self._make_lifecycle(runner=FailingLoadRunner())
+        record = self._make_record(store)
+
+        with self.assertRaises(RuntimeError) as ctx:
+            lifecycle.load_snapshot(record, "bad_snapshot")
+        self.assertIn("snapshot load failed", str(ctx.exception))
+
+
+# ---------------------------------------------------------------------------
+# gRPC service tests for LoadSnapshot RPC
+# ---------------------------------------------------------------------------
+
+class LoadSnapshotServiceTest(unittest.TestCase):
+    """Tests for the LoadSnapshot RPC on InstanceManagerServicer."""
+
+    def setUp(self):
+        self.store = InstanceStore()
+        self.port_allocator = PortAllocator(max_slots=4)
+        self.lifecycle = MagicMock(spec=EmulatorLifecycle)
+
+        def fake_create(name, avd_name, snapshot_name, headful, ports):
+            self.store.update(name, state=RUNNING)
+            return self.store.get(name)
+
+        self.lifecycle.create.side_effect = fake_create
+        self.lifecycle.screenshot.return_value = b"fake-png"
+        self.lifecycle.emulator_screenshot_to_bytes.return_value = b"fake-emu-png"
+        self.lifecycle.load_snapshot = MagicMock()
+
+        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=2))
+        add_instance_manager_service_to_server(
+            self.server, self.store, self.lifecycle, self.port_allocator,
+        )
+        port = self.server.add_insecure_port("[::]:0")
+        self.server.start()
+        self.channel = grpc.insecure_channel(f"localhost:{port}")
+
+    def tearDown(self):
+        self.channel.close()
+        self.server.stop(0)
+
+    def _call(self, method, request):
+        service = "vanpilot.v1.InstanceManagerService"
+        resp_map = {
+            "CreateInstance": instance_manager_pb2.CreateInstanceResponse,
+            "LoadSnapshot": instance_manager_pb2.LoadSnapshotResponse,
+        }
+        resp_type = resp_map[method]
+        return self.channel.unary_unary(
+            f"/{service}/{method}",
+            request_serializer=type(request).SerializeToString,
+            response_deserializer=resp_type.FromString,
+        )(request)
+
+    def _create_instance(self, name="load-test"):
+        return self._call(
+            "CreateInstance",
+            instance_manager_pb2.CreateInstanceRequest(name=name),
+        )
+
+    def test_load_snapshot_success(self):
+        """LoadSnapshot calls lifecycle.load_snapshot and returns instance info."""
+        self._create_instance("load-test")
+        resp = self._call(
+            "LoadSnapshot",
+            instance_manager_pb2.LoadSnapshotRequest(
+                name="load-test", snapshot_name="post_install",
+            ),
+        )
+        self.assertEqual(resp.instance.name, "load-test")
+        self.lifecycle.load_snapshot.assert_called_once()
+        call_args = self.lifecycle.load_snapshot.call_args
+        self.assertEqual(call_args[0][1], "post_install")
+
+    def test_load_snapshot_nonexistent_instance(self):
+        """LoadSnapshot returns NOT_FOUND for nonexistent instance."""
+        with self.assertRaises(grpc.RpcError) as ctx:
+            self._call(
+                "LoadSnapshot",
+                instance_manager_pb2.LoadSnapshotRequest(
+                    name="nope", snapshot_name="snap",
+                ),
+            )
+        self.assertEqual(ctx.exception.code(), grpc.StatusCode.NOT_FOUND)
+
+    def test_load_snapshot_not_running(self):
+        """LoadSnapshot returns FAILED_PRECONDITION if instance not running."""
+        self.store.create("creating", 5554, 5555, 5277, False, 1000, "avd")
+        with self.assertRaises(grpc.RpcError) as ctx:
+            self._call(
+                "LoadSnapshot",
+                instance_manager_pb2.LoadSnapshotRequest(
+                    name="creating", snapshot_name="snap",
+                ),
+            )
+        self.assertEqual(ctx.exception.code(), grpc.StatusCode.FAILED_PRECONDITION)
+
+    def test_load_snapshot_empty_name_rejected(self):
+        """LoadSnapshot rejects empty snapshot_name."""
+        self._create_instance("load-test2")
+        with self.assertRaises(grpc.RpcError) as ctx:
+            self._call(
+                "LoadSnapshot",
+                instance_manager_pb2.LoadSnapshotRequest(
+                    name="load-test2", snapshot_name="",
+                ),
+            )
+        self.assertEqual(ctx.exception.code(), grpc.StatusCode.INVALID_ARGUMENT)
+
+    def test_load_snapshot_invalid_name_rejected(self):
+        """LoadSnapshot rejects snapshot names with invalid characters."""
+        self._create_instance("load-test3")
+        with self.assertRaises(grpc.RpcError) as ctx:
+            self._call(
+                "LoadSnapshot",
+                instance_manager_pb2.LoadSnapshotRequest(
+                    name="load-test3", snapshot_name="../evil",
+                ),
+            )
+        self.assertEqual(ctx.exception.code(), grpc.StatusCode.INVALID_ARGUMENT)
+
+
 if __name__ == "__main__":
     unittest.main()
