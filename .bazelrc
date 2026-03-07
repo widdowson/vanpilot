@@ -27,11 +27,15 @@ build --linkopt=-Wl,-no_warn_duplicate_libraries
 build --features=-layering_check
 build --host_features=-layering_check
 
-# CI remote cache — activated by --config=ci
-# setup-bazel disk-cache + repository-cache + external-cache already persist
-# across GHA runs. For a full Bazel remote cache, add a BAZEL_REMOTE_CACHE_URL
-# repo secret (e.g. https://storage.googleapis.com/<bucket> or
-# grpcs://remote.buildbuddy.io) and CI will pass --remote_cache automatically.
+# Remote cache — shared GCS bucket for CI and sandbox agents
+# CI passes --remote_cache and --google_credentials via workflow secrets.
+# Sandbox agents: set GOOGLE_APPLICATION_CREDENTIALS to the service account
+# key file, then use --config=remote-cache.
+build:remote-cache --remote_cache=https://storage.googleapis.com/vanpilot-bazel-cache
+build:remote-cache --remote_accept_cached
+build:remote-cache --remote_upload_local_results
+
+# CI config inherits remote-cache behavior; credentials come from workflow
 build:ci --remote_accept_cached
 build:ci --remote_upload_local_results
 

@@ -3,6 +3,8 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -73,10 +75,16 @@ jobs:
         id: cache
         run: |
           if [ -n "$BAZEL_REMOTE_CACHE_URL" ]; then
-            echo "flag=--remote_cache=$BAZEL_REMOTE_CACHE_URL" >> "$GITHUB_OUTPUT"
+            flags="--remote_cache=$BAZEL_REMOTE_CACHE_URL"
+            if [ -n "$BAZEL_REMOTE_CACHE_SA_KEY" ]; then
+              echo "$BAZEL_REMOTE_CACHE_SA_KEY" | base64 -d > /tmp/bazel-cache-key.json
+              flags="$flags --google_credentials=/tmp/bazel-cache-key.json"
+            fi
+            echo "flag=$flags" >> "$GITHUB_OUTPUT"
           fi
         env:
           BAZEL_REMOTE_CACHE_URL: ${{ secrets.BAZEL_REMOTE_CACHE_URL }}
+          BAZEL_REMOTE_CACHE_SA_KEY: ${{ secrets.BAZEL_REMOTE_CACHE_SA_KEY }}
 
       - name: Build APK
         run: bazel build //android:vanpilot --config=ci ${{ steps.cache.outputs.flag }}
@@ -154,10 +162,16 @@ jobs:
         id: cache
         run: |
           if [ -n "$BAZEL_REMOTE_CACHE_URL" ]; then
-            echo "flag=--remote_cache=$BAZEL_REMOTE_CACHE_URL" >> "$GITHUB_OUTPUT"
+            flags="--remote_cache=$BAZEL_REMOTE_CACHE_URL"
+            if [ -n "$BAZEL_REMOTE_CACHE_SA_KEY" ]; then
+              echo "$BAZEL_REMOTE_CACHE_SA_KEY" | base64 -d > /tmp/bazel-cache-key.json
+              flags="$flags --google_credentials=/tmp/bazel-cache-key.json"
+            fi
+            echo "flag=$flags" >> "$GITHUB_OUTPUT"
           fi
         env:
           BAZEL_REMOTE_CACHE_URL: ${{ secrets.BAZEL_REMOTE_CACHE_URL }}
+          BAZEL_REMOTE_CACHE_SA_KEY: ${{ secrets.BAZEL_REMOTE_CACHE_SA_KEY }}
 
       - name: Run Python tests
         run: bazel test //supervisor/... //mcp/... //goldens/... //instance_manager/... //e2e/... --config=ci --build_tests_only ${{ steps.cache.outputs.flag }}
