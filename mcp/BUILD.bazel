@@ -120,6 +120,14 @@ py_test(
 )
 
 py_test(
+    name = "server_blocking_test",
+    srcs = ["tests/test_server_blocking.py"],
+    main = "tests/test_server_blocking.py",
+    imports = [".."],
+    deps = [":server_lib"],
+)
+
+py_test(
     name = "calibrate_test",
     srcs = ["tests/test_calibrate.py"],
     main = "tests/test_calibrate.py",

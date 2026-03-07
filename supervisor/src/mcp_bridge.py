@@ -54,6 +54,10 @@ class BitmapStore:
         """Remove all tracking for a client (e.g., on disconnect)."""
         self._tracker.clear_client(client_id)
 
+    def wait_for_new_bitmap(self, timeout: float) -> bool:
+        """Block until a new bitmap is stored or timeout expires."""
+        return self._tracker.wait_for_new_bitmap(timeout)
+
     def reconcile(self, client_id: str, present_keys: set[str]) -> set[str]:
         """Reconcile cache state with a client on reconnection (AC-7.4).
 
