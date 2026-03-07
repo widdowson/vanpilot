@@ -12,12 +12,8 @@ from supervisor.src.event_store import EventStore
 from supervisor.src.input_injector import InputInjector
 from supervisor.src.mcp_bridge import BitmapStore
 
-# Single-client MVP: all connected Android apps share one client ID.
-# When multi-client support is added, derive this from the gRPC peer.
-_DEFAULT_CLIENT_ID = "default"
-
-# Poll interval for blocking GetBitmap requests.
-_POLL_INTERVAL_S = 0.05
+# Fallback client ID when context is None (unit tests).
+_FALLBACK_CLIENT_ID = "default"
 
 
 class SyncServiceServicer:
@@ -32,6 +28,19 @@ class SyncServiceServicer:
         self._store = store
         self._bitmap_store = bitmap_store or BitmapStore()
         self._input_injector = input_injector
+
+    @staticmethod
+    def _client_id(context: grpc.ServicerContext | None) -> str:
+        """Derive a client identifier from the gRPC peer address."""
+        if context is None:
+            return _FALLBACK_CLIENT_ID
+        try:
+            peer = context.peer()
+            if peer:
+                return peer
+        except Exception:
+            pass
+        return _FALLBACK_CLIENT_ID
 
     def GetEvents(
         self,
@@ -61,16 +70,14 @@ class SyncServiceServicer:
         request: sync_pb2.GetBitmapRequest,
         context: grpc.ServicerContext,
     ) -> sync_pb2.GetBitmapResponse:
+        client_id = self._client_id(context)
         wait_ms = request.wait_ms
         deadline = time.monotonic() + wait_ms / 1000.0 if wait_ms > 0 else 0
 
-        # TODO(#57): Each blocking GetBitmap call holds a ThreadPoolExecutor
-        # thread. With _MAX_WORKERS=4, 4 concurrent blocking calls exhaust the
-        # pool. Fix: switch to async gRPC or increase pool size.
         while True:
             data = self._bitmap_store.get(request.cache_key)
             if data is not None:
-                self._bitmap_store.mark_sent(_DEFAULT_CLIENT_ID, request.cache_key)
+                self._bitmap_store.mark_sent(client_id, request.cache_key)
                 return sync_pb2.GetBitmapResponse(
                     bitmap=sync_pb2.BitmapPayload(
                         cache_key=request.cache_key,
@@ -82,15 +89,20 @@ class SyncServiceServicer:
             # Exit cleanly if the client disconnects mid-poll.
             if context is not None and not context.is_active():
                 return sync_pb2.GetBitmapResponse()
-            time.sleep(_POLL_INTERVAL_S)
+            # Block on event instead of busy-polling — doesn't hold CPU
+            # and wakes immediately when a new bitmap is stored.
+            remaining = deadline - time.monotonic()
+            if remaining > 0:
+                self._bitmap_store.wait_for_new_bitmap(timeout=remaining)
 
     def ReconcileCache(
         self,
         request: sync_pb2.ReconcileCacheRequest,
         context: grpc.ServicerContext,
     ) -> sync_pb2.ReconcileCacheResponse:
+        client_id = self._client_id(context)
         missing = self._bitmap_store.reconcile(
-            _DEFAULT_CLIENT_ID, set(request.present_keys)
+            client_id, set(request.present_keys)
         )
         return sync_pb2.ReconcileCacheResponse(missing_keys=list(missing))
 
