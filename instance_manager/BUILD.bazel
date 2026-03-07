@@ -8,6 +8,12 @@ package(default_visibility = ["//visibility:public"])
 # ============================================================================
 
 py_library(
+    name = "package_init",
+    srcs = ["src/__init__.py"],
+    imports = [".."],
+)
+
+py_library(
     name = "port_allocator",
     srcs = ["src/port_allocator.py"],
     imports = [".."],
@@ -89,6 +95,7 @@ py_library(
         ":instance_manager_service",
         ":instance_store",
         ":log_collector",
+        ":package_init",
         ":port_allocator",
         ":web_server",
         requirement("grpcio"),
@@ -114,6 +121,7 @@ py_library(
     srcs = ["src/client.py"],
     imports = [".."],
     deps = [
+        ":package_init",
         "//proto/vanpilot/v1:instance_manager_py_proto",
         requirement("grpcio"),
     ],

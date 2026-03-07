@@ -22,6 +22,8 @@ from instance_manager.src.log_collector import LogCollector
 from instance_manager.src.port_allocator import PortAllocator
 from instance_manager.src.web_server import start_web_server
 
+from instance_manager.src import MAX_MESSAGE_BYTES
+
 log = logging.getLogger(__name__)
 
 _MAX_WORKERS = 4
@@ -81,7 +83,13 @@ def create_server(
     subprocess_runner = runner or SubprocessRunner()
     lifecycle = EmulatorLifecycle(store, subprocess_runner)
 
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=_MAX_WORKERS))
+    server = grpc.server(
+        futures.ThreadPoolExecutor(max_workers=_MAX_WORKERS),
+        options=[
+            ("grpc.max_receive_message_length", MAX_MESSAGE_BYTES),
+            ("grpc.max_send_message_length", MAX_MESSAGE_BYTES),
+        ],
+    )
     add_instance_manager_service_to_server(
         server, store, lifecycle, port_allocator
     )

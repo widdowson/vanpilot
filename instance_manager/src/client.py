@@ -9,6 +9,7 @@ import sys
 import grpc
 
 from proto.vanpilot.v1 import instance_manager_pb2
+from instance_manager.src import MAX_MESSAGE_BYTES
 
 _SERVICE = "/vanpilot.v1.InstanceManagerService"
 _STATE_NAMES = {0: "UNSPECIFIED", 1: "CREATING", 2: "RUNNING", 3: "ERROR", 4: "DESTROYING"}
@@ -279,7 +280,7 @@ def main():
     p_push = sub.add_parser("adb-push")
     p_push.add_argument("--name", required=True)
     p_push.add_argument("--file", required=True,
-                         help="Local file to push (max ~4MB due to gRPC message size limit)")
+                         help="Local file to push")
     p_push.add_argument("--remote", required=True, help="Remote path on emulator")
     p_push.add_argument("--timeout", type=int, default=60)
 
@@ -290,7 +291,13 @@ def main():
     p_pull.add_argument("--timeout", type=int, default=60)
 
     args = parser.parse_args()
-    channel = grpc.insecure_channel(args.addr)
+    channel = grpc.insecure_channel(
+        args.addr,
+        options=[
+            ("grpc.max_receive_message_length", MAX_MESSAGE_BYTES),
+            ("grpc.max_send_message_length", MAX_MESSAGE_BYTES),
+        ],
+    )
     stubs = _make_stubs(channel)
 
     dispatch = {
