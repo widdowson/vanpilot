@@ -23,7 +23,8 @@ shows it in the app launcher grid. The launch sequence:
 
 1. **Open the app launcher** — DHU command `keycode home`
 2. **Wait for the launcher grid** — ~1-2 seconds for rendering
-3. **Tap VanPilot's icon** — DHU command `tap 200 390`
+3. **Tap VanPilot's icon twice** — DHU command `tap 200 390` (first tap
+   selects/highlights the icon, second tap confirms and launches)
 4. **Wait for initialization** — ~5-10 seconds for session creation
 
 The DHU uses a **1920×1080 coordinate system** for `tap` commands (matching

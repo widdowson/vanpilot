@@ -169,7 +169,10 @@ def launch_vanpilot_via_dhu(client: InstanceManagerClient, name: str) -> None:
     # Open app launcher
     client.dhu_command(name, "keycode home")
     time.sleep(2)
-    # Tap VanPilot icon — Row 3, Col 1 in the launcher grid (1920x1080 coords)
+    # Tap VanPilot icon — Row 3, Col 1 in the launcher grid (1920x1080 coords).
+    # First tap selects/highlights the icon; second tap confirms the launch.
+    client.dhu_command(name, "tap 200 390")
+    time.sleep(1)
     client.dhu_command(name, "tap 200 390")
     time.sleep(RENDER_SETTLE_TIME)
 
@@ -236,20 +239,30 @@ class GoldenTestCase(unittest.TestCase):
         )
 
     def verify_vanpilot_foreground(self):
-        """Assert VanPilot is in the DHU foreground, not Maps or another app.
+        """Assert VanPilot is running, not just Maps or the launcher.
 
-        Uses adb to check which activity is resumed on the emulator.
+        Car App Library apps run inside the Android Auto host process, so
+        they may not appear as a resumed activity in `dumpsys activity`.
+        We check both `dumpsys activity activities` and `dumpsys activity
+        services` for any vanpilot component.
         """
+        for dump_target in ["activities", "services"]:
+            resp = self._client.adb_shell(
+                self.instance_name,
+                ["dumpsys", "activity", dump_target],
+            )
+            if "vanpilot" in resp.stdout.lower():
+                return
+        # If neither shows vanpilot, capture what we see for debugging
         resp = self._client.adb_shell(
             self.instance_name,
-            ["dumpsys", "activity", "activities"],
+            ["dumpsys", "activity", "services"],
         )
-        if "vanpilot" not in resp.stdout.lower():
-            self.fail(
-                "VanPilot is not in the foreground. "
-                "Got resumed activities:\n"
-                + resp.stdout[:500]
-            )
+        self.fail(
+            "VanPilot is not running. "
+            "dumpsys activity services:\n"
+            + resp.stdout[:500]
+        )
 
     def save_test_output(self, name: str, data: bytes) -> Optional[str]:
         """Save data to TEST_UNDECLARED_OUTPUTS_DIR for CI artifacts."""
