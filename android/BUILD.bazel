@@ -19,6 +19,18 @@ kt_android_library(
 )
 
 # ============================================================================
+# Connectivity primitives (ConnectionState, ConnectionMonitor — no proto deps)
+# ============================================================================
+
+kt_jvm_library(
+    name = "connectivity_lib",
+    srcs = [
+        "app/src/main/kotlin/com/vanpilot/auto/connectivity/ConnectionMonitor.kt",
+        "app/src/main/kotlin/com/vanpilot/auto/connectivity/ConnectionState.kt",
+    ],
+)
+
+# ============================================================================
 # Main app library (Car App UI — no gRPC deps to avoid dex issues)
 # ============================================================================
 
@@ -38,9 +50,11 @@ kt_android_library(
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
     deps = [
+        ":connectivity_lib",
         ":grpc_endpoint_lib",
         ":voice_lib",
         "@maven//:androidx_car_app_app",
+        "@maven//:androidx_fragment_fragment",
     ],
 )
 
@@ -82,9 +96,12 @@ kt_jvm_library(
             "app/src/main/kotlin/com/vanpilot/auto/grpc/SyncClient.kt",
             "app/src/main/kotlin/com/vanpilot/auto/grpc/GrpcEndpointConfig.kt",
             "app/src/main/kotlin/com/vanpilot/auto/grpc/ChannelFactory.kt",
+            "app/src/main/kotlin/com/vanpilot/auto/connectivity/ConnectionMonitor.kt",
+            "app/src/main/kotlin/com/vanpilot/auto/connectivity/ConnectionState.kt",
         ],
     ),
     deps = [
+        ":connectivity_lib",
         ":grpc_endpoint_lib",
         "//proto/vanpilot/v1:sync_java_proto",
         "//proto/vanpilot/v1:sync_java_grpc",
@@ -209,6 +226,23 @@ kt_jvm_library(
     deps = [
         ":vanpilot_lib",
         "@maven//:androidx_car_app_app",
+        "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_robolectric_robolectric",
+    ],
+)
+
+# ---- Connection indicator test library ----
+
+kt_jvm_library(
+    name = "screen_connection_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/VanPilotScreenConnectionTest.kt"],
+    deps = [
+        ":connectivity_lib",
+        ":vanpilot_lib",
+        "@maven//:androidx_car_app_app",
+        "@maven//:androidx_car_app_app_testing",
+        "@maven//:androidx_test_core",
         "@maven//:com_google_truth_truth",
         "@maven//:junit_junit",
         "@maven//:org_robolectric_robolectric",
@@ -516,6 +550,7 @@ kt_jvm_library(
 # ============================================================================
 
 android_local_test(
+    size = "small",
     name = "car_app_service_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -527,6 +562,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "session_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -538,6 +574,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "screen_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -549,6 +586,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "surface_callback_test",
     data = ["//goldens/phase3:golden_images"],
     manifest = "app/src/main/AndroidManifest.xml",
@@ -563,6 +601,7 @@ android_local_test(
 # ---- Dark mode test targets ----
 
 android_local_test(
+    size = "small",
     name = "dark_mode_theme_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -574,6 +613,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "surface_callback_dark_mode_test",
     data = ["//goldens/phase3:golden_images"],
     manifest = "app/src/main/AndroidManifest.xml",
@@ -586,6 +626,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "surface_callback_bitmap_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -597,6 +638,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "screen_dark_mode_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -608,6 +650,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "sync_client_report_theme_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -621,6 +664,7 @@ android_local_test(
 # ---- gRPC / sync test targets ----
 
 android_local_test(
+    size = "small",
     name = "bitmap_cache_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -632,6 +676,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "event_processor_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -643,6 +688,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "sync_service_client_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -654,6 +700,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "android_app_service_impl_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -665,6 +712,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "sync_client_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -718,6 +766,7 @@ kt_jvm_library(
 )
 
 android_local_test(
+    size = "small",
     name = "grpc_endpoint_config_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -729,6 +778,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "channel_factory_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -740,6 +790,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "session_grpc_wiring_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -810,6 +861,7 @@ kt_jvm_library(
 )
 
 android_local_test(
+    size = "small",
     name = "event_processor_unknown_event_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -821,6 +873,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "bitmap_cache_byte_budget_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -832,6 +885,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "event_processor_bitmap_fetch_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -843,6 +897,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "event_processor_async_fetch_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -854,6 +909,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "sync_service_client_reconcile_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -867,6 +923,7 @@ android_local_test(
 # ---- Connectivity / offline resilience test targets ----
 
 android_local_test(
+    size = "small",
     name = "connection_state_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -878,6 +935,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "connection_monitor_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -889,6 +947,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "adaptive_batch_config_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -900,6 +959,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "sync_manager_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -913,6 +973,7 @@ android_local_test(
 # ---- Voice test targets ----
 
 android_local_test(
+    size = "small",
     name = "voice_state_machine_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -924,6 +985,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "voice_ui_state_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -935,6 +997,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "stt_manager_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -946,6 +1009,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "tts_manager_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -959,6 +1023,7 @@ android_local_test(
 # ---- Conversation tab test targets ----
 
 android_local_test(
+    size = "small",
     name = "conversation_message_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -970,6 +1035,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "conversation_tab_manager_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -981,6 +1047,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "conversation_tab_manager_concurrency_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -992,6 +1059,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "screen_tabs_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -1003,6 +1071,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "screen_tab_edge_case_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -1025,6 +1094,7 @@ kt_android_library(
     resource_files = glob(["app/src/main/res/**"]),
     deps = [
         ":vanpilot_lib",
+        "@maven//:androidx_fragment_fragment",
     ],
 )
 
@@ -1073,6 +1143,7 @@ kt_jvm_library(
 # ============================================================================
 
 android_local_test(
+    size = "small",
     name = "phone_main_activity_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -1084,6 +1155,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "visual_card_fragment_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
@@ -1095,6 +1167,7 @@ android_local_test(
 )
 
 android_local_test(
+    size = "small",
     name = "conversation_fragment_test",
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),

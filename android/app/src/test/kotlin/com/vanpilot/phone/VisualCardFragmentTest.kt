@@ -25,7 +25,6 @@ class VisualCardFragmentTest {
     private lateinit var activity: PhoneMainActivity
     private lateinit var fragment: VisualCardFragment
 
-    @Suppress("DEPRECATION")
     @Before
     fun setUp() {
         activity = Robolectric.buildActivity(PhoneMainActivity::class.java)
@@ -34,7 +33,7 @@ class VisualCardFragmentTest {
             .resume()
             .get()
         // The default fragment is VisualCardFragment
-        fragment = activity.fragmentManager
+        fragment = activity.supportFragmentManager
             .findFragmentById(R.id.fragment_container) as VisualCardFragment
     }
 
