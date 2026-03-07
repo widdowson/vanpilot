@@ -94,12 +94,12 @@ the first action in the NavigationTemplate action strip, rendered as a tinted ic
 
 | # | State | File | Status | Notes |
 |---|-------|------|--------|-------|
-| 5.1 | Connected (green indicator) | `captured/connection_connected.png` | MISSING | After `ConnectionMonitor.onRpcSuccess()`. Green-tinted icon in action strip. |
-| 5.2 | Disconnected (red indicator) | `captured/connection_disconnected.png` | MISSING | Default state. Red-tinted icon in action strip. |
-| 5.3 | Reconnecting (yellow indicator) | `captured/connection_reconnecting.png` | MISSING | After `onReconnectAttempt()`. Yellow-tinted icon in action strip. |
+| 5.1 | Connected (green indicator) | — | BLOCKED | Needs mock gRPC supervisor to trigger `ConnectionMonitor.onRpcSuccess()`. |
+| 5.2 | Disconnected (red indicator) | — | BLOCKED | Default state, but visually indistinguishable at screenshot resolution without zoom. Needs state-driving harness (#155). |
+| 5.3 | Reconnecting (yellow indicator) | — | BLOCKED | Needs mock gRPC failure sequence to trigger `onReconnectAttempt()`. |
 
 **Source**: `ConnectionState.kt`, `ConnectionMonitor.kt`, `VanPilotScreen.kt` lines 128-139.
-**Tests**: `//goldens:connection_disconnected_golden_test`, `//goldens:connection_connected_golden_test`, `//goldens:connection_reconnecting_golden_test`.
+**Blocked on**: Issue #155 (golden harness can't drive connection states).
 
 ---
 
@@ -125,12 +125,12 @@ Back/forward buttons in the action strip enable/disable based on history positio
 
 | # | State | File | Status | Notes |
 |---|-------|------|--------|-------|
-| 7.1 | Initial (both disabled) | `captured/history_initial.png` | MISSING | No history entries — both back and forward disabled. |
-| 7.2 | Back enabled | `captured/history_back_enabled.png` | MISSING | After 2+ display entries, back arrow is enabled. |
-| 7.3 | Forward enabled | `captured/history_forward_enabled.png` | MISSING | After going back, forward arrow is enabled. |
+| 7.1 | Initial (both disabled) | — | BLOCKED | Default state, but visually identical to Visual tab default. Needs state-driving harness (#155). |
+| 7.2 | Back enabled | — | BLOCKED | Needs 2+ `display_bitmap` gRPC calls to populate DisplayHistory. |
+| 7.3 | Forward enabled | — | BLOCKED | Needs `display_bitmap` calls + back navigation to enable forward. |
 
 **Source**: `DisplayHistory.kt`, `VanPilotScreen.kt` lines 211-231.
-**Tests**: `//goldens:history_initial_golden_test`, `//goldens:history_back_enabled_golden_test`, `//goldens:history_forward_enabled_golden_test`.
+**Blocked on**: Issue #155 (golden harness can't drive history states via gRPC).
 
 ---
 
@@ -140,10 +140,10 @@ The full action strip on the Visual tab shows all 4 actions together.
 
 | # | State | File | Status | Notes |
 |---|-------|------|--------|-------|
-| 8.1 | Full action strip (all 4 buttons) | `captured/full_action_strip.png` | MISSING | Connection indicator + PAN + back + forward in default state. |
+| 8.1 | Full action strip (all 4 buttons) | — | BLOCKED | Visually identical to Visual tab default at screenshot resolution. Needs zoom/crop of action strip area, or state-driving to show enabled vs disabled buttons. |
 
 **Source**: `VanPilotScreen.kt` lines 128-147.
-**Test**: `//goldens:full_action_strip_golden_test`.
+**Blocked on**: Issue #155 (need distinct visual states, not duplicate of default screenshot).
 
 ---
 
