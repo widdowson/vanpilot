@@ -141,24 +141,16 @@ All development and testing can be done from the Mac Studio using Android Studio
 
 ## Weaknesses
 
-- **No real Android Auto testing**: Development relies on the Desktop Head Unit (DHU) emulator; no testing on actual vehicle head unit hardware
-- **Visual tab blank on DHU**: `SurfaceCallback` surface renders correctly in unit tests but appears blank when embedded inside `TabTemplate` on the DHU — a suspected Android Auto limitation (see #122)
-- **Instance manager complexity**: The emulator instance management system is elaborate but tightly coupled to specific Android SDK paths and emulator versions
-- **Golden test fragility**: Pixel-exact golden tests are sensitive to emulator version, GPU driver, and display density changes
-- **DHU day/night mode stuck**: The DHU `day`/`night` commands don't actually change the Android Auto theme — a DHU emulator limitation
-- **Stale branches and worktrees**: 12+ remote branches from merged PRs not deleted; 3 stale worktrees; 18 stash entries from old work
-- **blocking display_bitmap not wired**: `display_bitmap(blocking=true)` code exists but is not connected end-to-end to a real Android app
-- **Tailscale not deployed**: Configurable gRPC endpoints exist but actual Tailscale tunnel setup is untested
+- **No real Android Auto testing**: Development relies on the Desktop Head Unit (DHU) emulator; no testing on actual vehicle head unit hardware has been done yet.
+- **Supervisor is single-client MVP**: The supervisory gRPC server is functional (event store, log tailing, tmux input injection, watchdog, MCP bridge) but currently limited to a single client and has a known thread pool exhaustion issue with 4+ concurrent blocking GetBitmap calls.
+- **Golden test fragility**: Pixel-exact golden tests are sensitive to emulator version, GPU driver, and display density changes, requiring careful maintenance of baselines.
 
 ## Opportunities for Improvement
 
-- **Fix Visual tab surface rendering**: Investigate why `SurfaceCallback` content is invisible inside `TabTemplate` on DHU; may require switching to `NavigationTemplate` as root with pushed-screen navigation for conversation views
-- **Branch cleanup**: Delete 12+ stale remote branches, remove 3 stale worktrees, clear 18 stash entries
-- **Real vehicle testing**: Test on actual Android Auto head unit hardware to validate touch input and display rendering
-- **Bandwidth profiling**: Measure actual Starlink Mini bandwidth consumption during typical agent sessions
-- **CI golden test stability**: Containerize golden tests to eliminate environment-dependent pixel differences
-- **CI optimization**: Implement PR #113's workflow changes to reduce GitHub Actions minutes (issue #111)
-- **Video capture windowing**: Implement AC-4.2 — capture only the last N seconds before golden frame, not entire session
+- **Physical vehicle testing**: Establish a testing pipeline with real Android Auto head units to validate beyond emulator behavior.
+- **Multi-client supervisor support**: Extend the supervisor gRPC server beyond single-client MVP to support multiple concurrent connections.
+- **Golden test resilience**: Explore perceptual hashing or fuzzy comparison to reduce golden test sensitivity to rendering differences.
+- **Bandwidth profiling**: Profile gRPC bitmap transfer sizes and latency to optimize for real cellular/WiFi conditions in a vehicle.
 
 ## License
 
