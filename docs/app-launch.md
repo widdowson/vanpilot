@@ -12,7 +12,7 @@ im install-apk --name my-instance --apk vanpilot.apk
 im launch-app --name my-instance [--screenshot]
 ```
 
-(`im` is the standalone client wrapper at `instance_manager/bin/im`.
+(`im` is a shorthand for `bazel run //instance_manager:instance_manager_client --`.
 See `docs/agent-instance-manager-guide.md` for setup.)
 
 ## Launch Mechanism
