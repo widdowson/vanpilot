@@ -57,7 +57,8 @@ Golden tests are critical to this project. The project owner reviews PRs primari
 - When you change existing UI behavior, the golden image diffs MUST be part of the PR.
 - Golden tests launch the Android emulator + Android Auto DHU, render the UI, capture a screenshot, and compare pixel-by-pixel against the committed golden.
 - If a golden test fails, it produces a diff image highlighting changed pixels.
-- Use `goldens/golden_diff.py:mask_status_bar()` to blank out the DHU/phone status bar before committing — this eliminates spurious diffs from clocks, battery icons, etc.
+- **DHU screenshots**: Use `goldens/golden_diff.py:crop_to_app_pane()` to crop away the DHU chrome and status bar. Output should be 1832x1056 (matching existing goldens in `goldens/dhu/`).
+- **Phone screenshots**: Use `goldens/golden_diff.py:mask_status_bar()` to blank out the phone status bar with hot pink.
 - The visual diff tool for reviewing golden PRs is at `vr.apw.photos/widdowson/vanpilot/pr/{number}`.
 
 ## Instance Manager
