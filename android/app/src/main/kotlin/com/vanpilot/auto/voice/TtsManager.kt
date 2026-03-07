@@ -44,6 +44,7 @@ class TtsManager(context: Context) : TtsEngine {
             onUtteranceCompleted?.invoke()
         }
 
+        @Suppress("DEPRECATION")
         override fun onError(uid: String?) {
             _isSpeaking = false
         }

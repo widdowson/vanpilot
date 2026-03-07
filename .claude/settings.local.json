@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh pr:*)",
+      "Bash(bazel test:*)",
+      "Bash(bazel build:*)",
+      "Bash(adb devices:*)",
+      "Bash(bazel run:*)",
+      "Bash(adb:*)",
+      "Bash(pgrep:*)",
+      "Bash(lsof:*)",
+      "Bash(curl:*)",
+      "Bash(gh issue:*)",
+      "Bash(git worktree:*)",
+      "Bash(git push:*)",
+      "Bash(bazel query:*)",
+      "Bash(gh run:*)",
+      "Bash(scripts/dhu.sh start:*)",
+      "Bash(scripts/dhu.sh:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git submodule:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "vanpilot-display"
+  ]
+}

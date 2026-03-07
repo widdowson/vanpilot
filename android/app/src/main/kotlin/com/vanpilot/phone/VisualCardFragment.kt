@@ -1,6 +1,6 @@
 package com.vanpilot.phone
 
-import android.app.Fragment
+import androidx.fragment.app.Fragment
 import android.graphics.Bitmap
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -15,7 +15,6 @@ import com.vanpilot.auto.R
  * Replaces the Android Auto SurfaceCallback approach with a standard
  * ImageView. The bitmap is set programmatically when received via gRPC.
  */
-@Suppress("DEPRECATION")
 class VisualCardFragment : Fragment() {
 
     private var imageView: ImageView? = null

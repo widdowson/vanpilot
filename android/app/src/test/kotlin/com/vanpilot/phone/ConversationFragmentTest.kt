@@ -32,7 +32,6 @@ class ConversationFragmentTest {
             .get()
     }
 
-    @Suppress("DEPRECATION")
     @Test
     fun fragment_isCreated() {
         switchToLeadAgent()
@@ -40,7 +39,6 @@ class ConversationFragmentTest {
         assertThat(fragment).isNotNull()
     }
 
-    @Suppress("DEPRECATION")
     @Test
     fun fragment_showsTitle() {
         switchToLeadAgent()
@@ -49,7 +47,6 @@ class ConversationFragmentTest {
         assertThat(titleView.text.toString()).isEqualTo("Lead Agent")
     }
 
-    @Suppress("DEPRECATION")
     @Test
     fun fragment_showsMessages() {
         switchToLeadAgent()
@@ -59,7 +56,6 @@ class ConversationFragmentTest {
         assertThat(container.childCount).isEqualTo(3)
     }
 
-    @Suppress("DEPRECATION")
     @Test
     fun fragment_messageContainsText() {
         switchToLeadAgent()
@@ -71,7 +67,6 @@ class ConversationFragmentTest {
         assertThat(textView.text.toString()).isEqualTo("Starting analysis of the codebase...")
     }
 
-    @Suppress("DEPRECATION")
     @Test
     fun fragment_messageContainsSender() {
         switchToLeadAgent()
@@ -82,15 +77,14 @@ class ConversationFragmentTest {
         assertThat(senderView.text.toString()).isEqualTo("lead")
     }
 
-    @Suppress("DEPRECATION")
     @Test
     fun fragment_noMessages_showsPlaceholder() {
         val fragment = ConversationFragment.newInstance("Test Agent", emptyList())
-        activity.fragmentManager.beginTransaction()
+        activity.supportFragmentManager.beginTransaction()
             .replace(R.id.fragment_container, fragment)
             .commit()
         // Execute pending transactions
-        activity.fragmentManager.executePendingTransactions()
+        activity.supportFragmentManager.executePendingTransactions()
 
         val container = fragment.view!!.findViewById<LinearLayout>(R.id.message_container)
         assertThat(container.childCount).isEqualTo(1)
@@ -109,11 +103,10 @@ class ConversationFragmentTest {
         }
     }
 
-    @Suppress("DEPRECATION")
     private fun getConversationFragment(): ConversationFragment {
         // Need to execute pending transactions since we use commit() not commitNow()
-        activity.fragmentManager.executePendingTransactions()
-        return activity.fragmentManager
+        activity.supportFragmentManager.executePendingTransactions()
+        return activity.supportFragmentManager
             .findFragmentById(R.id.fragment_container) as ConversationFragment
     }
 }

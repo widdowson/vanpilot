@@ -64,41 +64,38 @@ class PhoneMainActivityTest {
         assertThat(leadTab).isNotNull()
     }
 
-    @Suppress("DEPRECATION")
     @Test
     fun activity_defaultFragmentIsVisualCard() {
-        activity.fragmentManager.executePendingTransactions()
-        val fragment = activity.fragmentManager
+        activity.supportFragmentManager.executePendingTransactions()
+        val fragment = activity.supportFragmentManager
             .findFragmentById(R.id.fragment_container)
         assertThat(fragment).isInstanceOf(VisualCardFragment::class.java)
     }
 
-    @Suppress("DEPRECATION")
     @Test
     fun activity_selectLeadAgentTab_showsConversationFragment() {
         val tabBar = activity.findViewById<LinearLayout>(R.id.tab_bar)
         val leadTab = findTabByText(tabBar, "Lead Agent")!!
         leadTab.performClick()
-        activity.fragmentManager.executePendingTransactions()
+        activity.supportFragmentManager.executePendingTransactions()
 
-        val fragment = activity.fragmentManager
+        val fragment = activity.supportFragmentManager
             .findFragmentById(R.id.fragment_container)
         assertThat(fragment).isInstanceOf(ConversationFragment::class.java)
     }
 
-    @Suppress("DEPRECATION")
     @Test
     fun activity_selectVisualTab_showsVisualCardFragment() {
         // First switch to Lead Agent
         val tabBar = activity.findViewById<LinearLayout>(R.id.tab_bar)
         findTabByText(tabBar, "Lead Agent")!!.performClick()
-        activity.fragmentManager.executePendingTransactions()
+        activity.supportFragmentManager.executePendingTransactions()
 
         // Then switch back to Visual
         findTabByText(tabBar, "Visual")!!.performClick()
-        activity.fragmentManager.executePendingTransactions()
+        activity.supportFragmentManager.executePendingTransactions()
 
-        val fragment = activity.fragmentManager
+        val fragment = activity.supportFragmentManager
             .findFragmentById(R.id.fragment_container)
         assertThat(fragment).isInstanceOf(VisualCardFragment::class.java)
     }
