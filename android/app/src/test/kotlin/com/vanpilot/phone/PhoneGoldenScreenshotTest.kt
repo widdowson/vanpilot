@@ -25,6 +25,15 @@ import java.io.FileOutputStream
  *   bazel test //android:phone_golden_screenshot_test --test_env=UPDATE_GOLDENS=true
  *
  * Golden files are then copied from bazel-testlogs into goldens/phone/.
+ *
+ * NOTE: Robolectric's shadow rendering does not visually differentiate Material widget
+ * states (tab selection, toolbar subtitle changes, fragment content). All golden PNGs
+ * currently render identically. These tests still validate that each UI state can be
+ * set up without crashing. Real visual differentiation requires on-device screenshot
+ * tests (e.g. via the emulator + instance manager).
+ *
+ * TODO: Replace with on-device screenshot tests once phone UI testing infrastructure
+ * is available, so goldens actually differ across states.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])

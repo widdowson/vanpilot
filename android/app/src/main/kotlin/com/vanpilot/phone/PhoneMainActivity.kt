@@ -10,6 +10,7 @@ import com.google.android.material.tabs.TabLayout
 import com.vanpilot.auto.ConversationTabManager
 import com.vanpilot.auto.R
 
+/** Main phone UI activity with Material Design tabs for visual cards, lead agent, and sub-agent conversations. */
 class PhoneMainActivity : FragmentActivity() {
 
     val tabManager = ConversationTabManager.createWithMockData()
@@ -20,7 +21,6 @@ class PhoneMainActivity : FragmentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        setTheme(com.google.android.material.R.style.Theme_MaterialComponents_Light_NoActionBar)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_phone_main)
 

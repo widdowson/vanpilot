@@ -11,6 +11,7 @@ import com.google.android.material.textview.MaterialTextView
 import com.vanpilot.auto.ConversationMessage
 import com.vanpilot.auto.R
 
+/** Fragment that displays a scrollable list of conversation messages using Material cards. */
 class ConversationFragment : Fragment() {
 
     companion object {
