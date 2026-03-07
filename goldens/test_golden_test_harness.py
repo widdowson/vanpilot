@@ -14,6 +14,7 @@ from goldens.golden_test_harness import (
     GoldenTestCase,
     INSTANCE_MANAGER_ADDR,
 )
+from instance_manager.src import MAX_MESSAGE_BYTES
 
 
 class InstanceManagerClientTest(unittest.TestCase):
@@ -30,7 +31,13 @@ class InstanceManagerClientTest(unittest.TestCase):
         client = InstanceManagerClient("localhost:50061")
         client.create_instance("test-1")
 
-        mock_grpc.insecure_channel.assert_called_once_with("localhost:50061")
+        mock_grpc.insecure_channel.assert_called_once_with(
+            "localhost:50061",
+            options=[
+                ("grpc.max_receive_message_length", MAX_MESSAGE_BYTES),
+                ("grpc.max_send_message_length", MAX_MESSAGE_BYTES),
+            ],
+        )
         channel.unary_unary.assert_called_once()
         call_args = channel.unary_unary.call_args
         self.assertIn("CreateInstance", call_args[0][0])
@@ -79,12 +86,74 @@ class InstanceManagerClientTest(unittest.TestCase):
         client.close()
 
     @patch("goldens.golden_test_harness.grpc")
-    def test_default_addr(self, mock_grpc):
+    def test_dhu_command_calls_grpc(self, mock_grpc):
+        channel = MagicMock()
+        mock_grpc.insecure_channel.return_value = channel
+        channel.unary_unary.return_value = MagicMock()
+
+        client = InstanceManagerClient()
+        client.dhu_command("test-1", "keycode home")
+
+        channel.unary_unary.assert_called_once()
+        call_args = channel.unary_unary.call_args
+        self.assertIn("DhuCommand", call_args[0][0])
+        client.close()
+
+    @patch("goldens.golden_test_harness.grpc")
+    def test_install_apk_calls_grpc(self, mock_grpc):
+        channel = MagicMock()
+        mock_grpc.insecure_channel.return_value = channel
+        channel.unary_unary.return_value = MagicMock()
+
+        client = InstanceManagerClient()
+        client.install_apk("test-1", b"fake-apk", restart_dhu=True)
+
+        channel.unary_unary.assert_called_once()
+        call_args = channel.unary_unary.call_args
+        self.assertIn("InstallApk", call_args[0][0])
+        client.close()
+
+    @patch("goldens.golden_test_harness.grpc")
+    def test_restart_dhu_calls_grpc(self, mock_grpc):
+        channel = MagicMock()
+        mock_grpc.insecure_channel.return_value = channel
+        channel.unary_unary.return_value = MagicMock()
+
+        client = InstanceManagerClient()
+        client.restart_dhu("test-1")
+
+        channel.unary_unary.assert_called_once()
+        call_args = channel.unary_unary.call_args
+        self.assertIn("RestartDhu", call_args[0][0])
+        client.close()
+
+    @patch("goldens.golden_test_harness.grpc")
+    def test_adb_shell_calls_grpc(self, mock_grpc):
+        channel = MagicMock()
+        mock_grpc.insecure_channel.return_value = channel
+        channel.unary_unary.return_value = MagicMock()
+
+        client = InstanceManagerClient()
+        client.adb_shell("test-1", ["dumpsys", "activity"])
+
+        channel.unary_unary.assert_called_once()
+        call_args = channel.unary_unary.call_args
+        self.assertIn("AdbShell", call_args[0][0])
+        client.close()
+
+    @patch("goldens.golden_test_harness.grpc")
+    def test_default_addr_with_message_limits(self, mock_grpc):
         channel = MagicMock()
         mock_grpc.insecure_channel.return_value = channel
 
         client = InstanceManagerClient()
-        mock_grpc.insecure_channel.assert_called_once_with(INSTANCE_MANAGER_ADDR)
+        mock_grpc.insecure_channel.assert_called_once_with(
+            INSTANCE_MANAGER_ADDR,
+            options=[
+                ("grpc.max_receive_message_length", MAX_MESSAGE_BYTES),
+                ("grpc.max_send_message_length", MAX_MESSAGE_BYTES),
+            ],
+        )
         client.close()
 
     @patch("goldens.golden_test_harness.grpc")

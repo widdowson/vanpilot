@@ -41,6 +41,7 @@ py_library(
     imports = [".."],
     deps = [
         ":golden_diff",
+        "//instance_manager:client_lib",
         "//proto/vanpilot/v1:instance_manager_py_proto",
         requirement("grpcio"),
     ],

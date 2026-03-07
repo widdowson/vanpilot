@@ -10,7 +10,6 @@ Env vars:
 """
 
 import os
-import subprocess
 import time
 import unittest
 from typing import Optional
@@ -19,7 +18,8 @@ import grpc
 
 from proto.vanpilot.v1 import instance_manager_pb2
 
-from goldens.golden_diff import compare_golden
+from goldens.golden_diff import compare_golden, crop_to_app_pane
+from instance_manager.src import MAX_MESSAGE_BYTES
 
 INSTANCE_MANAGER_ADDR = os.environ.get("INSTANCE_MANAGER_ADDR", "localhost:50061")
 VANPILOT_APK = os.environ.get("VANPILOT_APK", "")
@@ -41,7 +41,13 @@ class InstanceManagerClient:
     """gRPC client for the InstanceManagerService."""
 
     def __init__(self, addr: str = INSTANCE_MANAGER_ADDR):
-        self._channel = grpc.insecure_channel(addr)
+        self._channel = grpc.insecure_channel(
+            addr,
+            options=[
+                ("grpc.max_receive_message_length", MAX_MESSAGE_BYTES),
+                ("grpc.max_send_message_length", MAX_MESSAGE_BYTES),
+            ],
+        )
 
     def close(self):
         self._channel.close()
@@ -91,54 +97,81 @@ class InstanceManagerClient:
             self._channel,
         )
 
-
-def install_apk(adb_port: int, apk_path: str) -> None:
-    """Install an APK on the emulator via its ADB port."""
-    serial = f"localhost:{adb_port}"
-    subprocess.run(
-        ["adb", "connect", serial],
-        capture_output=True, text=True, timeout=10,
-    )
-    subprocess.run(
-        ["adb", "-s", serial, "install", "-r", apk_path],
-        capture_output=True, text=True, timeout=120, check=True,
-    )
-
-
-def launch_vanpilot_app(adb_port: int) -> None:
-    """Launch the VanPilot car app service on the emulator."""
-    serial = f"localhost:{adb_port}"
-    try:
-        subprocess.run(
-            ["adb", "-s", serial, "shell", "am", "start", "-n",
-             "com.vanpilot.auto/.VanPilotCarAppService"],
-            capture_output=True, text=True, timeout=15,
+    def dhu_command(
+        self,
+        name: str,
+        command: str,
+        capture_screenshot: bool = False,
+    ) -> instance_manager_pb2.DhuCommandResponse:
+        req = instance_manager_pb2.DhuCommandRequest(
+            name=name,
+            command=command,
+            capture_screenshot=capture_screenshot,
         )
-    except subprocess.CalledProcessError:
-        pass  # Service will be started by DHU
+        return _service_method(
+            "DhuCommand", req,
+            instance_manager_pb2.DhuCommandResponse,
+            self._channel,
+        )
+
+    def install_apk(
+        self,
+        name: str,
+        apk_data: bytes,
+        restart_dhu: bool = True,
+    ) -> instance_manager_pb2.InstallApkResponse:
+        req = instance_manager_pb2.InstallApkRequest(
+            name=name,
+            apk_data=apk_data,
+            restart_dhu=restart_dhu,
+        )
+        return _service_method(
+            "InstallApk", req,
+            instance_manager_pb2.InstallApkResponse,
+            self._channel,
+        )
+
+    def restart_dhu(
+        self, name: str,
+    ) -> instance_manager_pb2.RestartDhuResponse:
+        req = instance_manager_pb2.RestartDhuRequest(name=name)
+        return _service_method(
+            "RestartDhu", req,
+            instance_manager_pb2.RestartDhuResponse,
+            self._channel,
+        )
+
+    def adb_shell(
+        self,
+        name: str,
+        args: list[str],
+        timeout_s: int = 30,
+    ) -> instance_manager_pb2.AdbShellResponse:
+        req = instance_manager_pb2.AdbShellRequest(
+            name=name,
+            args=args,
+            timeout_s=timeout_s,
+        )
+        return _service_method(
+            "AdbShell", req,
+            instance_manager_pb2.AdbShellResponse,
+            self._channel,
+        )
 
 
-def capture_emulator_screenshot(adb_port: int) -> bytes:
-    """Capture screenshot via adb screencap and return PNG bytes."""
-    serial = f"localhost:{adb_port}"
-    remote = "/sdcard/golden_harness_screenshot.png"
-    local = f"/tmp/golden_harness_{adb_port}.png"
+def launch_vanpilot_via_dhu(client: InstanceManagerClient, name: str) -> None:
+    """Launch VanPilot on the DHU via the app launcher grid.
 
-    subprocess.run(
-        ["adb", "-s", serial, "shell", "screencap", "-p", remote],
-        capture_output=True, text=True, timeout=30, check=True,
-    )
-    subprocess.run(
-        ["adb", "-s", serial, "pull", remote, local],
-        capture_output=True, text=True, timeout=60, check=True,
-    )
-    subprocess.run(
-        ["adb", "-s", serial, "shell", "rm", remote],
-        capture_output=True, timeout=10,
-    )
-
-    with open(local, "rb") as f:
-        return f.read()
+    Car App Library apps cannot be started with `am start`. Instead we open
+    the DHU app launcher and tap VanPilot's icon in the grid.
+    See docs/app-launch.md for the full reference.
+    """
+    # Open app launcher
+    client.dhu_command(name, "keycode home")
+    time.sleep(2)
+    # Tap VanPilot icon — Row 3, Col 1 in the launcher grid (1920x1080 coords)
+    client.dhu_command(name, "tap 200 390")
+    time.sleep(RENDER_SETTLE_TIME)
 
 
 class GoldenTestCase(unittest.TestCase):
@@ -167,10 +200,14 @@ class GoldenTestCase(unittest.TestCase):
                 f"Cannot create instance: {e.details()}"
             ) from e
 
-        # Install APK and launch if configured
+        # Install APK via IM gRPC (not raw adb) and launch via DHU commands
         if VANPILOT_APK:
-            install_apk(cls._instance_info.adb_port, VANPILOT_APK)
-            launch_vanpilot_app(cls._instance_info.adb_port)
+            with open(VANPILOT_APK, "rb") as f:
+                apk_data = f.read()
+            cls._client.install_apk(
+                cls.instance_name, apk_data, restart_dhu=True,
+            )
+            launch_vanpilot_via_dhu(cls._client, cls.instance_name)
             time.sleep(RENDER_SETTLE_TIME)
 
     @classmethod
@@ -183,13 +220,36 @@ class GoldenTestCase(unittest.TestCase):
             cls._client.close()
 
     def capture_dhu_screenshot(self) -> bytes:
-        """Capture a DHU screenshot via the instance manager."""
+        """Capture a DHU screenshot and crop to the app pane (1832x1056)."""
+        resp = self._client.screenshot_instance(self.instance_name)
+        return crop_to_app_pane(resp.dhu_screenshot_png)
+
+    def capture_raw_dhu_screenshot(self) -> bytes:
+        """Capture a raw 1920x1080 DHU screenshot without cropping."""
         resp = self._client.screenshot_instance(self.instance_name)
         return resp.dhu_screenshot_png
 
-    def capture_emulator_screenshot(self) -> bytes:
-        """Capture an emulator screenshot via adb screencap."""
-        return capture_emulator_screenshot(self._instance_info.adb_port)
+    def dhu_command(self, command: str, capture_screenshot: bool = False):
+        """Send a DHU console command."""
+        return self._client.dhu_command(
+            self.instance_name, command, capture_screenshot,
+        )
+
+    def verify_vanpilot_foreground(self):
+        """Assert VanPilot is in the DHU foreground, not Maps or another app.
+
+        Uses adb to check which activity is resumed on the emulator.
+        """
+        resp = self._client.adb_shell(
+            self.instance_name,
+            ["dumpsys", "activity", "activities"],
+        )
+        if "vanpilot" not in resp.stdout.lower():
+            self.fail(
+                "VanPilot is not in the foreground. "
+                "Got resumed activities:\n"
+                + resp.stdout[:500]
+            )
 
     def save_test_output(self, name: str, data: bytes) -> Optional[str]:
         """Save data to TEST_UNDECLARED_OUTPUTS_DIR for CI artifacts."""
