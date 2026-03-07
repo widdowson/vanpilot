@@ -40,6 +40,11 @@ class VanPilotScreen(
     /**
      * Called when STT produces a final transcript. External code should
      * set this to trigger the gRPC SendUserInput call.
+     *
+     * The setter forwards the callback to [voiceStateMachine]. If
+     * [voiceStateMachine] is null (voice disabled), the assignment to the
+     * state machine is silently ignored — the backing field is still updated
+     * so the callback can be retrieved, but no STT events will fire.
      */
     var onTranscriptionReady: ((String) -> Unit)? = null
         set(value) {
@@ -226,6 +231,8 @@ class VanPilotScreen(
         invalidate()
     }
 
+    // TODO: Replace Unicode emoji icons (\uD83C\uDF99 mic, \u23F9 stop) with proper
+    //  drawable icon resources — emoji render inconsistently across Android Auto head units.
     private fun buildMicAction(vsm: VoiceStateMachine): Action {
         val state = vsm.currentState
         val isIdle = state == VoiceState.IDLE
