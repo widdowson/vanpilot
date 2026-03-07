@@ -93,7 +93,22 @@ The system Python doesn't have `certifi` installed — not a blocker but means t
 
 ## Recommended Fixes
 
-### Fix 1: Create combined CA bundle at sandbox init (PRIMARY FIX)
+### Fix 0: CONNECT passthrough for package registries (PRIMARY FIX — IMPLEMENTED)
+
+Switch package registry hosts from MITM interception to CONNECT passthrough
+in `sandbox/claude-proxy-bypass.sh`. This eliminates the MITM proxy from the
+TLS path entirely for these hosts, so clients see real certificates and the
+chunked encoding timeout issue disappears.
+
+Bypassed hosts: `pypi.org`, `files.pythonhosted.org`, `maven.google.com`,
+`repo1.maven.org`, `bcr.bazel.build`, `mirror.bazel.build`,
+`objects.githubusercontent.com`, `raw.githubusercontent.com`.
+(`github.com` is already bypassed in `claude.sh`.)
+
+With CONNECT passthrough active, the combined CA bundle and `bazelrc.sandbox`
+SSL overrides below become defense-in-depth rather than the primary fix.
+
+### Fix 1: Create combined CA bundle at sandbox init (defense-in-depth)
 
 In `sandbox-init.sh`, after step 1 (CA cert fix), create a combined bundle:
 

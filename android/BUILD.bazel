@@ -53,6 +53,7 @@ kt_android_library(
             "app/src/main/kotlin/com/vanpilot/auto/sync/**",
             "app/src/main/kotlin/com/vanpilot/auto/connectivity/**",
             "app/src/main/kotlin/com/vanpilot/phone/**",
+            "app/src/main/kotlin/com/vanpilot/auto/GrpcPollLoop.kt",
         ],
     ),
     custom_package = "com.vanpilot.auto",
@@ -63,8 +64,10 @@ kt_android_library(
         ":connectivity_lib",
         ":grpc_endpoint_lib",
         ":voice_lib",
+        "@maven//:androidx_appcompat_appcompat",
         "@maven//:androidx_car_app_app",
         "@maven//:androidx_fragment_fragment",
+        "@maven//:com_google_android_material_material",
     ],
 )
 
@@ -145,6 +148,31 @@ kt_android_library(
 )
 
 # ============================================================================
+# gRPC UI wiring library (bridges grpc_lib ↔ vanpilot_lib)
+#
+# Contains VanPilotSession and GrpcPollLoop which need both the UI types
+# (ConversationTabManager, VanPilotScreen) and gRPC types (EventProcessor,
+# SyncManager). This library resolves the dependency split between
+# vanpilot_lib (no proto deps) and grpc_lib (no Android UI deps).
+# ============================================================================
+
+kt_android_library(
+    name = "grpc_wiring_lib",
+    srcs = [
+        "app/src/main/kotlin/com/vanpilot/auto/GrpcPollLoop.kt",
+    ],
+    custom_package = "com.vanpilot.auto",
+    manifest = "app/src/main/AndroidManifest.xml",
+    deps = [
+        ":cache_lib",
+        ":connectivity_lib",
+        ":grpc_lib",
+        ":vanpilot_lib",
+        "@maven//:io_grpc_grpc_stub",
+    ],
+)
+
+# ============================================================================
 # App binary (APK)
 #
 # Debug-signed by default using the committed debug keystore.
@@ -157,7 +185,10 @@ android_binary(
     debug_key = "//android/keystores:debug.keystore",
     manifest = "app/src/main/AndroidManifest.xml",
     multidex = "native",
-    deps = [":vanpilot_lib"],
+    deps = [
+        ":phone_lib",
+        ":vanpilot_lib",
+    ],
 )
 
 # ============================================================================
@@ -864,6 +895,86 @@ android_local_test(
     ],
 )
 
+# ---- gRPC UI wiring test libraries and targets ----
+
+kt_jvm_library(
+    name = "grpc_poll_loop_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/GrpcPollLoopTest.kt"],
+    deps = [
+        ":grpc_wiring_lib",
+        ":vanpilot_lib",
+        ":grpc_lib",
+        ":cache_lib",
+        "//proto/vanpilot/v1:sync_java_proto",
+        "//proto/vanpilot/v1:sync_java_grpc",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_grpc_grpc_inprocess",
+        "@maven//:junit_junit",
+        "@maven//:com_google_truth_truth",
+    ],
+)
+
+android_local_test(
+    size = "small",
+    name = "grpc_poll_loop_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
+    test_class = "com.vanpilot.auto.GrpcPollLoopTest",
+    deps = [
+        ":grpc_poll_loop_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+kt_jvm_library(
+    name = "screen_grpc_wiring_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/VanPilotScreenGrpcWiringTest.kt"],
+    deps = [
+        ":vanpilot_lib",
+        "@maven//:androidx_car_app_app",
+        "@maven//:androidx_car_app_app_testing",
+        "@maven//:androidx_test_core",
+        "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_robolectric_robolectric",
+    ],
+)
+
+android_local_test(
+    size = "small",
+    name = "screen_grpc_wiring_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
+    test_class = "com.vanpilot.auto.VanPilotScreenGrpcWiringTest",
+    deps = [
+        ":screen_grpc_wiring_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+kt_jvm_library(
+    name = "event_processor_callback_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/sync/EventProcessorCallbackTest.kt"],
+    deps = [
+        ":grpc_lib",
+        "//proto/vanpilot/v1:sync_java_proto",
+        "@maven//:junit_junit",
+        "@maven//:com_google_truth_truth",
+    ],
+)
+
+android_local_test(
+    size = "small",
+    name = "event_processor_callback_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
+    test_class = "com.vanpilot.auto.sync.EventProcessorCallbackTest",
+    deps = [
+        ":event_processor_callback_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
 # ---- Bitmap cache / fetch test targets ----
 
 kt_jvm_library(
@@ -1169,7 +1280,9 @@ kt_android_library(
     resource_files = glob(["app/src/main/res/**"]),
     deps = [
         ":vanpilot_lib",
+        "@maven//:androidx_appcompat_appcompat",
         "@maven//:androidx_fragment_fragment",
+        "@maven//:com_google_android_material_material",
     ],
 )
 
@@ -1183,6 +1296,7 @@ kt_jvm_library(
     deps = [
         ":phone_lib",
         ":vanpilot_lib",
+        "@maven//:com_google_android_material_material",
         "@maven//:com_google_truth_truth",
         "@maven//:junit_junit",
         "@maven//:org_robolectric_robolectric",
@@ -1195,6 +1309,7 @@ kt_jvm_library(
     deps = [
         ":phone_lib",
         ":vanpilot_lib",
+        "@maven//:com_google_android_material_material",
         "@maven//:com_google_truth_truth",
         "@maven//:junit_junit",
         "@maven//:org_robolectric_robolectric",
@@ -1207,6 +1322,33 @@ kt_jvm_library(
     deps = [
         ":phone_lib",
         ":vanpilot_lib",
+        "@maven//:com_google_android_material_material",
+        "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_robolectric_robolectric",
+    ],
+)
+
+kt_jvm_library(
+    name = "phone_material_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/phone/PhoneMainActivityMaterialTest.kt"],
+    deps = [
+        ":phone_lib",
+        ":vanpilot_lib",
+        "@maven//:com_google_android_material_material",
+        "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_robolectric_robolectric",
+    ],
+)
+
+kt_jvm_library(
+    name = "conversation_fragment_material_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/phone/ConversationFragmentMaterialTest.kt"],
+    deps = [
+        ":phone_lib",
+        ":vanpilot_lib",
+        "@maven//:com_google_android_material_material",
         "@maven//:com_google_truth_truth",
         "@maven//:junit_junit",
         "@maven//:org_robolectric_robolectric",
@@ -1224,6 +1366,7 @@ android_local_test(
     resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.phone.PhoneMainActivityTest",
     deps = [
+        ":phone_lib",
         ":phone_main_activity_test_lib",
         "@robolectric//bazel:android-all",
     ],
@@ -1236,6 +1379,7 @@ android_local_test(
     resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.phone.VisualCardFragmentTest",
     deps = [
+        ":phone_lib",
         ":visual_card_fragment_test_lib",
         "@robolectric//bazel:android-all",
     ],
@@ -1248,7 +1392,39 @@ android_local_test(
     resource_files = glob(["app/src/main/res/**"]),
     test_class = "com.vanpilot.phone.ConversationFragmentTest",
     deps = [
+        ":phone_lib",
         ":conversation_fragment_test_lib",
         "@robolectric//bazel:android-all",
     ],
 )
+
+android_local_test(
+    size = "small",
+    name = "phone_material_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
+    test_class = "com.vanpilot.phone.PhoneMainActivityMaterialTest",
+    deps = [
+        ":phone_lib",
+        ":phone_material_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_local_test(
+    size = "small",
+    name = "conversation_fragment_material_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
+    test_class = "com.vanpilot.phone.ConversationFragmentMaterialTest",
+    deps = [
+        ":phone_lib",
+        ":conversation_fragment_material_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+
+# TODO: Add on-device phone golden screenshot tests once phone UI testing
+# infrastructure is available. Robolectric shadow rendering produces blank
+# white images — real visual goldens require emulator + instance manager.

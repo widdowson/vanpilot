@@ -1,22 +1,17 @@
 package com.vanpilot.phone
 
-import androidx.fragment.app.Fragment
-import android.graphics.Typeface
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
-import android.widget.TextView
+import androidx.fragment.app.Fragment
+import com.google.android.material.card.MaterialCardView
+import com.google.android.material.textview.MaterialTextView
 import com.vanpilot.auto.ConversationMessage
 import com.vanpilot.auto.R
 
-/**
- * Fragment that displays a conversation feed for an agent.
- *
- * Replaces the Android Auto ListTemplate rows with standard Android
- * TextViews in a ScrollView. Each message shows the sender and text.
- */
+/** Fragment that displays a scrollable list of conversation messages using Material cards. */
 class ConversationFragment : Fragment() {
 
     companion object {
@@ -56,16 +51,17 @@ class ConversationFragment : Fragment() {
         val senders = args.getStringArray(ARG_MSG_SENDERS) ?: emptyArray()
         val texts = args.getStringArray(ARG_MSG_TEXTS) ?: emptyArray()
 
-        val titleView = view.findViewById<TextView>(R.id.conversation_title)
+        val titleView = view.findViewById<MaterialTextView>(R.id.conversation_title)
         titleView.text = title
 
         val container = view.findViewById<LinearLayout>(R.id.message_container)
         container.removeAllViews()
 
         if (senders.isEmpty()) {
-            val placeholder = TextView(requireActivity()).apply {
+            val placeholder = MaterialTextView(requireActivity()).apply {
                 text = "No messages yet"
                 setPadding(16, 16, 16, 16)
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
             }
             container.addView(placeholder)
         } else {
@@ -76,23 +72,34 @@ class ConversationFragment : Fragment() {
         }
     }
 
-    private fun buildMessageView(sender: String, text: String): LinearLayout {
-        return LinearLayout(requireActivity()).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(8, 8, 8, 8)
+    private fun buildMessageView(sender: String, text: String): MaterialCardView {
+        return MaterialCardView(requireActivity()).apply {
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            params.setMargins(8, 4, 8, 4)
+            layoutParams = params
+            radius = 12f
+            cardElevation = 2f
 
-            val senderView = TextView(context).apply {
-                this.text = sender
-                setTypeface(null, Typeface.BOLD)
-                textSize = 12f
-            }
-            addView(senderView)
+            val content = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(16, 12, 16, 12)
 
-            val textView = TextView(context).apply {
-                this.text = text
-                textSize = 14f
+                val senderView = MaterialTextView(context).apply {
+                    this.text = sender
+                    setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_LabelMedium)
+                }
+                addView(senderView)
+
+                val textView = MaterialTextView(context).apply {
+                    this.text = text
+                    setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
+                }
+                addView(textView)
             }
-            addView(textView)
+            addView(content)
         }
     }
 }

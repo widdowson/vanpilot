@@ -555,6 +555,46 @@ class EmulatorLifecycle:
             except OSError:
                 pass
 
+    def save_snapshot(self, record: InstanceRecord, snapshot_name: str) -> None:
+        """Save the current emulator state as a named snapshot.
+
+        Runs `adb emu avd snapshot save <name>`.
+
+        Raises:
+            RuntimeError: If the adb command fails.
+        """
+        serial = f"emulator-{record.emulator_console_port}"
+        result = self._runner.run(
+            ["adb", "-s", serial, "emu", "avd", "snapshot", "save", snapshot_name],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"snapshot save failed (rc={result.returncode}): {result.stderr}"
+            )
+
+    def load_snapshot(self, record: InstanceRecord, snapshot_name: str) -> None:
+        """Load (restore) a previously saved emulator snapshot.
+
+        Runs `adb emu avd snapshot load <name>`.
+
+        Raises:
+            RuntimeError: If the adb command fails.
+        """
+        serial = f"emulator-{record.emulator_console_port}"
+        result = self._runner.run(
+            ["adb", "-s", serial, "emu", "avd", "snapshot", "load", snapshot_name],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"snapshot load failed (rc={result.returncode}): {result.stderr}"
+            )
+
     def install_apk(self, record: InstanceRecord, apk_data: bytes) -> None:
         """Install an APK on the emulator via adb install.
 

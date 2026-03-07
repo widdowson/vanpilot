@@ -31,7 +31,8 @@ import com.vanpilot.auto.connectivity.ConnectionState
  */
 class VanPilotScreen(
     carContext: CarContext,
-    val connectionMonitor: ConnectionMonitor = ConnectionMonitor()
+    val connectionMonitor: ConnectionMonitor = ConnectionMonitor(),
+    tabManager: ConversationTabManager? = null
 ) : Screen(carContext) {
 
     init {
@@ -39,7 +40,7 @@ class VanPilotScreen(
     }
 
     val surfaceCallback = VanPilotSurfaceCallback()
-    val tabManager = ConversationTabManager.createWithMockData()
+    val tabManager = tabManager ?: ConversationTabManager.createWithMockData()
     val displayHistory = DisplayHistory()
     var bitmapCache: BitmapCache? = null
 

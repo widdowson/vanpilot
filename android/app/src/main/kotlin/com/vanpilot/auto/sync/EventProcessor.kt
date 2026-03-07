@@ -21,6 +21,9 @@ class EventProcessor(
 
     private val logger = Logger.getLogger(EventProcessor::class.java.name)
 
+    /** Optional callback fired for each text message event. */
+    var textMessageListener: ((agentId: String, content: String, timestampMs: Long) -> Unit)? = null
+
     private val _textMessages = mutableListOf<ProcessedTextMessage>()
     val textMessages: List<ProcessedTextMessage> get() = _textMessages.toList()
 
@@ -50,6 +53,7 @@ class EventProcessor(
                 _textMessages.add(
                     ProcessedTextMessage(msg.agentId, msg.content, event.timestampMs)
                 )
+                textMessageListener?.invoke(msg.agentId, msg.content, event.timestampMs)
             }
             event.hasBitmapPayload() -> {
                 val payload = event.bitmapPayload
