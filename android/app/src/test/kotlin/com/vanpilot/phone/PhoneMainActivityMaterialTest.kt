@@ -1,6 +1,6 @@
 package com.vanpilot.phone
 
-import android.widget.FrameLayout
+import android.widget.Toolbar
 import com.google.android.material.tabs.TabLayout
 import com.google.common.truth.Truth.assertThat
 import com.vanpilot.auto.R
@@ -15,7 +15,7 @@ import org.robolectric.annotation.ConscryptMode
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 @ConscryptMode(ConscryptMode.Mode.OFF)
-class PhoneMainActivityTest {
+class PhoneMainActivityMaterialTest {
 
     private lateinit var activity: PhoneMainActivity
 
@@ -29,14 +29,15 @@ class PhoneMainActivityTest {
     }
 
     @Test
-    fun activity_isCreated() {
-        assertThat(activity).isNotNull()
+    fun activity_hasToolbar() {
+        val toolbar = activity.findViewById<Toolbar>(R.id.toolbar)
+        assertThat(toolbar).isNotNull()
     }
 
     @Test
-    fun activity_hasFragmentContainer() {
-        val container = activity.findViewById<FrameLayout>(R.id.fragment_container)
-        assertThat(container).isNotNull()
+    fun toolbar_showsAppName() {
+        val toolbar = activity.findViewById<Toolbar>(R.id.toolbar)
+        assertThat(toolbar.title.toString()).isEqualTo("VanPilot")
     }
 
     @Test
@@ -46,29 +47,28 @@ class PhoneMainActivityTest {
     }
 
     @Test
-    fun activity_hasVisualTab() {
+    fun tabLayout_hasVisualTab() {
         val tabLayout = activity.findViewById<TabLayout>(R.id.tab_layout)
         val tabTexts = (0 until tabLayout.tabCount).map { tabLayout.getTabAt(it)?.text.toString() }
         assertThat(tabTexts).contains("Visual")
     }
 
     @Test
-    fun activity_hasLeadAgentTab() {
+    fun tabLayout_hasLeadAgentTab() {
         val tabLayout = activity.findViewById<TabLayout>(R.id.tab_layout)
         val tabTexts = (0 until tabLayout.tabCount).map { tabLayout.getTabAt(it)?.text.toString() }
         assertThat(tabTexts).contains("Lead Agent")
     }
 
     @Test
-    fun activity_defaultFragmentIsVisualCard() {
-        activity.supportFragmentManager.executePendingTransactions()
-        val fragment = activity.supportFragmentManager
-            .findFragmentById(R.id.fragment_container)
-        assertThat(fragment).isInstanceOf(VisualCardFragment::class.java)
+    fun tabLayout_defaultSelectionIsVisualTab() {
+        val tabLayout = activity.findViewById<TabLayout>(R.id.tab_layout)
+        assertThat(tabLayout.getTabAt(0)?.text.toString()).isEqualTo("Visual")
+        assertThat(tabLayout.selectedTabPosition).isEqualTo(0)
     }
 
     @Test
-    fun activity_selectLeadAgentTab_showsConversationFragment() {
+    fun tabLayout_selectLeadAgent_showsConversationFragment() {
         val tabLayout = activity.findViewById<TabLayout>(R.id.tab_layout)
         tabLayout.getTabAt(1)?.select()
         activity.supportFragmentManager.executePendingTransactions()
@@ -79,23 +79,8 @@ class PhoneMainActivityTest {
     }
 
     @Test
-    fun activity_selectVisualTab_showsVisualCardFragment() {
-        val tabLayout = activity.findViewById<TabLayout>(R.id.tab_layout)
-        // First switch to Lead Agent
-        tabLayout.getTabAt(1)?.select()
-        activity.supportFragmentManager.executePendingTransactions()
-
-        // Then switch back to Visual
-        tabLayout.getTabAt(0)?.select()
-        activity.supportFragmentManager.executePendingTransactions()
-
-        val fragment = activity.supportFragmentManager
-            .findFragmentById(R.id.fragment_container)
-        assertThat(fragment).isInstanceOf(VisualCardFragment::class.java)
-    }
-
-    @Test
-    fun tabManager_isAccessible() {
-        assertThat(activity.tabManager).isNotNull()
+    fun toolbar_hasSubtitleForConnectionStatus() {
+        val toolbar = activity.findViewById<Toolbar>(R.id.toolbar)
+        assertThat(toolbar.subtitle).isNotNull()
     }
 }

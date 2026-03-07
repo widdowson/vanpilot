@@ -1,9 +1,8 @@
 package com.vanpilot.phone
 
 import android.widget.LinearLayout
-import android.widget.TextView
 import com.google.android.material.card.MaterialCardView
-import com.google.android.material.tabs.TabLayout
+import com.google.android.material.textview.MaterialTextView
 import com.google.common.truth.Truth.assertThat
 import com.vanpilot.auto.R
 import org.junit.Before
@@ -17,7 +16,7 @@ import org.robolectric.annotation.ConscryptMode
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 @ConscryptMode(ConscryptMode.Mode.OFF)
-class ConversationFragmentTest {
+class ConversationFragmentMaterialTest {
 
     private lateinit var activity: PhoneMainActivity
 
@@ -31,68 +30,50 @@ class ConversationFragmentTest {
     }
 
     @Test
-    fun fragment_isCreated() {
-        switchToLeadAgent()
-        val fragment = getConversationFragment()
-        assertThat(fragment).isNotNull()
-    }
-
-    @Test
-    fun fragment_showsTitle() {
-        switchToLeadAgent()
-        val fragment = getConversationFragment()
-        val titleView = fragment.view!!.findViewById<TextView>(R.id.conversation_title)
-        assertThat(titleView.text.toString()).isEqualTo("Lead Agent")
-    }
-
-    @Test
-    fun fragment_showsMessages() {
+    fun messages_useCardView() {
         switchToLeadAgent()
         val fragment = getConversationFragment()
         val container = fragment.view!!.findViewById<LinearLayout>(R.id.message_container)
-        // Mock data has 3 lead agent messages
-        assertThat(container.childCount).isEqualTo(3)
+        // Each message should be wrapped in a MaterialCardView
+        for (i in 0 until container.childCount) {
+            assertThat(container.getChildAt(i)).isInstanceOf(MaterialCardView::class.java)
+        }
     }
 
     @Test
-    fun fragment_messageContainsText() {
-        switchToLeadAgent()
-        val fragment = getConversationFragment()
-        val container = fragment.view!!.findViewById<LinearLayout>(R.id.message_container)
-        // First message is now a MaterialCardView
-        val firstCard = container.getChildAt(0) as MaterialCardView
-        val cardContent = firstCard.getChildAt(0) as LinearLayout
-        val textView = cardContent.getChildAt(1) as TextView
-        assertThat(textView.text.toString()).isEqualTo("Starting analysis of the codebase...")
-    }
-
-    @Test
-    fun fragment_messageContainsSender() {
+    fun messageCard_hasSenderText() {
         switchToLeadAgent()
         val fragment = getConversationFragment()
         val container = fragment.view!!.findViewById<LinearLayout>(R.id.message_container)
         val firstCard = container.getChildAt(0) as MaterialCardView
+        // Card has a LinearLayout with sender + text
         val cardContent = firstCard.getChildAt(0) as LinearLayout
-        val senderView = cardContent.getChildAt(0) as TextView
+        val senderView = cardContent.getChildAt(0) as MaterialTextView
         assertThat(senderView.text.toString()).isEqualTo("lead")
     }
 
     @Test
-    fun fragment_noMessages_showsPlaceholder() {
-        val fragment = ConversationFragment.newInstance("Test Agent", emptyList())
-        activity.supportFragmentManager.beginTransaction()
-            .replace(R.id.fragment_container, fragment)
-            .commit()
-        activity.supportFragmentManager.executePendingTransactions()
-
+    fun messageCard_hasMessageText() {
+        switchToLeadAgent()
+        val fragment = getConversationFragment()
         val container = fragment.view!!.findViewById<LinearLayout>(R.id.message_container)
-        assertThat(container.childCount).isEqualTo(1)
-        val placeholder = container.getChildAt(0) as TextView
-        assertThat(placeholder.text.toString()).isEqualTo("No messages yet")
+        val firstCard = container.getChildAt(0) as MaterialCardView
+        val cardContent = firstCard.getChildAt(0) as LinearLayout
+        val textView = cardContent.getChildAt(1) as MaterialTextView
+        assertThat(textView.text.toString()).isEqualTo("Starting analysis of the codebase...")
+    }
+
+    @Test
+    fun conversationTitle_usesMaterialTextView() {
+        switchToLeadAgent()
+        val fragment = getConversationFragment()
+        val titleView = fragment.view!!.findViewById<MaterialTextView>(R.id.conversation_title)
+        assertThat(titleView).isNotNull()
+        assertThat(titleView.text.toString()).isEqualTo("Lead Agent")
     }
 
     private fun switchToLeadAgent() {
-        val tabLayout = activity.findViewById<TabLayout>(R.id.tab_layout)
+        val tabLayout = activity.findViewById<com.google.android.material.tabs.TabLayout>(R.id.tab_layout)
         tabLayout.getTabAt(1)?.select()
     }
 

@@ -94,6 +94,7 @@ override_repo(_com_android_dex_ext, "com_android_dex")
 # ============================================================================
 
 maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+
 maven.install(
     artifacts = [
         # Car App Library (Android Auto)
@@ -101,8 +102,14 @@ maven.install(
         "androidx.car.app:app-projected:1.7.0",
         "androidx.car.app:app-testing:1.7.0",
 
-        # AndroidX Fragment (used by phone UI — already a transitive dep of car-app)
-        "androidx.fragment:fragment:1.3.6",
+        # AndroidX (phone UI + Material Design)
+        "androidx.fragment:fragment:1.5.4",
+        "androidx.appcompat:appcompat:1.6.1",
+        "androidx.activity:activity:1.8.0",
+        "androidx.lifecycle:lifecycle-runtime:2.6.2",
+        "androidx.lifecycle:lifecycle-process:2.6.2",
+        "androidx.lifecycle:lifecycle-common:2.6.2",
+        "com.google.android.material:material:1.12.0",
 
         # gRPC for Android (use -lite variants for Android)
         "io.grpc:grpc-okhttp:1.78.0",
@@ -126,6 +133,7 @@ maven.install(
         "https://maven.google.com",
         "https://repo1.maven.org/maven2",
     ],
+    version_conflict_policy = "pinned",
     aar_import_bzl_label = "@rules_android//rules:rules.bzl",
     use_starlark_android_rules = True,
 )
