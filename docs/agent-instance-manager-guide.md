@@ -14,8 +14,14 @@ bazel run //instance_manager:instance_manager
 All commands below use the CLI client. The shorthand `im` means:
 
 ```bash
+# Inside a Docker sandbox (preferred — pre-built, no Bazel needed):
+im
+
+# On the host (builds from source):
 bazel run //instance_manager:instance_manager_client --
 ```
+
+Inside Docker sandboxes, the `im` command is pre-installed at `/usr/local/bin/im`. It runs the pre-built instance manager client zip without needing Bazel. This avoids pip timeout issues through the MITM proxy.
 
 If the server is on a different host (e.g. you're in a Docker sandbox talking over Tailscale), pass `--addr <host>:50061`.
 
