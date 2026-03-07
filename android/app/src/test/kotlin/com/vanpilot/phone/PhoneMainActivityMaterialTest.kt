@@ -1,6 +1,6 @@
 package com.vanpilot.phone
 
-import android.widget.Toolbar
+import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.tabs.TabLayout
 import com.google.common.truth.Truth.assertThat
 import com.vanpilot.auto.R
@@ -30,13 +30,13 @@ class PhoneMainActivityMaterialTest {
 
     @Test
     fun activity_hasToolbar() {
-        val toolbar = activity.findViewById<Toolbar>(R.id.toolbar)
+        val toolbar = activity.findViewById<MaterialToolbar>(R.id.toolbar)
         assertThat(toolbar).isNotNull()
     }
 
     @Test
     fun toolbar_showsAppName() {
-        val toolbar = activity.findViewById<Toolbar>(R.id.toolbar)
+        val toolbar = activity.findViewById<MaterialToolbar>(R.id.toolbar)
         assertThat(toolbar.title.toString()).isEqualTo("VanPilot")
     }
 
@@ -80,7 +80,7 @@ class PhoneMainActivityMaterialTest {
 
     @Test
     fun toolbar_hasSubtitleForConnectionStatus() {
-        val toolbar = activity.findViewById<Toolbar>(R.id.toolbar)
+        val toolbar = activity.findViewById<MaterialToolbar>(R.id.toolbar)
         assertThat(toolbar.subtitle).isNotNull()
     }
 }

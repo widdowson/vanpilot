@@ -1246,6 +1246,19 @@ kt_jvm_library(
     ],
 )
 
+kt_jvm_library(
+    name = "phone_golden_screenshot_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/phone/PhoneGoldenScreenshotTest.kt"],
+    deps = [
+        ":phone_lib",
+        ":vanpilot_lib",
+        "@maven//:com_google_android_material_material",
+        "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_robolectric_robolectric",
+    ],
+)
+
 # ============================================================================
 # Phone UI test targets
 # ============================================================================
@@ -1311,6 +1324,20 @@ android_local_test(
     deps = [
         ":phone_lib",
         ":conversation_fragment_material_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_local_test(
+    size = "small",
+    name = "phone_golden_screenshot_test",
+    data = ["//goldens/phone:golden_files"],
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
+    test_class = "com.vanpilot.phone.PhoneGoldenScreenshotTest",
+    deps = [
+        ":phone_lib",
+        ":phone_golden_screenshot_test_lib",
         "@robolectric//bazel:android-all",
     ],
 )
