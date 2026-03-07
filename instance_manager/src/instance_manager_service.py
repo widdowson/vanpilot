@@ -291,7 +291,8 @@ class InstanceManagerServicer:
         except Exception as e:
             context.abort(grpc.StatusCode.INTERNAL, str(e))
 
-    def SaveSnapshot(self, request, context):
+    def _validate_snapshot_request(self, request, context):
+        """Validate snapshot_name and return the running InstanceRecord."""
         if not request.snapshot_name:
             context.abort(
                 grpc.StatusCode.INVALID_ARGUMENT, "snapshot_name is required"
@@ -313,6 +314,10 @@ class InstanceManagerServicer:
                 grpc.StatusCode.FAILED_PRECONDITION,
                 f"Instance '{request.name}' is not running (state={record.state})",
             )
+        return record
+
+    def SaveSnapshot(self, request, context):
+        record = self._validate_snapshot_request(request, context)
 
         try:
             self._lifecycle.save_snapshot(record, request.snapshot_name)
@@ -323,27 +328,7 @@ class InstanceManagerServicer:
             context.abort(grpc.StatusCode.INTERNAL, str(e))
 
     def LoadSnapshot(self, request, context):
-        if not request.snapshot_name:
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT, "snapshot_name is required"
-            )
-        if not _SAFE_NAME_RE.match(request.snapshot_name):
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT,
-                f"Invalid snapshot_name '{request.snapshot_name}'",
-            )
-
-        record = self._store.get(request.name)
-        if record is None:
-            context.abort(
-                grpc.StatusCode.NOT_FOUND,
-                f"Instance '{request.name}' not found",
-            )
-        if record.state != RUNNING:
-            context.abort(
-                grpc.StatusCode.FAILED_PRECONDITION,
-                f"Instance '{request.name}' is not running (state={record.state})",
-            )
+        record = self._validate_snapshot_request(request, context)
 
         try:
             self._lifecycle.load_snapshot(record, request.snapshot_name)

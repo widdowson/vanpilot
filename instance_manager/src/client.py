@@ -140,35 +140,34 @@ def cmd_install_apk(stubs, args):
         name=args.name,
         apk_data=apk_data,
         restart_dhu=args.restart_dhu,
-        save_snapshot=args.save_snapshot or "",
+        save_snapshot=args.save_snapshot,
     )
     resp = stubs["install_apk"](req, timeout=args.timeout)
     print("OK")
     _print_instance(resp.instance)
 
 
-def cmd_save_snapshot(stubs, args):
-    pb = instance_manager_pb2
-    req = pb.SaveSnapshotRequest(
-        name=args.name,
-        snapshot_name=args.snapshot_name,
-    )
-    print(f"Saving snapshot '{args.snapshot_name}' for '{args.name}'...")
-    resp = stubs["save_snapshot"](req, timeout=args.timeout)
+def _cmd_snapshot_op(stubs, args, *, verb, stub_key, req_cls):
+    """Shared implementation for save-snapshot and load-snapshot commands."""
+    req = req_cls(name=args.name, snapshot_name=args.snapshot_name)
+    print(f"{verb} snapshot '{args.snapshot_name}' for '{args.name}'...")
+    resp = stubs[stub_key](req, timeout=args.timeout)
     print("OK")
     _print_instance(resp.instance)
+
+
+def cmd_save_snapshot(stubs, args):
+    _cmd_snapshot_op(
+        stubs, args, verb="Saving", stub_key="save_snapshot",
+        req_cls=instance_manager_pb2.SaveSnapshotRequest,
+    )
 
 
 def cmd_load_snapshot(stubs, args):
-    pb = instance_manager_pb2
-    req = pb.LoadSnapshotRequest(
-        name=args.name,
-        snapshot_name=args.snapshot_name,
+    _cmd_snapshot_op(
+        stubs, args, verb="Loading", stub_key="load_snapshot",
+        req_cls=instance_manager_pb2.LoadSnapshotRequest,
     )
-    print(f"Loading snapshot '{args.snapshot_name}' for '{args.name}'...")
-    resp = stubs["load_snapshot"](req, timeout=args.timeout)
-    print("OK")
-    _print_instance(resp.instance)
 
 
 def cmd_adb(stubs, args):
