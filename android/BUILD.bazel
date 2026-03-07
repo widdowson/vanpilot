@@ -30,6 +30,14 @@ kt_jvm_library(
     ],
 )
 
+# Cache library (BitmapCache + DisplayHistory — no Android/gRPC deps)
+# ============================================================================
+
+kt_jvm_library(
+    name = "cache_lib",
+    srcs = glob(["app/src/main/kotlin/com/vanpilot/auto/cache/**/*.kt"]),
+)
+
 # ============================================================================
 # Cache library (BitmapCache + DisplayHistory — no Android/gRPC deps)
 # ============================================================================

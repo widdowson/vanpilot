@@ -36,12 +36,12 @@ class VanPilotScreenHistoryTest {
     }
 
     @Test
-    fun visualTab_actionStripHasThreeActions() {
+    fun visualTab_actionStripHasFourActions() {
         val template = screen.onGetTemplate()
         val navTemplate = template.tabContents!!.template as NavigationTemplate
         val actions = navTemplate.actionStrip!!.actions
-        // PAN + back + forward
-        assertThat(actions).hasSize(3)
+        // connection indicator + PAN + back + forward
+        assertThat(actions).hasSize(4)
     }
 
     @Test

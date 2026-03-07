@@ -42,8 +42,8 @@ class VanPilotScreenConnectionTest {
         val template = screen.onGetTemplate()
         val navTemplate = template.tabContents!!.template as NavigationTemplate
         val actions = navTemplate.actionStrip!!.actions
-        // Should have PAN + connection indicator
-        assertThat(actions).hasSize(2)
+        // Should have connection indicator + PAN + back + forward
+        assertThat(actions).hasSize(4)
         val indicatorAction = actions[0]
         assertThat(indicatorAction.icon!!.tint).isEqualTo(CarColor.RED)
     }
@@ -54,7 +54,7 @@ class VanPilotScreenConnectionTest {
         val template = screen.onGetTemplate()
         val navTemplate = template.tabContents!!.template as NavigationTemplate
         val actions = navTemplate.actionStrip!!.actions
-        assertThat(actions).hasSize(2)
+        assertThat(actions).hasSize(4)
         val indicatorAction = actions[0]
         assertThat(indicatorAction.icon!!.tint).isEqualTo(CarColor.GREEN)
     }
@@ -67,7 +67,7 @@ class VanPilotScreenConnectionTest {
         val template = screen.onGetTemplate()
         val navTemplate = template.tabContents!!.template as NavigationTemplate
         val actions = navTemplate.actionStrip!!.actions
-        assertThat(actions).hasSize(2)
+        assertThat(actions).hasSize(4)
         val indicatorAction = actions[0]
         assertThat(indicatorAction.icon!!.tint).isEqualTo(CarColor.YELLOW)
     }
