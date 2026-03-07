@@ -30,6 +30,14 @@ kt_jvm_library(
     ],
 )
 
+# Cache library (BitmapCache + DisplayHistory — no Android/gRPC deps)
+# ============================================================================
+
+kt_jvm_library(
+    name = "cache_lib",
+    srcs = glob(["app/src/main/kotlin/com/vanpilot/auto/cache/**/*.kt"]),
+)
+
 # ============================================================================
 # Main app library (Car App UI — no gRPC deps to avoid dex issues)
 # ============================================================================
@@ -50,6 +58,7 @@ kt_android_library(
     manifest = "app/src/main/AndroidManifest.xml",
     resource_files = glob(["app/src/main/res/**"]),
     deps = [
+        ":cache_lib",
         ":connectivity_lib",
         ":grpc_endpoint_lib",
         ":voice_lib",
@@ -88,7 +97,6 @@ kt_jvm_library(
     srcs = glob(
         [
             "app/src/main/kotlin/com/vanpilot/auto/grpc/**/*.kt",
-            "app/src/main/kotlin/com/vanpilot/auto/cache/**/*.kt",
             "app/src/main/kotlin/com/vanpilot/auto/sync/**/*.kt",
             "app/src/main/kotlin/com/vanpilot/auto/connectivity/**/*.kt",
         ],
@@ -101,6 +109,7 @@ kt_jvm_library(
         ],
     ),
     deps = [
+        ":cache_lib",
         ":connectivity_lib",
         ":grpc_endpoint_lib",
         "//proto/vanpilot/v1:sync_java_proto",
@@ -314,16 +323,27 @@ kt_jvm_library(
     ],
 )
 
-# ---- gRPC / sync test libraries ----
+# ---- Cache test libraries ----
 kt_jvm_library(
     name = "bitmap_cache_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/cache/BitmapCacheTest.kt"],
     deps = [
-        ":grpc_lib",
+        ":cache_lib",
         "@maven//:junit_junit",
         "@maven//:com_google_truth_truth",
     ],
 )
+kt_jvm_library(
+    name = "display_history_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/cache/DisplayHistoryTest.kt"],
+    deps = [
+        ":cache_lib",
+        "@maven//:junit_junit",
+        "@maven//:com_google_truth_truth",
+    ],
+)
+
+# ---- gRPC / sync test libraries ----
 kt_jvm_library(
     name = "event_processor_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/sync/EventProcessorTest.kt"],
@@ -541,6 +561,20 @@ kt_jvm_library(
     ],
 )
 
+kt_jvm_library(
+    name = "screen_history_test_lib",
+    srcs = ["app/src/test/kotlin/com/vanpilot/auto/VanPilotScreenHistoryTest.kt"],
+    deps = [
+        ":vanpilot_lib",
+        "@maven//:androidx_car_app_app",
+        "@maven//:androidx_car_app_app_testing",
+        "@maven//:androidx_test_core",
+        "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_robolectric_robolectric",
+    ],
+)
+
 # ============================================================================
 # Test targets (fine-grained, one per test class)
 #
@@ -657,6 +691,20 @@ android_local_test(
     test_class = "com.vanpilot.auto.grpc.SyncServiceClientReportThemeTest",
     deps = [
         ":sync_client_report_theme_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+# ---- Cache test targets ----
+
+android_local_test(
+    size = "small",
+    name = "display_history_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
+    test_class = "com.vanpilot.auto.cache.DisplayHistoryTest",
+    deps = [
+        ":display_history_test_lib",
         "@robolectric//bazel:android-all",
     ],
 )
@@ -818,7 +866,7 @@ kt_jvm_library(
     name = "bitmap_cache_byte_budget_test_lib",
     srcs = ["app/src/test/kotlin/com/vanpilot/auto/cache/BitmapCacheByteBudgetTest.kt"],
     deps = [
-        ":grpc_lib",
+        ":cache_lib",
         "@maven//:junit_junit",
         "@maven//:com_google_truth_truth",
     ],
@@ -1078,6 +1126,18 @@ android_local_test(
     test_class = "com.vanpilot.auto.VanPilotScreenTabEdgeCaseTest",
     deps = [
         ":screen_tab_edge_case_test_lib",
+        "@robolectric//bazel:android-all",
+    ],
+)
+
+android_local_test(
+    size = "small",
+    name = "screen_history_test",
+    manifest = "app/src/main/AndroidManifest.xml",
+    resource_files = glob(["app/src/main/res/**"]),
+    test_class = "com.vanpilot.auto.VanPilotScreenHistoryTest",
+    deps = [
+        ":screen_history_test_lib",
         "@robolectric//bazel:android-all",
     ],
 )

@@ -1,5 +1,6 @@
 package com.vanpilot.auto
 
+import android.graphics.BitmapFactory
 import androidx.car.app.CarContext
 import androidx.car.app.Screen
 import androidx.car.app.model.Action
@@ -13,6 +14,8 @@ import androidx.car.app.model.Tab
 import androidx.car.app.model.TabContents
 import androidx.car.app.model.TabTemplate
 import androidx.car.app.navigation.model.NavigationTemplate
+import com.vanpilot.auto.cache.BitmapCache
+import com.vanpilot.auto.cache.DisplayHistory
 
 /**
  * The main screen of the VanPilot Android Auto app.
@@ -27,6 +30,8 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
 
     val surfaceCallback = VanPilotSurfaceCallback()
     val tabManager = ConversationTabManager.createWithMockData()
+    val displayHistory = DisplayHistory()
+    var bitmapCache: BitmapCache? = null
 
     /** Tracks the current dark mode state. */
     var currentIsDarkMode: Boolean = false
@@ -110,8 +115,12 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
         // Set active tab content
         val tabContents = when (effectiveTabId) {
             VISUAL_TAB_ID -> {
+                val actionStripBuilder = ActionStrip.Builder()
+                    .addAction(Action.PAN)
+                    .addAction(buildBackAction())
+                    .addAction(buildForwardAction())
                 val navTemplate = NavigationTemplate.Builder()
-                    .setActionStrip(ActionStrip.Builder().addAction(Action.PAN).build())
+                    .setActionStrip(actionStripBuilder.build())
                     .build()
                 TabContents.Builder(navTemplate).build()
             }
@@ -165,6 +174,36 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
         return ListTemplate.Builder()
             .setSingleList(listBuilder.build())
             .setHeader(Header.Builder().setTitle(title).build())
+            .build()
+    }
+
+    private fun navigateHistory(key: String) {
+        val cache = bitmapCache ?: return
+        val pngData = cache.get(key) ?: return
+        val bitmap = BitmapFactory.decodeByteArray(pngData, 0, pngData.size) ?: return
+        surfaceCallback.displayBitmap(key, bitmap)
+        invalidate()
+    }
+
+    private fun buildBackAction(): Action {
+        return Action.Builder()
+            .setTitle("\u2190")
+            .setEnabled(displayHistory.canGoBack())
+            .setOnClickListener {
+                val key = displayHistory.goBack()
+                if (key != null) navigateHistory(key)
+            }
+            .build()
+    }
+
+    private fun buildForwardAction(): Action {
+        return Action.Builder()
+            .setTitle("\u2192")
+            .setEnabled(displayHistory.canGoForward())
+            .setOnClickListener {
+                val key = displayHistory.goForward()
+                if (key != null) navigateHistory(key)
+            }
             .build()
     }
 }
