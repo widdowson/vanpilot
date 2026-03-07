@@ -159,7 +159,10 @@ android_binary(
     debug_key = "//android/keystores:debug.keystore",
     manifest = "app/src/main/AndroidManifest.xml",
     multidex = "native",
-    deps = [":vanpilot_lib"],
+    deps = [
+        ":phone_lib",
+        ":vanpilot_lib",
+    ],
 )
 
 # ============================================================================
