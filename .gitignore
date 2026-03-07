@@ -19,3 +19,6 @@ android/keystores/release.keystore
 # Docker sandbox runtime data
 sandbox/sandbox.env
 .sandbox/
+
+# Pre-built instance manager client (copied from bazel-bin before docker build)
+sandbox/instance_manager_client.zip
