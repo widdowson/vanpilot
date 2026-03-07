@@ -3,6 +3,9 @@ startup --host_jvm_args=-Djavax.net.ssl.trustStore=/home/agent/.bazel-ssl/cacert
 startup --host_jvm_args=-Djavax.net.ssl.trustStorePassword=changeit
 
 # Proxy CA trust for pip/Python repo rule fetches (rules_python whl_library)
+# Defense-in-depth: package registry hosts now use CONNECT passthrough
+# (see claude-proxy-bypass.sh), so these are fallback for any hosts still
+# going through the MITM proxy.
 common --repo_env=REQUESTS_CA_BUNDLE=/etc/ssl/certs/combined-ca-bundle.crt
 common --repo_env=SSL_CERT_FILE=/etc/ssl/certs/combined-ca-bundle.crt
 common --repo_env=CURL_CA_BUNDLE=/etc/ssl/certs/combined-ca-bundle.crt
