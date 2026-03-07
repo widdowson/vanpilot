@@ -36,6 +36,7 @@ def _make_stubs(channel):
         "adb_shell": _stub("AdbShell", pb.AdbShellRequest, pb.AdbShellResponse),
         "adb_push": _stub("AdbPush", pb.AdbPushRequest, pb.AdbPushResponse),
         "adb_pull": _stub("AdbPull", pb.AdbPullRequest, pb.AdbPullResponse),
+        "save_snapshot": _stub("SaveSnapshot", pb.SaveSnapshotRequest, pb.SaveSnapshotResponse),
     }
 
 
@@ -138,8 +139,21 @@ def cmd_install_apk(stubs, args):
         name=args.name,
         apk_data=apk_data,
         restart_dhu=args.restart_dhu,
+        save_snapshot=args.save_snapshot or "",
     )
     resp = stubs["install_apk"](req, timeout=args.timeout)
+    print("OK")
+    _print_instance(resp.instance)
+
+
+def cmd_save_snapshot(stubs, args):
+    pb = instance_manager_pb2
+    req = pb.SaveSnapshotRequest(
+        name=args.name,
+        snapshot_name=args.snapshot_name,
+    )
+    print(f"Saving snapshot '{args.snapshot_name}' for '{args.name}'...")
+    resp = stubs["save_snapshot"](req, timeout=args.timeout)
     print("OK")
     _print_instance(resp.instance)
 
@@ -229,7 +243,15 @@ def main():
                            help="Restart DHU after install (default: true)")
     p_install.add_argument("--no-restart-dhu", dest="restart_dhu", action="store_false",
                            help="Skip DHU restart after install")
+    p_install.add_argument("--save-snapshot", default="",
+                           help="Save emulator snapshot with this name after install")
     p_install.add_argument("--timeout", type=int, default=180)
+
+    p_save_snap = sub.add_parser("save-snapshot")
+    p_save_snap.add_argument("--name", required=True)
+    p_save_snap.add_argument("--snapshot-name", required=True,
+                             help="Name for the saved snapshot")
+    p_save_snap.add_argument("--timeout", type=int, default=180)
 
     p_adb = sub.add_parser("adb")
     p_adb.add_argument("--name", required=True)
@@ -262,6 +284,7 @@ def main():
         "restart-dhu": cmd_restart_dhu,
         "dhu-command": cmd_dhu_command,
         "install-apk": cmd_install_apk,
+        "save-snapshot": cmd_save_snapshot,
         "adb": cmd_adb,
         "adb-push": cmd_push,
         "adb-pull": cmd_pull,
