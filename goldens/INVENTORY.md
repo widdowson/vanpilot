@@ -86,16 +86,20 @@ and swaps the content area.
 ## 5. Connection State Indicators
 
 The `ConnectionState` enum defines visual indicators for connectivity. Per AC-9.2,
-a disconnect indicator should be visible in the tab bar when offline.
+a disconnect indicator is visible in the action strip. The connection indicator is
+the first action in the NavigationTemplate action strip, rendered as a tinted icon:
+- CONNECTED: green tint
+- DISCONNECTED: red tint (default state)
+- RECONNECTING: yellow tint
 
 | # | State | File | Status | Notes |
 |---|-------|------|--------|-------|
-| 5.1 | Connected (no indicator) | — | BLOCKED | Normal state — no disconnect badge. Blocked on PR #139. |
-| 5.2 | Disconnected indicator | — | BLOCKED | `showDisconnectIndicator = true`. Blocked on PR #139. |
-| 5.3 | Reconnecting indicator | — | BLOCKED | Same visual as disconnected per current enum. Blocked on PR #139. |
+| 5.1 | Connected (green indicator) | — | BLOCKED | Needs mock gRPC supervisor to trigger `ConnectionMonitor.onRpcSuccess()`. |
+| 5.2 | Disconnected (red indicator) | — | BLOCKED | Default state, but visually indistinguishable at screenshot resolution without zoom. Needs state-driving harness (#155). |
+| 5.3 | Reconnecting (yellow indicator) | — | BLOCKED | Needs mock gRPC failure sequence to trigger `onReconnectAttempt()`. |
 
-**Source**: `ConnectionState.kt` lines 14-29.
-**Note**: Connection indicator UI is being added in PR #139. Goldens blocked until that merges.
+**Source**: `ConnectionState.kt`, `ConnectionMonitor.kt`, `VanPilotScreen.kt` lines 128-139.
+**Blocked on**: Issue #155 (golden harness can't drive connection states).
 
 ---
 
@@ -114,15 +118,44 @@ Different head units report different dimensions.
 
 ---
 
-## 7. Dark Mode Transitions
+## 7. History Navigation States
+
+The `DisplayHistory` class tracks ordered history of displayed cache keys.
+Back/forward buttons in the action strip enable/disable based on history position.
+
+| # | State | File | Status | Notes |
+|---|-------|------|--------|-------|
+| 7.1 | Initial (both disabled) | — | BLOCKED | Default state, but visually identical to Visual tab default. Needs state-driving harness (#155). |
+| 7.2 | Back enabled | — | BLOCKED | Needs 2+ `display_bitmap` gRPC calls to populate DisplayHistory. |
+| 7.3 | Forward enabled | — | BLOCKED | Needs `display_bitmap` calls + back navigation to enable forward. |
+
+**Source**: `DisplayHistory.kt`, `VanPilotScreen.kt` lines 211-231.
+**Blocked on**: Issue #155 (golden harness can't drive history states via gRPC).
+
+---
+
+## 8. Combined Action Strip
+
+The full action strip on the Visual tab shows all 4 actions together.
+
+| # | State | File | Status | Notes |
+|---|-------|------|--------|-------|
+| 8.1 | Full action strip (all 4 buttons) | — | BLOCKED | Visually identical to Visual tab default at screenshot resolution. Needs zoom/crop of action strip area, or state-driving to show enabled vs disabled buttons. |
+
+**Source**: `VanPilotScreen.kt` lines 128-147.
+**Blocked on**: Issue #155 (need distinct visual states, not duplicate of default screenshot).
+
+---
+
+## 9. Dark Mode Transitions
 
 Android Auto can toggle dark mode via configuration change. `onGetTemplate()` reads
 `carContext.isDarkMode` on every refresh.
 
 | # | State | File | Status | Notes |
 |---|-------|------|--------|-------|
-| 7.1 | Light to Dark transition | — | BLOCKED | DHU `day`/`night` commands do not toggle `isDarkMode`. |
-| 7.2 | Dark to Light transition | — | BLOCKED | Same as 7.1. |
+| 9.1 | Light to Dark transition | — | BLOCKED | DHU `day`/`night` commands do not toggle `isDarkMode`. |
+| 9.2 | Dark to Light transition | — | BLOCKED | Same as 9.1. |
 
 **Source**: `VanPilotScreen.kt` lines 36-39, 67.
 
@@ -136,10 +169,12 @@ Android Auto can toggle dark mode via configuration change. `onGetTemplate()` re
 | Lead Agent Tab | 3 | 1 | 0 | 0 | 2 |
 | Sub-Agent Tabs | 3 | 2 | 0 | 0 | 1 |
 | Tab Bar States | 6 | 4 | 0 | 0 | 2 |
-| Connection States | 3 | 0 | 0 | 3 | 0 |
+| Connection States | 3 | 0 | 0 | 0 | 3 |
 | Surface Lifecycle | 3 | 1 | 0 | 0 | 2 |
+| History Navigation | 3 | 0 | 0 | 0 | 3 |
+| Combined Action Strip | 1 | 0 | 0 | 0 | 1 |
 | Dark Mode Transitions | 2 | 0 | 0 | 2 | 0 |
-| **Total** | **26** | **9** | **2** | **6** | **9** |
+| **Total** | **30** | **9** | **2** | **3** | **16** |
 
 ### Priority for capture
 
@@ -150,13 +185,15 @@ Android Auto can toggle dark mode via configuration change. `onGetTemplate()` re
    - ~~4.4~~ DONE (all 4 tabs visible)
 
 2. **P1 — Edge cases** (important for regression):
-   - 1.5 (bitmap displayed — requires gRPC `displayBitmap()` call)
-   - 2.1 (empty conversation — app always loads mock data)
-   - 4.5 (2 tabs only — app always loads with 4 tabs from mock data)
+   - 1.5 (bitmap displayed)
+   - 2.1 (empty conversation)
+   - 4.5 (2 tabs only)
+   - 5.1-5.3 (connection indicator states)
+   - 7.1-7.3 (history navigation states)
+   - 8.1 (full action strip)
 
 3. **P2 — Advanced** (nice to have):
-   - Connection indicators (blocked on PR #139)
-   - Surface size variations (needs different emulator config)
+   - Surface size variations
    - Dark mode transitions (BLOCKED — DHU day/night commands don't toggle isDarkMode)
 
 ### Known limitation: dark mode
@@ -164,4 +201,4 @@ Android Auto can toggle dark mode via configuration change. `onGetTemplate()` re
 The DHU `day` and `night` console commands trigger a `CarConfiguration` refresh but
 do **not** change the `isDarkMode` flag reported to the app. Logcat confirms
 `isDarkMode=false` after both `day` and `night` commands. This blocks captures for
-states 1.4, 7.1, and 7.2. A real vehicle or different DHU configuration may be required.
+states 1.4, 9.1, and 9.2. A real vehicle or different DHU configuration may be required.

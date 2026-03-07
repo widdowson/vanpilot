@@ -498,3 +498,9 @@ py_test(
     ],
     timeout = "eternal",
 )
+
+# Connection indicator, history navigation, and action strip golden tests
+# are not yet drivable programmatically — see issue #155.
+# Do NOT add golden images for these until the harness can actually
+# drive the UI to distinct states. Identical screenshots under different
+# names are dishonest and defeat the purpose of goldens.
