@@ -10,8 +10,8 @@ Env vars:
   GOLDEN_TOLERANCE: Per-channel pixel tolerance (default 5)
 
 Usage:
-  bazel test //goldens:visual_card_light_golden_test \\
-    --test_env=INSTANCE_MANAGER_ADDR=localhost:50061 \\
+  bazel test //goldens:visual_card_light_golden_test \
+    --test_env=INSTANCE_MANAGER_ADDR=localhost:50061 \
     --test_env=VANPILOT_APK=bazel-bin/android/vanpilot.apk
 """
 
@@ -30,13 +30,25 @@ GOLDEN_DIR = os.path.join(
 
 TAB_SWITCH_SETTLE = 3  # seconds to wait after tab interaction
 
+# DHU tap coordinates for tabs (1920x1080 DHU coordinate space).
+# These are the cropped coordinates (left=76, top=12) added back:
+#   Visual:     ~229, 67
+#   Lead Agent: ~374, 67
+#   Researcher: ~516, 67
+#   Coder:      ~661, 67
+_TAB_VISUAL = (229, 67)
+_TAB_LEAD_AGENT = (374, 67)
+_TAB_RESEARCHER = (516, 67)
+_TAB_CODER = (661, 67)
+
 
 class VisualCardLightGoldenTest(GoldenTestCase):
     """Golden: Visual Card tab in light mode (default state after launch)."""
 
-    instance_name = "golden-visual-light"
+    instance_name = "golden-light-tabs"
 
     def test_visual_card_light(self):
+        self.verify_vanpilot_foreground()
         golden_path = os.path.join(GOLDEN_DIR, "visual_card_light.png")
         png = self.capture_dhu_screenshot()
         self.save_test_output("actual_visual_card_light.png", png)
@@ -46,10 +58,11 @@ class VisualCardLightGoldenTest(GoldenTestCase):
 class LeadAgentPopulatedGoldenTest(GoldenTestCase):
     """Golden: Lead Agent tab with conversation messages."""
 
-    instance_name = "golden-lead-populated"
+    instance_name = "golden-light-tabs"
 
     def test_lead_agent_populated(self):
-        # TODO: Tap Lead Agent tab via DHU command (see #155)
+        self.verify_vanpilot_foreground()
+        self.dhu_command(f"tap {_TAB_LEAD_AGENT[0]} {_TAB_LEAD_AGENT[1]}")
         time.sleep(TAB_SWITCH_SETTLE)
         golden_path = os.path.join(GOLDEN_DIR, "lead_agent_populated.png")
         png = self.capture_dhu_screenshot()
@@ -60,10 +73,11 @@ class LeadAgentPopulatedGoldenTest(GoldenTestCase):
 class SubAgentResearcherGoldenTest(GoldenTestCase):
     """Golden: Sub-agent 'Researcher' tab with messages."""
 
-    instance_name = "golden-sub-researcher"
+    instance_name = "golden-light-tabs"
 
     def test_sub_agent_researcher(self):
-        # TODO: Tap Researcher tab via DHU command (see #155)
+        self.verify_vanpilot_foreground()
+        self.dhu_command(f"tap {_TAB_RESEARCHER[0]} {_TAB_RESEARCHER[1]}")
         time.sleep(TAB_SWITCH_SETTLE)
         golden_path = os.path.join(GOLDEN_DIR, "sub_agent_researcher.png")
         png = self.capture_dhu_screenshot()
@@ -74,14 +88,75 @@ class SubAgentResearcherGoldenTest(GoldenTestCase):
 class SubAgentCoderGoldenTest(GoldenTestCase):
     """Golden: Sub-agent 'Coder' tab with messages."""
 
-    instance_name = "golden-sub-coder"
+    instance_name = "golden-light-tabs"
 
     def test_sub_agent_coder(self):
-        # TODO: Tap Coder tab via DHU command (see #155)
+        self.verify_vanpilot_foreground()
+        self.dhu_command(f"tap {_TAB_CODER[0]} {_TAB_CODER[1]}")
         time.sleep(TAB_SWITCH_SETTLE)
         golden_path = os.path.join(GOLDEN_DIR, "sub_agent_coder.png")
         png = self.capture_dhu_screenshot()
         self.save_test_output("actual_sub_agent_coder.png", png)
+        self.assert_matches_golden(png, golden_path)
+
+
+class VisualCardDarkGoldenTest(GoldenTestCase):
+    """Golden: Visual Card tab in dark mode (darker teal surface)."""
+
+    instance_name = "golden-dark-mode"
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        if cls._client:
+            cls._client.dhu_command(cls.instance_name, "night on")
+            time.sleep(TAB_SWITCH_SETTLE)
+
+    @classmethod
+    def tearDownClass(cls):
+        if cls._client:
+            try:
+                cls._client.dhu_command(cls.instance_name, "night off")
+            except Exception:
+                pass
+        super().tearDownClass()
+
+    def test_visual_card_dark(self):
+        self.verify_vanpilot_foreground()
+        golden_path = os.path.join(GOLDEN_DIR, "visual_card_dark.png")
+        png = self.capture_dhu_screenshot()
+        self.save_test_output("actual_visual_card_dark.png", png)
+        self.assert_matches_golden(png, golden_path)
+
+
+class LeadAgentDarkGoldenTest(GoldenTestCase):
+    """Golden: Lead Agent tab in dark mode."""
+
+    instance_name = "golden-dark-mode"
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        if cls._client:
+            cls._client.dhu_command(cls.instance_name, "night on")
+            time.sleep(TAB_SWITCH_SETTLE)
+
+    @classmethod
+    def tearDownClass(cls):
+        if cls._client:
+            try:
+                cls._client.dhu_command(cls.instance_name, "night off")
+            except Exception:
+                pass
+        super().tearDownClass()
+
+    def test_lead_agent_dark(self):
+        self.verify_vanpilot_foreground()
+        self.dhu_command(f"tap {_TAB_LEAD_AGENT[0]} {_TAB_LEAD_AGENT[1]}")
+        time.sleep(TAB_SWITCH_SETTLE)
+        golden_path = os.path.join(GOLDEN_DIR, "lead_agent_dark.png")
+        png = self.capture_dhu_screenshot()
+        self.save_test_output("actual_lead_agent_dark.png", png)
         self.assert_matches_golden(png, golden_path)
 
 
@@ -94,10 +169,9 @@ class SubAgentCoderGoldenTest(GoldenTestCase):
 #     gRPC supervisor or ADB broadcast to trigger ConnectionMonitor
 #   - History navigation states (back enabled, forward enabled) need
 #     display_bitmap calls via gRPC to populate DisplayHistory
-#   - Dark mode needs DHU "night" command support in the test harness
 #
-# These are tracked in issue #155. When the harness gains DHU command
-# support and state-driving capability, add tests with real goldens.
+# These are tracked in issue #155. When the harness gains state-driving
+# capability, add tests with real goldens.
 # Do NOT commit goldens that are identical to the default state under
 # different names — that is dishonest and defeats the purpose of goldens.
 # ============================================================================
