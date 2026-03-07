@@ -140,12 +140,51 @@ def read_png_pixels(png_data: bytes) -> tuple[int, int, list[tuple[int, int, int
     return width, height, pixels
 
 
+def crop_to_app_pane(png_data: bytes, left: int = 76, top: int = 12,
+                     right: int = 1908, bottom: int = 1068) -> bytes:
+    """Crop a DHU screenshot to just the app content pane.
+
+    The Android Auto DHU screenshot (1920x1080) includes:
+    - Top-left corner: clock, signal strength, battery (non-deterministic)
+    - Left navigation rail: app icons that vary by installed apps
+    - Bottom-left: mic and app drawer buttons
+
+    Cropping to the app pane eliminates all this non-deterministic chrome,
+    keeping only the rounded rectangle containing the tab bar and content.
+
+    Default crop coordinates are for the standard 1920x1080 DHU screenshot.
+    The app pane is the rounded rectangle right of the nav rail.
+
+    Args:
+        png_data: Raw DHU screenshot PNG bytes.
+        left: Left edge of the app pane (pixels).
+        top: Top edge of the app pane (pixels).
+        right: Right edge of the app pane (pixels).
+        bottom: Bottom edge of the app pane (pixels).
+
+    Returns:
+        Cropped PNG bytes containing only the app content.
+    """
+    w, h, pixels = read_png_pixels(png_data)
+    left = max(0, min(left, w))
+    top = max(0, min(top, h))
+    right = max(left, min(right, w))
+    bottom = max(top, min(bottom, h))
+    crop_w = right - left
+    crop_h = bottom - top
+    cropped = []
+    for y in range(top, bottom):
+        for x in range(left, right):
+            cropped.append(pixels[y * w + x])
+    return _make_png_from_pixels(crop_w, crop_h, cropped)
+
+
 def mask_status_bar(png_data: bytes, rows: int = 100) -> bytes:
     """Replace the top N rows of a PNG with hot pink (FF00FF).
 
-    Used to eliminate status bar jitter (clock, battery) from golden
-    comparisons. Both the golden and actual screenshot should be masked
-    so they match deterministically.
+    Used to eliminate phone emulator status bar jitter (clock, battery)
+    from golden comparisons. For DHU screenshots, use crop_to_app_pane()
+    instead — the AA "status bar" is the left nav rail, not the top.
 
     Args:
         png_data: Raw PNG file bytes.
