@@ -194,3 +194,22 @@ jobs:
 
       - name: Build protos
         run: bazel build //proto/... --config=ci
+
+  # ============================================================================
+  # Gate job — required status check for branch protection
+  # ============================================================================
+  test:
+    if: always()
+    needs: [android, python, proto]
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.android.result }}" == "failure" || \
+                "${{ needs.python.result }}" == "failure" || \
+                "${{ needs.proto.result }}" == "failure" ]]; then
+            echo "One or more jobs failed"
+            exit 1
+          fi
+          echo "All jobs passed (or were skipped)"
