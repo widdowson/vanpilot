@@ -5,6 +5,7 @@ import androidx.car.app.CarContext
 import androidx.car.app.Screen
 import androidx.car.app.model.Action
 import androidx.car.app.model.ActionStrip
+import androidx.car.app.model.CarColor
 import androidx.car.app.model.CarIcon
 import androidx.car.app.model.Header
 import androidx.car.app.model.ItemList
@@ -16,6 +17,8 @@ import androidx.car.app.model.TabTemplate
 import androidx.car.app.navigation.model.NavigationTemplate
 import com.vanpilot.auto.cache.BitmapCache
 import com.vanpilot.auto.cache.DisplayHistory
+import com.vanpilot.auto.connectivity.ConnectionMonitor
+import com.vanpilot.auto.connectivity.ConnectionState
 
 /**
  * The main screen of the VanPilot Android Auto app.
@@ -26,7 +29,14 @@ import com.vanpilot.auto.cache.DisplayHistory
  *
  * TabTemplate supports a maximum of 4 tabs total.
  */
-class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
+class VanPilotScreen(
+    carContext: CarContext,
+    val connectionMonitor: ConnectionMonitor = ConnectionMonitor()
+) : Screen(carContext) {
+
+    init {
+        connectionMonitor.addListener { invalidate() }
+    }
 
     val surfaceCallback = VanPilotSurfaceCallback()
     val tabManager = ConversationTabManager.createWithMockData()
@@ -115,7 +125,20 @@ class VanPilotScreen(carContext: CarContext) : Screen(carContext) {
         // Set active tab content
         val tabContents = when (effectiveTabId) {
             VISUAL_TAB_ID -> {
+                val indicatorColor = when (connectionMonitor.state) {
+                    ConnectionState.CONNECTED -> CarColor.GREEN
+                    ConnectionState.DISCONNECTED -> CarColor.RED
+                    ConnectionState.RECONNECTING -> CarColor.YELLOW
+                }
+                val indicatorIcon = CarIcon.Builder(CarIcon.APP_ICON)
+                    .setTint(indicatorColor)
+                    .build()
+                val indicatorAction = Action.Builder()
+                    .setIcon(indicatorIcon)
+                    .setOnClickListener { }
+                    .build()
                 val actionStripBuilder = ActionStrip.Builder()
+                    .addAction(indicatorAction)
                     .addAction(Action.PAN)
                     .addAction(buildBackAction())
                     .addAction(buildForwardAction())
