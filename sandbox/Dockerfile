@@ -53,6 +53,13 @@ RUN chown -R agent:agent ${ANDROID_HOME}
 RUN ${ANDROID_HOME}/build-tools/36.0.0/aapt2 version \
     && ${ANDROID_HOME}/platform-tools/adb version
 
+# Pre-built instance manager client.
+# Build on the host first: bazel build //instance_manager:instance_manager_client_zip
+# Then copy: cp bazel-bin/instance_manager/instance_manager_client.zip sandbox/
+COPY instance_manager_client.zip /opt/vanpilot/instance_manager_client.zip
+RUN printf '#!/bin/bash\nexec python3 /opt/vanpilot/instance_manager_client.zip "$@"\n' \
+    > /usr/local/bin/im && chmod +x /usr/local/bin/im
+
 # Runtime init script — imports proxy CA into JDK/Bazel truststores.
 # Must run at sandbox start (not image build) because the proxy CA cert
 # is injected by the sandbox infrastructure after container creation.
