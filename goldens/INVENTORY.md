@@ -85,17 +85,20 @@ and swaps the content area.
 ## 5. Connection State Indicators
 
 The `ConnectionState` enum defines visual indicators for connectivity. Per AC-9.2,
-a disconnect indicator should be visible in the tab bar when offline.
+a disconnect indicator is visible in the action strip. The connection indicator is
+the first action in the NavigationTemplate action strip, rendered as a tinted icon:
+- CONNECTED: green tint
+- DISCONNECTED: red tint (default state)
+- RECONNECTING: yellow tint
 
 | # | State | File | Status | Notes |
 |---|-------|------|--------|-------|
-| 5.1 | Connected (no indicator) | — | MISSING | Normal state — no disconnect badge. |
-| 5.2 | Disconnected indicator | — | MISSING | `showDisconnectIndicator = true`. |
-| 5.3 | Reconnecting indicator | — | MISSING | Same visual as disconnected per current enum. |
+| 5.1 | Connected (green indicator) | `captured/connection_connected.png` | MISSING | After `ConnectionMonitor.onRpcSuccess()`. Green-tinted icon in action strip. |
+| 5.2 | Disconnected (red indicator) | `captured/connection_disconnected.png` | MISSING | Default state. Red-tinted icon in action strip. |
+| 5.3 | Reconnecting (yellow indicator) | `captured/connection_reconnecting.png` | MISSING | After `onReconnectAttempt()`. Yellow-tinted icon in action strip. |
 
-**Source**: `ConnectionState.kt` lines 14-29.
-**Note**: The disconnect indicator UI rendering is not yet visible in `VanPilotScreen.kt`.
-These goldens may be blocked until the indicator is wired into the tab template.
+**Source**: `ConnectionState.kt`, `ConnectionMonitor.kt`, `VanPilotScreen.kt` lines 128-139.
+**Tests**: `//goldens:connection_disconnected_golden_test`, `//goldens:connection_connected_golden_test`, `//goldens:connection_reconnecting_golden_test`.
 
 ---
 
@@ -114,15 +117,44 @@ Different head units report different dimensions.
 
 ---
 
-## 7. Dark Mode Transitions
+## 7. History Navigation States
+
+The `DisplayHistory` class tracks ordered history of displayed cache keys.
+Back/forward buttons in the action strip enable/disable based on history position.
+
+| # | State | File | Status | Notes |
+|---|-------|------|--------|-------|
+| 7.1 | Initial (both disabled) | `captured/history_initial.png` | MISSING | No history entries — both back and forward disabled. |
+| 7.2 | Back enabled | `captured/history_back_enabled.png` | MISSING | After 2+ display entries, back arrow is enabled. |
+| 7.3 | Forward enabled | `captured/history_forward_enabled.png` | MISSING | After going back, forward arrow is enabled. |
+
+**Source**: `DisplayHistory.kt`, `VanPilotScreen.kt` lines 211-231.
+**Tests**: `//goldens:history_initial_golden_test`, `//goldens:history_back_enabled_golden_test`, `//goldens:history_forward_enabled_golden_test`.
+
+---
+
+## 8. Combined Action Strip
+
+The full action strip on the Visual tab shows all 4 actions together.
+
+| # | State | File | Status | Notes |
+|---|-------|------|--------|-------|
+| 8.1 | Full action strip (all 4 buttons) | `captured/full_action_strip.png` | MISSING | Connection indicator + PAN + back + forward in default state. |
+
+**Source**: `VanPilotScreen.kt` lines 128-147.
+**Test**: `//goldens:full_action_strip_golden_test`.
+
+---
+
+## 9. Dark Mode Transitions
 
 Android Auto can toggle dark mode via configuration change. `onGetTemplate()` reads
 `carContext.isDarkMode` on every refresh.
 
 | # | State | File | Status | Notes |
 |---|-------|------|--------|-------|
-| 7.1 | Light to Dark transition | — | MISSING | Before/after pair showing theme change. |
-| 7.2 | Dark to Light transition | — | MISSING | Before/after pair showing theme change. |
+| 9.1 | Light to Dark transition | — | MISSING | Before/after pair showing theme change. |
+| 9.2 | Dark to Light transition | — | MISSING | Before/after pair showing theme change. |
 
 **Source**: `VanPilotScreen.kt` lines 36-39, 67.
 
@@ -138,8 +170,10 @@ Android Auto can toggle dark mode via configuration change. `onGetTemplate()` re
 | Tab Bar States | 6 | 0 | 6 |
 | Connection States | 3 | 0 | 3 |
 | Surface Lifecycle | 3 | 1 | 2 |
+| History Navigation | 3 | 0 | 3 |
+| Combined Action Strip | 1 | 0 | 1 |
 | Dark Mode Transitions | 2 | 0 | 2 |
-| **Total** | **26** | **3** | **23** |
+| **Total** | **30** | **3** | **27** |
 
 ### Priority for capture
 
@@ -153,8 +187,10 @@ Android Auto can toggle dark mode via configuration change. `onGetTemplate()` re
    - 1.5 (bitmap displayed)
    - 2.1 (empty conversation)
    - 4.5 (2 tabs only)
+   - 5.1-5.3 (connection indicator states — now wired into action strip)
+   - 7.1-7.3 (history navigation states)
+   - 8.1 (full action strip)
 
 3. **P2 — Advanced** (nice to have):
-   - Connection indicators (blocked on UI wiring)
    - Surface size variations
    - Dark mode transitions

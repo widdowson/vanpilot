@@ -498,3 +498,148 @@ py_test(
     ],
     timeout = "eternal",
 )
+
+# ============================================================================
+# Connection indicator golden tests
+# ============================================================================
+
+py_test(
+    name = "connection_disconnected_golden_test",
+    srcs = ["test_multi_state_golden.py"],
+    main = "test_multi_state_golden.py",
+    imports = [".."],
+    args = ["ConnectionDisconnectedGoldenTest"],
+    data = glob(
+        ["captured/*.png"],
+        allow_empty = True,
+    ),
+    deps = [":golden_test_harness"],
+    size = "enormous",
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+    timeout = "eternal",
+)
+
+py_test(
+    name = "connection_connected_golden_test",
+    srcs = ["test_multi_state_golden.py"],
+    main = "test_multi_state_golden.py",
+    imports = [".."],
+    args = ["ConnectionConnectedGoldenTest"],
+    data = glob(
+        ["captured/*.png"],
+        allow_empty = True,
+    ),
+    deps = [":golden_test_harness"],
+    size = "enormous",
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+    timeout = "eternal",
+)
+
+py_test(
+    name = "connection_reconnecting_golden_test",
+    srcs = ["test_multi_state_golden.py"],
+    main = "test_multi_state_golden.py",
+    imports = [".."],
+    args = ["ConnectionReconnectingGoldenTest"],
+    data = glob(
+        ["captured/*.png"],
+        allow_empty = True,
+    ),
+    deps = [":golden_test_harness"],
+    size = "enormous",
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+    timeout = "eternal",
+)
+
+# ============================================================================
+# History navigation golden tests
+# ============================================================================
+
+py_test(
+    name = "history_initial_golden_test",
+    srcs = ["test_multi_state_golden.py"],
+    main = "test_multi_state_golden.py",
+    imports = [".."],
+    args = ["HistoryInitialGoldenTest"],
+    data = glob(
+        ["captured/*.png"],
+        allow_empty = True,
+    ),
+    deps = [":golden_test_harness"],
+    size = "enormous",
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+    timeout = "eternal",
+)
+
+py_test(
+    name = "history_back_enabled_golden_test",
+    srcs = ["test_multi_state_golden.py"],
+    main = "test_multi_state_golden.py",
+    imports = [".."],
+    args = ["HistoryBackEnabledGoldenTest"],
+    data = glob(
+        ["captured/*.png"],
+        allow_empty = True,
+    ),
+    deps = [":golden_test_harness"],
+    size = "enormous",
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+    timeout = "eternal",
+)
+
+py_test(
+    name = "history_forward_enabled_golden_test",
+    srcs = ["test_multi_state_golden.py"],
+    main = "test_multi_state_golden.py",
+    imports = [".."],
+    args = ["HistoryForwardEnabledGoldenTest"],
+    data = glob(
+        ["captured/*.png"],
+        allow_empty = True,
+    ),
+    deps = [":golden_test_harness"],
+    size = "enormous",
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+    timeout = "eternal",
+)
+
+# ============================================================================
+# Combined action strip golden test
+# ============================================================================
+
+py_test(
+    name = "full_action_strip_golden_test",
+    srcs = ["test_multi_state_golden.py"],
+    main = "test_multi_state_golden.py",
+    imports = [".."],
+    args = ["FullActionStripGoldenTest"],
+    data = glob(
+        ["captured/*.png"],
+        allow_empty = True,
+    ),
+    deps = [":golden_test_harness"],
+    size = "enormous",
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+    timeout = "eternal",
+)
