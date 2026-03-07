@@ -3,16 +3,55 @@ name: CI
 on:
   pull_request:
     branches: [main]
-  push:
-    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 jobs:
-  test:
-    runs-on: macos-latest  # macOS for Android SDK + Robolectric
+  # ============================================================================
+  # Detect which paths changed so we can skip unaffected jobs
+  # ============================================================================
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    permissions:
+      pull-requests: read
+    outputs:
+      android: ${{ steps.filter.outputs.android }}
+      python: ${{ steps.filter.outputs.python }}
+      proto: ${{ steps.filter.outputs.proto }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            android:
+              - 'android/**'
+              - 'tools/**'
+              - 'MODULE.bazel'
+              - 'BUILD.bazel'
+              - '.bazelrc'
+            python:
+              - 'supervisor/**'
+              - 'mcp/**'
+              - 'goldens/**'
+              - 'instance_manager/**'
+              - 'e2e/**'
+              - 'requirements.txt'
+              - 'MODULE.bazel'
+              - '.bazelrc'
+            proto:
+              - 'proto/**'
+
+  # ============================================================================
+  # Android build + tests (Kotlin, Robolectric, APK)
+  # ============================================================================
+  android:
+    needs: changes
+    if: needs.changes.outputs.android == 'true' || needs.changes.outputs.proto == 'true'
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
@@ -23,7 +62,7 @@ jobs:
         uses: bazel-contrib/setup-bazel@0.14.0
         with:
           bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
+          disk-cache: ${{ github.workflow }}-android
           repository-cache: true
           external-cache: true
 
@@ -39,9 +78,6 @@ jobs:
         env:
           BAZEL_REMOTE_CACHE_URL: ${{ secrets.BAZEL_REMOTE_CACHE_URL }}
 
-      - name: Run all tests
-        run: bazel test //... --build_tests_only --config=ci ${{ steps.cache.outputs.flag }}
-
       - name: Build APK
         run: bazel build //android:vanpilot --config=ci ${{ steps.cache.outputs.flag }}
 
@@ -54,11 +90,14 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
+      - name: Run Android tests
+        run: bazel test //android/... //tools/build-verify/... --config=ci --build_tests_only ${{ steps.cache.outputs.flag }}
+
       - name: Upload test logs (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-logs
+          name: android-test-logs
           path: bazel-testlogs/**/test.log
           if-no-files-found: ignore
           retention-days: 7
@@ -89,3 +128,88 @@ jobs:
           path: goldens/
           if-no-files-found: warn
           retention-days: 30
+
+  # ============================================================================
+  # Python tests (supervisor, MCP, instance manager, e2e)
+  # ============================================================================
+  python:
+    needs: changes
+    if: needs.changes.outputs.python == 'true' || needs.changes.outputs.proto == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bazel
+        uses: bazel-contrib/setup-bazel@0.14.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}-python
+          repository-cache: true
+          external-cache: true
+
+      - name: Configure remote cache
+        id: cache
+        run: |
+          if [ -n "$BAZEL_REMOTE_CACHE_URL" ]; then
+            echo "flag=--remote_cache=$BAZEL_REMOTE_CACHE_URL" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          BAZEL_REMOTE_CACHE_URL: ${{ secrets.BAZEL_REMOTE_CACHE_URL }}
+
+      - name: Run Python tests
+        run: bazel test //supervisor/... //mcp/... //goldens/... //instance_manager/... //e2e/... --config=ci --build_tests_only ${{ steps.cache.outputs.flag }}
+
+      - name: Upload test logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-test-logs
+          path: bazel-testlogs/**/test.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ============================================================================
+  # Proto build verification (only when proto files change)
+  # ============================================================================
+  proto:
+    needs: changes
+    if: needs.changes.outputs.proto == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bazel
+        uses: bazel-contrib/setup-bazel@0.14.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}-proto
+          repository-cache: true
+          external-cache: true
+
+      - name: Build protos
+        run: bazel build //proto/... --config=ci
+
+  # ============================================================================
+  # Gate job — required status check for branch protection
+  # ============================================================================
+  test:
+    if: always()
+    needs: [android, python, proto]
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.android.result }}" == "failure" || \
+                "${{ needs.python.result }}" == "failure" || \
+                "${{ needs.proto.result }}" == "failure" ]]; then
+            echo "One or more jobs failed"
+            exit 1
+          fi
+          echo "All jobs passed (or were skipped)"
