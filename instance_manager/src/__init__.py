@@ -1,0 +1,1 @@
+MAX_MESSAGE_BYTES = 50 * 1024 * 1024  # 50 MB (APKs can be ~10 MB+)
