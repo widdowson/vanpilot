@@ -21,8 +21,7 @@
         <activity
             android:name="com.vanpilot.phone.PhoneMainActivity"
             android:exported="true"
-            android:label="VanPilot"
-            android:theme="@style/Theme.MaterialComponents.Light.NoActionBar">
+            android:label="VanPilot">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
