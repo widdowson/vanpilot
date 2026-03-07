@@ -19,7 +19,7 @@ _DEFAULT_HOST = "[::]"
 _DEFAULT_PORT = 50051
 _DEFAULT_APP_PORT = 50052
 _DEFAULT_LOG_DIR = os.path.expanduser("~/.claude/projects")
-_MAX_WORKERS = 4
+_MAX_WORKERS = 10
 
 
 def parse_server_config() -> tuple[str, int, str]:

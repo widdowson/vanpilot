@@ -366,6 +366,34 @@ py_test(
 )
 
 py_test(
+    name = "multi_client_test",
+    srcs = ["tests/test_multi_client.py"],
+    main = "tests/test_multi_client.py",
+    imports = [".."],
+    deps = [
+        ":event_store",
+        ":mcp_bridge",
+        ":sync_service",
+        "//proto/vanpilot/v1:sync_py_proto",
+        requirement("grpcio"),
+    ],
+)
+
+py_test(
+    name = "thread_pool_concurrency_test",
+    srcs = ["tests/test_thread_pool_concurrency.py"],
+    main = "tests/test_thread_pool_concurrency.py",
+    imports = [".."],
+    deps = [
+        ":event_store",
+        ":mcp_bridge",
+        ":sync_service",
+        "//proto/vanpilot/v1:sync_py_proto",
+        requirement("grpcio"),
+    ],
+)
+
+py_test(
     name = "log_tailer_integration_test",
     srcs = ["tests/test_log_tailer_integration.py"],
     main = "tests/test_log_tailer_integration.py",

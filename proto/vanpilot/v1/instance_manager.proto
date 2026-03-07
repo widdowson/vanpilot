@@ -52,6 +52,14 @@ service InstanceManagerService {
 
   // Pull a file from the emulator's filesystem to the caller.
   rpc AdbPull(AdbPullRequest) returns (AdbPullResponse);
+
+  // Save the current emulator state as a named snapshot.
+  // Useful after APK install so future creates can skip the install step.
+  rpc SaveSnapshot(SaveSnapshotRequest) returns (SaveSnapshotResponse);
+
+  // Load (restore) a previously saved snapshot on a running instance.
+  // The emulator reverts to the saved state; DHU connection is preserved.
+  rpc LoadSnapshot(LoadSnapshotRequest) returns (LoadSnapshotResponse);
 }
 
 message CreateInstanceRequest {
@@ -210,6 +218,11 @@ message InstallApkRequest {
   // If true, restart the DHU after install so Android Auto
   // discovers the updated app.
   bool restart_dhu = 3;
+
+  // If non-empty, save an emulator snapshot with this name after install
+  // (and after DHU restart, if requested). Future creates can use this
+  // snapshot to skip the install step.
+  string save_snapshot = 4;
 }
 
 message InstallApkResponse {
@@ -257,6 +270,32 @@ message AdbPullRequest {
 message AdbPullResponse {
   // File contents.
   bytes data = 1;
+}
+
+message SaveSnapshotRequest {
+  // Instance name (must be RUNNING).
+  string name = 1;
+
+  // Snapshot name to save (e.g., "post_install_vanpilot").
+  // Must match [a-zA-Z0-9][a-zA-Z0-9._-]*.
+  string snapshot_name = 2;
+}
+
+message SaveSnapshotResponse {
+  InstanceInfo instance = 1;
+}
+
+message LoadSnapshotRequest {
+  // Instance name (must be RUNNING).
+  string name = 1;
+
+  // Snapshot name to load (e.g., "post_install_vanpilot").
+  // Must match [a-zA-Z0-9][a-zA-Z0-9._-]*.
+  string snapshot_name = 2;
+}
+
+message LoadSnapshotResponse {
+  InstanceInfo instance = 1;
 }
 
 enum InstanceState {
