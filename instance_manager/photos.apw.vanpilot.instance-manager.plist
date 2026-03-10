@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  VanPilot Instance Manager — launchd service
+
+  Install:  ./instance_manager/install-im-service.sh
+  Remove:   ./instance_manager/install-im-service.sh --uninstall
+  Logs:     tail -f ~/Library/Logs/vanpilot-im.log
+  Status:   launchctl list photos.apw.vanpilot.instance-manager
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>photos.apw.vanpilot.instance-manager</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>__INSTANCE_MANAGER_ZIP__</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__VANPILOT_ROOT__</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <key>ThrottleInterval</key>
+    <integer>5</integer>
+
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/vanpilot-im.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/vanpilot-im.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>ANDROID_HOME</key>
+        <string>/opt/homebrew/share/android-commandlinetools</string>
+        <key>ANDROID_SDK_ROOT</key>
+        <string>/opt/homebrew/share/android-commandlinetools</string>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/opt/homebrew/share/android-commandlinetools/platform-tools:/opt/homebrew/share/android-commandlinetools/emulator:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <key>ProcessType</key>
+    <string>Interactive</string>
+</dict>
+</plist>
