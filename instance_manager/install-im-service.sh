@@ -43,7 +43,10 @@ install() {
 
     # Copy zip outside the git/bazel tree so bazel clean won't delete it
     mkdir -p "$INSTALL_DIR"
+    # Bazel outputs are read-only; ensure the destination is writable for future upgrades
+    rm -f "$IM_ZIP_DST"
     cp "$IM_ZIP_SRC" "$IM_ZIP_DST"
+    chmod u+w "$IM_ZIP_DST"
     echo "Copied instance_manager.zip to $IM_ZIP_DST"
 
     # Ensure log directory exists
